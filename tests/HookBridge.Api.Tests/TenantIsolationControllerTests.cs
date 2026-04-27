@@ -4,6 +4,7 @@ using HookBridge.Application.DTOs.AuditLogs;
 using HookBridge.Application.DTOs.DeliveryAttempts;
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Application.DTOs.Events;
+using HookBridge.Application.DTOs.Notifications;
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.DTOs.Tenants;
 using HookBridge.Application.Exceptions;
@@ -102,6 +103,23 @@ public sealed class TenantIsolationControllerTests
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.RetryAsync("failed-1", CancellationToken.None));
     }
 
+
+
+    [Fact]
+    public async Task NotificationGetById_ForAnotherTenant_IsBlocked()
+    {
+        var service = new FakeNotificationService
+        {
+            Item = new NotificationResponseDto { Id = "notif-1", TenantId = "tenant-2" },
+        };
+
+        var controller = new NotificationsController(
+            service,
+            new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
+            TenantIsolationTestHelpers.CreateValidator());
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByIdAsync("notif-1", CancellationToken.None));
+    }
 
     [Fact]
     public async Task IncomingEventGetById_ForAnotherTenant_IsBlocked()
@@ -258,6 +276,31 @@ public sealed class TenantIsolationControllerTests
         public Task<bool> RetryAsync(string failedEventId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 
+
+
+    private sealed class FakeNotificationService : INotificationService
+    {
+        public NotificationResponseDto? Item { get; set; }
+        public NotificationSearchRequestDto? LastSearchRequest { get; private set; }
+
+        public Task CreateAsync(HookBridge.Domain.Entities.Notification notification, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<NotificationResponseDto>> SearchAsync(NotificationSearchRequestDto request, CancellationToken cancellationToken = default)
+        {
+            LastSearchRequest = request;
+            return Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<NotificationResponseDto>.Create([], 1, 50, 0));
+        }
+
+        public Task<NotificationResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult(Item);
+
+        public Task<bool> MarkAsReadAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
+        public Task<int> GetUnreadCountAsync(string tenantId, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+    }
 
     private sealed class FakeIncomingEventQueryService : IIncomingEventQueryService
     {

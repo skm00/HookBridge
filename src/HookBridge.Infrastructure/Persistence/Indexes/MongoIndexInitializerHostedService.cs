@@ -219,6 +219,46 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             [usageUniqueTenantYearMonth, usageTenantIndex, usageYearMonthIndex],
             cancellationToken);
 
+        var notifications = database.GetCollection<Notification>(nameof(Notification));
+
+        var notificationTenantIdIndex = new CreateIndexModel<Notification>(
+            Builders<Notification>.IndexKeys.Ascending(x => x.TenantId),
+            new CreateIndexOptions { Name = "ix_notification_tenantid" });
+
+        var notificationTypeIndex = new CreateIndexModel<Notification>(
+            Builders<Notification>.IndexKeys.Ascending(x => x.Type),
+            new CreateIndexOptions { Name = "ix_notification_type" });
+
+        var notificationSeverityIndex = new CreateIndexModel<Notification>(
+            Builders<Notification>.IndexKeys.Ascending(x => x.Severity),
+            new CreateIndexOptions { Name = "ix_notification_severity" });
+
+        var notificationIsReadIndex = new CreateIndexModel<Notification>(
+            Builders<Notification>.IndexKeys.Ascending(x => x.IsRead),
+            new CreateIndexOptions { Name = "ix_notification_isread" });
+
+        var notificationCreatedAtIndex = new CreateIndexModel<Notification>(
+            Builders<Notification>.IndexKeys.Ascending(x => x.CreatedAt),
+            new CreateIndexOptions { Name = "ix_notification_createdat" });
+
+        var notificationTenantReadCreatedAtIndex = new CreateIndexModel<Notification>(
+            Builders<Notification>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Ascending(x => x.IsRead)
+                .Ascending(x => x.CreatedAt),
+            new CreateIndexOptions { Name = "ix_notification_tenantid_isread_createdat" });
+
+        await notifications.Indexes.CreateManyAsync(
+            [
+                notificationTenantIdIndex,
+                notificationTypeIndex,
+                notificationSeverityIndex,
+                notificationIsReadIndex,
+                notificationCreatedAtIndex,
+                notificationTenantReadCreatedAtIndex,
+            ],
+            cancellationToken);
+
         var auditLogs = database.GetCollection<AuditLog>(nameof(AuditLog));
 
         var auditTenantIdIndex = new CreateIndexModel<AuditLog>(
@@ -242,13 +282,13 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             new CreateIndexOptions { Name = "ix_auditlog_resourceid" });
 
         var auditCreatedAtIndex = new CreateIndexModel<AuditLog>(
-            Builders<AuditLog>.IndexKeys.Descending(x => x.CreatedAt),
+            Builders<AuditLog>.IndexKeys.Ascending(x => x.CreatedAt),
             new CreateIndexOptions { Name = "ix_auditlog_createdat" });
 
         var auditTenantCreatedAtIndex = new CreateIndexModel<AuditLog>(
             Builders<AuditLog>.IndexKeys
                 .Ascending(x => x.TenantId)
-                .Descending(x => x.CreatedAt),
+                .Ascending(x => x.CreatedAt),
             new CreateIndexOptions { Name = "ix_auditlog_tenantid_createdat" });
 
         await auditLogs.Indexes.CreateManyAsync(

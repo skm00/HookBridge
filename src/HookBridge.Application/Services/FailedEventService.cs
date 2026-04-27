@@ -5,6 +5,7 @@ using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using HookBridge.Shared.Constants;
+using HookBridge.Domain.Constants;
 using HookBridge.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
@@ -16,11 +17,26 @@ public sealed class FailedEventService(
     IKafkaProducer kafkaProducer,
     IAuditLogService auditLogService,
     IDateTimeProvider dateTimeProvider,
+    INotificationService notificationService,
     ILogger<FailedEventService> logger) : IFailedEventService
 {
-    public Task CreateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default)
     {
-        return failedEventRepository.AddAsync(failedEvent, cancellationToken);
+        await failedEventRepository.AddAsync(failedEvent, cancellationToken);
+
+        await notificationService.CreateAsync(
+            new Notification
+            {
+                TenantId = failedEvent.TenantId,
+                Type = NotificationTypes.DlqCreated,
+                Severity = NotificationSeverities.Error,
+                Title = "Webhook moved to DLQ",
+                Message = $"Event '{failedEvent.EventId}' moved to DLQ after retries were exhausted.",
+                ResourceType = nameof(FailedEvent),
+                ResourceId = failedEvent.Id,
+                IsRead = false,
+            },
+            cancellationToken);
     }
 
     public async Task<PagedResponseDto<FailedEventResponseDto>> SearchAsync(

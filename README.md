@@ -897,3 +897,31 @@ Both endpoints require JWT and `AdminOrOwner` policy, and are enforced to the ca
 
 ### Sensitive data handling
 Audit metadata is sanitized before persistence. HookBridge does **not** store plain secrets (including API key values, passwords, OAuth client secrets, HMAC secrets, Authorization headers, Stripe secrets, or JWT tokens) in audit logs.
+
+## Notification System Foundation
+
+HookBridge now includes an in-app notification foundation for tenant admins.
+
+### Notification types
+- `WebhookFailure`
+- `DlqCreated`
+- `BillingPaymentFailed`
+- `UsageLimitWarning`
+- `UsageLimitExceeded`
+
+### Severity levels
+- `Info`
+- `Warning`
+- `Error`
+- `Critical`
+
+### Admin notification APIs (JWT required, ViewerOrAbove)
+- `GET /api/v1/admin/notifications`
+- `GET /api/v1/admin/notifications/{id}`
+- `POST /api/v1/admin/notifications/{id}/read`
+- `GET /api/v1/admin/notifications/unread-count`
+
+Notes:
+- All notification APIs are tenant-scoped to the current JWT tenant.
+- Cross-tenant access is blocked.
+- Email delivery is not implemented yet; this is in-app notification persistence and retrieval only.
