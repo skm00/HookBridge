@@ -8,6 +8,7 @@
     <ProjectReference Include="..\HookBridge.Shared\HookBridge.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.8.0" />
     <PackageReference Include="MongoDB.Driver" Version="2.30.0" />
   </ItemGroup>
 </Project>

@@ -26,6 +26,19 @@ Both API and Worker development settings use:
 - Connection string: `mongodb://localhost:27017`
 - Database: `hookbridge`
 
+## Local Kafka Configuration
+
+Both API and Worker development settings include a `Kafka` section:
+- Bootstrap servers: `localhost:9092`
+- Consumer group id: `hookbridge-worker`
+- Auto commit: `false`
+- Message timeout: `10000`
+
+Kafka topics currently reserved by HookBridge:
+- `webhook-events`
+- `webhook-retry`
+- `webhook-dlq`
+
 ## Tenant Management API (Admin)
 
 ### Create tenant

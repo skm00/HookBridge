@@ -10,6 +10,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.2" />
     <PackageReference Include="coverlet.collector" Version="6.0.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -18,5 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HookBridge.Worker\HookBridge.Worker.csproj" />
     <ProjectReference Include="..\..\src\HookBridge.Application\HookBridge.Application.csproj" />
+    <ProjectReference Include="..\..\src\HookBridge.Infrastructure\HookBridge.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\HookBridge.Shared\HookBridge.Shared.csproj" />
   </ItemGroup>
 </Project>

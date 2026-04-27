@@ -1,6 +1,7 @@
 using System.Reflection;
 using HookBridge.Api.Middleware;
 using HookBridge.Application.DependencyInjection;
+using HookBridge.Application.Messaging;
 using HookBridge.Infrastructure.DependencyInjection;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
@@ -64,6 +65,40 @@ app.MapGet("/api/v1/health/mongodb", async (IMongoDatabase database, Cancellatio
             service = "MongoDB",
             isHealthy = false,
             message = $"MongoDB connection failed. Reason: {ex.Message}",
+        });
+    }
+});
+
+app.MapGet("/api/v1/health/kafka", async (IKafkaAdminService kafkaAdminService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var isHealthy = await kafkaAdminService.IsHealthyAsync(cancellationToken);
+
+        if (isHealthy)
+        {
+            return Results.Ok(new
+            {
+                service = "Kafka",
+                isHealthy = true,
+                message = "Kafka connection is healthy.",
+            });
+        }
+
+        return Results.Ok(new
+        {
+            service = "Kafka",
+            isHealthy = false,
+            message = "Kafka connection failed. Reason: Health check returned unhealthy status.",
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new
+        {
+            service = "Kafka",
+            isHealthy = false,
+            message = $"Kafka connection failed. Reason: {ex.Message}",
         });
     }
 });

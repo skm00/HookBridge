@@ -1,11 +1,13 @@
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Security;
+using HookBridge.Application.Messaging;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Persistence;
 using HookBridge.Infrastructure.Persistence.Repositories;
 using HookBridge.Infrastructure.Persistence.Indexes;
 using HookBridge.Infrastructure.Services;
+using HookBridge.Infrastructure.Services.Messaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -27,6 +29,7 @@ public static class InfrastructureServiceRegistration
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<MongoDbSettings>(configuration.GetSection("MongoDb"));
+        services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
 
         services.AddSingleton<IMongoClient>(serviceProvider =>
         {
@@ -45,6 +48,8 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
         services.AddSingleton<IApiKeyHasher, ApiKeyHasher>();
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
+        services.AddSingleton<IKafkaProducer, KafkaProducerPlaceholder>();
+        services.AddSingleton<IKafkaAdminService, KafkaAdminServicePlaceholder>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
         services.AddHostedService<MongoIndexInitializerHostedService>();
