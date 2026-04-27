@@ -296,6 +296,12 @@ public sealed class FailedEventServiceTests
             _items.Add(failedEvent);
         }
 
+        public Task<long> CountByStatusAsync(string tenantId, string status, CancellationToken cancellationToken = default)
+        {
+            var count = _items.LongCount(x => x.TenantId == tenantId && x.Status == status);
+            return Task.FromResult(count);
+        }
+
         public void UpdateStatus(string id, string status)
         {
             var item = _items.First(x => x.Id == id);

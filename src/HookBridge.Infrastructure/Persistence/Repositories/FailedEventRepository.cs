@@ -78,4 +78,18 @@ public sealed class FailedEventRepository(IMongoDatabase database) : IFailedEven
             failedEvent,
             cancellationToken: cancellationToken);
     }
+
+
+    public Task<long> CountByStatusAsync(
+        string tenantId,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        var filter = Builders<FailedEvent>.Filter.And(
+            Builders<FailedEvent>.Filter.Eq(x => x.TenantId, tenantId),
+            Builders<FailedEvent>.Filter.Eq(x => x.Status, status));
+
+        return _collection.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+    }
+
 }
