@@ -1,5 +1,6 @@
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Interfaces.Security;
 using HookBridge.Application.Messaging;
 using HookBridge.Infrastructure.Configuration;
@@ -7,6 +8,7 @@ using HookBridge.Infrastructure.Persistence;
 using HookBridge.Infrastructure.Persistence.Repositories;
 using HookBridge.Infrastructure.Persistence.Indexes;
 using HookBridge.Infrastructure.Services;
+using HookBridge.Infrastructure.Services.Billing;
 using HookBridge.Infrastructure.Services.Messaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +32,7 @@ public static class InfrastructureServiceRegistration
     {
         services.Configure<MongoDbSettings>(configuration.GetSection("MongoDb"));
         services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
+        services.Configure<StripeSettings>(configuration.GetSection("Stripe"));
 
         services.AddSingleton<IMongoClient>(serviceProvider =>
         {
@@ -55,6 +58,8 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IOAuthTokenService, OAuthTokenService>();
         services.AddScoped<IWebhookAuthenticationHandler, WebhookAuthenticationHandler>();
         services.AddScoped<IWebhookDeliveryClient, WebhookDeliveryClient>();
+        services.AddScoped<IStripeGateway, StripeGateway>();
+        services.AddScoped<IBillingService, BillingService>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
         services.AddScoped<IFailedEventRepository, FailedEventRepository>();

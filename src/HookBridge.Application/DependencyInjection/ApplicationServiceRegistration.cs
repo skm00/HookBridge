@@ -3,12 +3,14 @@ using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.DTOs.Tenants;
 using HookBridge.Application.DTOs.Subscriptions;
+using HookBridge.Application.DTOs.Billing;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Services;
 using HookBridge.Application.Validation.ApiKeys;
 using HookBridge.Application.Validation.Events;
 using HookBridge.Application.Validation.Tenants;
 using HookBridge.Application.Validation.Subscriptions;
+using HookBridge.Application.Validation.Billing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HookBridge.Application.DependencyInjection;
@@ -35,6 +37,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IValidator<EventIngestionRequestDto>, EventIngestionRequestDtoValidator>();
         services.AddScoped<IValidator<CreateSubscriptionRequestDto>, CreateSubscriptionRequestDtoValidator>();
         services.AddScoped<IValidator<UpdateSubscriptionRequestDto>, UpdateSubscriptionRequestDtoValidator>();
+        services.AddScoped<IValidator<CreateCheckoutSessionRequestDto>, CreateCheckoutSessionRequestDtoValidator>();
 
         return services;
     }

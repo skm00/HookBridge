@@ -18,5 +18,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\HookBridge.Application\HookBridge.Application.csproj" />
+    <ProjectReference Include="..\..\src\HookBridge.Infrastructure\HookBridge.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
