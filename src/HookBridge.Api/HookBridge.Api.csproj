@@ -10,5 +10,7 @@
     <ProjectReference Include="..\HookBridge.Shared\HookBridge.Shared.csproj" />
       <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
       <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
+      <PackageReference Include="Serilog.AspNetCore" Version="8.0.2" />
+      <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
   </ItemGroup>
 </Project>

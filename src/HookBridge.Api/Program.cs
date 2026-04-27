@@ -1,21 +1,25 @@
 using System.Reflection;
 using System.Text;
-using HookBridge.Api.Middleware;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Extensions;
+using HookBridge.Api.Health;
+using HookBridge.Api.Middleware;
 using HookBridge.Api.Security;
 using HookBridge.Application.DependencyInjection;
 using HookBridge.Application.Interfaces;
-using HookBridge.Application.Messaging;
 using HookBridge.Domain.Enums;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.DependencyInjection;
+using HookBridge.Infrastructure.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
 using Microsoft.IdentityModel.Tokens;
-using MongoDB.Bson;
-using MongoDB.Driver;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, _, loggerConfiguration) =>
+    loggerConfiguration.ConfigureHookBridgeEcsLogging(context.Configuration, "hookbridge-api"));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -64,8 +68,10 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<TenantAccessValidator>();
+builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
     ?? throw new InvalidOperationException("JWT settings are missing.");
@@ -104,6 +110,8 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -116,65 +124,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-
-app.MapGet("/api/v1/health/mongodb", async (IMongoDatabase database, CancellationToken cancellationToken) =>
-{
-    try
-    {
-        await database.RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1), cancellationToken: cancellationToken);
-
-        return Results.Ok(new
-        {
-            service = "MongoDB",
-            isHealthy = true,
-            message = "MongoDB connection is healthy.",
-        });
-    }
-    catch (Exception ex)
-    {
-        return Results.Ok(new
-        {
-            service = "MongoDB",
-            isHealthy = false,
-            message = $"MongoDB connection failed. Reason: {ex.Message}",
-        });
-    }
-});
-
-app.MapGet("/api/v1/health/kafka", async (IKafkaAdminService kafkaAdminService, CancellationToken cancellationToken) =>
-{
-    try
-    {
-        var isHealthy = await kafkaAdminService.IsHealthyAsync(cancellationToken);
-
-        if (isHealthy)
-        {
-            return Results.Ok(new
-            {
-                service = "Kafka",
-                isHealthy = true,
-                message = "Kafka connection is healthy.",
-            });
-        }
-
-        return Results.Ok(new
-        {
-            service = "Kafka",
-            isHealthy = false,
-            message = "Kafka connection failed. Reason: Health check returned unhealthy status.",
-        });
-    }
-    catch (Exception ex)
-    {
-        return Results.Ok(new
-        {
-            service = "Kafka",
-            isHealthy = false,
-            message = $"Kafka connection failed. Reason: {ex.Message}",
-        });
-    }
-});
+app.MapHookBridgeHealthEndpoints();
 
 app.Run();
