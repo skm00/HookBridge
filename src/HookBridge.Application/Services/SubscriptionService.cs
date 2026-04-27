@@ -16,6 +16,7 @@ public sealed class SubscriptionService(
     IGuidGenerator guidGenerator,
     IDateTimeProvider dateTimeProvider,
     IValidator<CreateSubscriptionRequestDto> createValidator,
+    IValidator<UpdateSubscriptionRequestDto> updateValidator,
     ILogger<SubscriptionService> logger) : ISubscriptionService
 {
     private const string DefaultBackoffType = "Exponential";
@@ -103,6 +104,125 @@ public sealed class SubscriptionService(
             subscriptions.Count);
 
         return subscriptions.Select(Map).ToList();
+    }
+
+    public async Task<SubscriptionResponseDto?> UpdateAsync(string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
+    {
+        await updateValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
+        if (subscription is null)
+        {
+            return null;
+        }
+
+        if (request.EventType is not null)
+        {
+            subscription.EventType = request.EventType;
+        }
+
+        if (request.TargetUrl is not null)
+        {
+            subscription.TargetUrl = request.TargetUrl;
+        }
+
+        if (request.Headers is not null)
+        {
+            subscription.Headers = request.Headers.Select(Map).ToList();
+        }
+
+        if (request.Authentication is not null)
+        {
+            subscription.Authentication = Map(request.Authentication);
+        }
+
+        if (request.RetryPolicy is not null)
+        {
+            subscription.RetryPolicy = Map(request.RetryPolicy);
+        }
+
+        if (request.TimeoutSeconds.HasValue)
+        {
+            subscription.TimeoutSeconds = request.TimeoutSeconds.Value;
+        }
+
+        subscription.UpdatedAt = dateTimeProvider.UtcNow;
+
+        await subscriptionRepository.UpdateAsync(subscription, cancellationToken);
+
+        logger.LogInformation(
+            "Subscription updated SubscriptionId={SubscriptionId} TenantId={TenantId} EventType={EventType}",
+            subscription.Id,
+            subscription.TenantId,
+            subscription.EventType);
+
+        return Map(subscription);
+    }
+
+    public async Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
+        if (subscription is null)
+        {
+            return false;
+        }
+
+        await subscriptionRepository.DeleteAsync(id, cancellationToken);
+
+        logger.LogInformation(
+            "Subscription deleted SubscriptionId={SubscriptionId} TenantId={TenantId} EventType={EventType}",
+            subscription.Id,
+            subscription.TenantId,
+            subscription.EventType);
+
+        return true;
+    }
+
+    public async Task<bool> EnableAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
+        if (subscription is null)
+        {
+            return false;
+        }
+
+        subscription.IsActive = true;
+        subscription.DisabledAt = null;
+        subscription.UpdatedAt = dateTimeProvider.UtcNow;
+
+        await subscriptionRepository.UpdateAsync(subscription, cancellationToken);
+
+        logger.LogInformation(
+            "Subscription enabled SubscriptionId={SubscriptionId} TenantId={TenantId} EventType={EventType}",
+            subscription.Id,
+            subscription.TenantId,
+            subscription.EventType);
+
+        return true;
+    }
+
+    public async Task<bool> DisableAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
+        if (subscription is null)
+        {
+            return false;
+        }
+
+        var now = dateTimeProvider.UtcNow;
+        subscription.IsActive = false;
+        subscription.DisabledAt = now;
+        subscription.UpdatedAt = now;
+
+        await subscriptionRepository.UpdateAsync(subscription, cancellationToken);
+
+        logger.LogInformation(
+            "Subscription disabled SubscriptionId={SubscriptionId} TenantId={TenantId} EventType={EventType}",
+            subscription.Id,
+            subscription.TenantId,
+            subscription.EventType);
+
+        return true;
     }
 
     private static void ApplyDefaults(CreateSubscriptionRequestDto request)
