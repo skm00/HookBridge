@@ -102,6 +102,62 @@ public sealed class ObservabilityMiddlewareAndHealthTests
         Assert.True(settings.EnableElasticsearchSink);
     }
 
+
+    [Fact]
+    public void ElasticApmSettings_Binding_Works()
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["ElasticApm:ServerUrl"] = "http://localhost:8200",
+            ["ElasticApm:ServiceName"] = "hookbridge-api",
+            ["ElasticApm:Environment"] = "Development",
+            ["ElasticApm:Enabled"] = "true",
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var services = new ServiceCollection();
+        services.Configure<ElasticApmSettings>(configuration.GetSection("ElasticApm"));
+
+        using var provider = services.BuildServiceProvider();
+        var settings = provider.GetRequiredService<IOptions<ElasticApmSettings>>().Value;
+
+        Assert.Equal("http://localhost:8200", settings.ServerUrl);
+        Assert.Equal("hookbridge-api", settings.ServiceName);
+        Assert.Equal("Development", settings.Environment);
+        Assert.True(settings.Enabled);
+    }
+
+    [Fact]
+    public async Task ElasticApmHealthEndpoint_ReturnsHealthy_WhenEnabled()
+    {
+        using var host = await BuildHealthHostAsync("http://127.0.0.1:1", apmEnabled: true);
+        var client = host.GetTestClient();
+
+        var response = await client.GetFromJsonAsync<ApmHealthResponse>("/api/v1/health/apm");
+
+        Assert.NotNull(response);
+        Assert.Equal("ElasticAPM", response.Service);
+        Assert.True(response.IsHealthy);
+        Assert.Equal("Elastic APM is enabled.", response.Message);
+    }
+
+    [Fact]
+    public async Task ElasticApmHealthEndpoint_ReturnsUnhealthy_WhenDisabled()
+    {
+        using var host = await BuildHealthHostAsync("http://127.0.0.1:1", apmEnabled: false);
+        var client = host.GetTestClient();
+
+        var response = await client.GetFromJsonAsync<ApmHealthResponse>("/api/v1/health/apm");
+
+        Assert.NotNull(response);
+        Assert.Equal("ElasticAPM", response.Service);
+        Assert.False(response.IsHealthy);
+        Assert.Equal("Elastic APM is disabled.", response.Message);
+    }
+
     [Fact]
     public async Task ElasticsearchHealthEndpoint_ReturnsUnhealthy_WhenUnavailable()
     {
@@ -141,7 +197,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
         return server;
     }
 
-    private static async Task<TestServer> BuildHealthHostAsync(string elasticsearchUrl)
+    private static async Task<TestServer> BuildHealthHostAsync(string elasticsearchUrl, bool apmEnabled = false)
     {
         var builder = new WebHostBuilder()
             .ConfigureServices(services =>
@@ -154,6 +210,13 @@ public sealed class ObservabilityMiddlewareAndHealthTests
                     options.Environment = "Development";
                     options.ServiceName = "hookbridge-api";
                     options.EnableElasticsearchSink = false;
+                });
+                services.Configure<ElasticApmSettings>(options =>
+                {
+                    options.ServerUrl = "http://localhost:8200";
+                    options.ServiceName = "hookbridge-api";
+                    options.Environment = "Development";
+                    options.Enabled = apmEnabled;
                 });
                 services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
             })
@@ -201,5 +264,12 @@ public sealed class ObservabilityMiddlewareAndHealthTests
             {
             }
         }
+    }
+
+    private sealed class ApmHealthResponse
+    {
+        public string Service { get; set; } = string.Empty;
+        public bool IsHealthy { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

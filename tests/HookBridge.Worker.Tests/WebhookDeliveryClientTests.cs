@@ -179,6 +179,14 @@ public sealed class WebhookDeliveryClientTests
         Assert.True(result.DurationMs > 0);
     }
 
+    [Fact]
+    public void GetTargetHost_RemovesQueryStringAndPath()
+    {
+        var host = WebhookDeliveryClient.GetTargetHost(new Uri("https://example.com/webhook/path?token=secret&x=1"));
+
+        Assert.Equal("example.com", host);
+    }
+
     private static WebhookDeliveryClient CreateClient(HttpMessageHandler handler)
     {
         var factory = new Mock<IHttpClientFactory>();

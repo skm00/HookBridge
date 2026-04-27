@@ -1,5 +1,7 @@
 using HookBridge.Api.Health;
 using HookBridge.Application.Messaging;
+using HookBridge.Infrastructure.Configuration;
+using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -67,6 +69,18 @@ public static class HealthEndpointRouteBuilderExtensions
                     message = $"Kafka connection failed. Reason: {ex.Message}",
                 });
             }
+        });
+
+        app.MapGet("/api/v1/health/apm", (IOptions<ElasticApmSettings> apmOptions) =>
+        {
+            var enabled = apmOptions.Value.Enabled;
+
+            return Results.Ok(new
+            {
+                service = "ElasticAPM",
+                isHealthy = enabled,
+                message = enabled ? "Elastic APM is enabled." : "Elastic APM is disabled.",
+            });
         });
 
         app.MapGet("/api/v1/health/elasticsearch", async (IElasticsearchHealthService elasticsearchHealthService, CancellationToken cancellationToken) =>

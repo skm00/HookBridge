@@ -21,13 +21,20 @@ public sealed class WebhookDeliveryService(
     IRetryPolicyService retryPolicyService,
     IFailedEventService failedEventService,
     IUsageService usageService,
-    ILogger<WebhookDeliveryService> logger) : IWebhookDeliveryService
+    ILogger<WebhookDeliveryService> logger,
+    ITracingService? tracingService = null) : IWebhookDeliveryService
 {
     public async Task ProcessEventAsync(WebhookEventMessage message, CancellationToken cancellationToken = default)
     {
-        var incomingEvent = await incomingEventRepository.FirstOrDefaultAsync(
-            x => x.TenantId == message.TenantId && x.EventId == message.EventId,
-            cancellationToken);
+        var incomingEvent = await (tracingService?.CaptureSpanAsync(
+            "Load incoming event",
+            "db.mongodb",
+            () => incomingEventRepository.FirstOrDefaultAsync(
+                x => x.TenantId == message.TenantId && x.EventId == message.EventId,
+                cancellationToken))
+            ?? incomingEventRepository.FirstOrDefaultAsync(
+                x => x.TenantId == message.TenantId && x.EventId == message.EventId,
+                cancellationToken));
 
         if (incomingEvent is null)
         {
@@ -40,11 +47,19 @@ public sealed class WebhookDeliveryService(
             return;
         }
 
-        var subscriptions = await subscriptionRepository.FindAsync(
-            x => x.TenantId == message.TenantId
-                && x.EventType == message.EventType
-                && x.IsActive,
-            cancellationToken);
+        var subscriptions = await (tracingService?.CaptureSpanAsync(
+            "Find subscriptions",
+            "db.mongodb",
+            () => subscriptionRepository.FindAsync(
+                x => x.TenantId == message.TenantId
+                    && x.EventType == message.EventType
+                    && x.IsActive,
+                cancellationToken))
+            ?? subscriptionRepository.FindAsync(
+                x => x.TenantId == message.TenantId
+                    && x.EventType == message.EventType
+                    && x.IsActive,
+                cancellationToken));
 
         if (subscriptions.Count == 0)
         {
@@ -69,7 +84,11 @@ public sealed class WebhookDeliveryService(
         foreach (var subscription in subscriptions)
         {
             var request = BuildRequest(subscription, incomingEvent, message.CorrelationId);
-            var result = await webhookDeliveryClient.SendAsync(request, cancellationToken);
+            var result = await (tracingService?.CaptureSpanAsync(
+                "Send webhook",
+                "external.http",
+                () => webhookDeliveryClient.SendAsync(request, cancellationToken))
+                ?? webhookDeliveryClient.SendAsync(request, cancellationToken));
             const int currentAttemptNumber = 1;
             if (result.IsSuccess)
             {
@@ -78,7 +97,11 @@ public sealed class WebhookDeliveryService(
             }
 
             var attempt = CreateDeliveryAttempt(incomingEvent, subscription, result, currentAttemptNumber, message.CorrelationId, now);
-            await deliveryAttemptRepository.AddAsync(attempt, cancellationToken);
+            await (tracingService?.CaptureSpanAsync(
+                "Store delivery attempt",
+                "db.mongodb",
+                () => deliveryAttemptRepository.AddAsync(attempt, cancellationToken))
+                ?? deliveryAttemptRepository.AddAsync(attempt, cancellationToken));
 
             if (!result.IsSuccess)
             {
@@ -119,9 +142,15 @@ public sealed class WebhookDeliveryService(
 
     public async Task ProcessRetryAsync(WebhookRetryMessage message, CancellationToken cancellationToken = default)
     {
-        var incomingEvent = await incomingEventRepository.FirstOrDefaultAsync(
-            x => x.TenantId == message.TenantId && x.EventId == message.EventId,
-            cancellationToken);
+        var incomingEvent = await (tracingService?.CaptureSpanAsync(
+            "Load incoming event",
+            "db.mongodb",
+            () => incomingEventRepository.FirstOrDefaultAsync(
+                x => x.TenantId == message.TenantId && x.EventId == message.EventId,
+                cancellationToken))
+            ?? incomingEventRepository.FirstOrDefaultAsync(
+                x => x.TenantId == message.TenantId && x.EventId == message.EventId,
+                cancellationToken));
 
         if (incomingEvent is null)
         {
@@ -136,7 +165,11 @@ public sealed class WebhookDeliveryService(
             return;
         }
 
-        var subscription = await subscriptionRepository.GetByIdAsync(message.SubscriptionId, cancellationToken);
+        var subscription = await (tracingService?.CaptureSpanAsync(
+            "Find subscriptions",
+            "db.mongodb",
+            () => subscriptionRepository.GetByIdAsync(message.SubscriptionId, cancellationToken))
+            ?? subscriptionRepository.GetByIdAsync(message.SubscriptionId, cancellationToken));
         if (subscription is null)
         {
             logger.LogWarning(
@@ -164,10 +197,18 @@ public sealed class WebhookDeliveryService(
         }
 
         var request = BuildRequest(subscription, incomingEvent, message.CorrelationId);
-        var result = await webhookDeliveryClient.SendAsync(request, cancellationToken);
+        var result = await (tracingService?.CaptureSpanAsync(
+            "Send webhook",
+            "external.http",
+            () => webhookDeliveryClient.SendAsync(request, cancellationToken))
+            ?? webhookDeliveryClient.SendAsync(request, cancellationToken));
         var now = dateTimeProvider.UtcNow;
         var attempt = CreateDeliveryAttempt(incomingEvent, subscription, result, message.AttemptNumber, message.CorrelationId, now);
-        await deliveryAttemptRepository.AddAsync(attempt, cancellationToken);
+        await (tracingService?.CaptureSpanAsync(
+            "Store delivery attempt",
+            "db.mongodb",
+            () => deliveryAttemptRepository.AddAsync(attempt, cancellationToken))
+            ?? deliveryAttemptRepository.AddAsync(attempt, cancellationToken));
 
         if (result.IsSuccess)
         {
@@ -258,11 +299,19 @@ public sealed class WebhookDeliveryService(
 
         try
         {
-            await kafkaProducer.ProduceAsync(
-                KafkaTopics.WebhookRetry,
-                incomingEvent.TenantId,
-                retryMessage,
-                cancellationToken);
+            await (tracingService?.CaptureSpanAsync(
+                "Publish retry",
+                "messaging.kafka",
+                () => kafkaProducer.ProduceAsync(
+                    KafkaTopics.WebhookRetry,
+                    incomingEvent.TenantId,
+                    retryMessage,
+                    cancellationToken))
+                ?? kafkaProducer.ProduceAsync(
+                    KafkaTopics.WebhookRetry,
+                    incomingEvent.TenantId,
+                    retryMessage,
+                    cancellationToken));
 
             logger.LogInformation(
                 "Retry rescheduled. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, DelaySeconds: {DelaySeconds}, CorrelationId: {CorrelationId}",
@@ -328,11 +377,19 @@ public sealed class WebhookDeliveryService(
 
         try
         {
-            await kafkaProducer.ProduceAsync(
-                KafkaTopics.WebhookDlq,
-                incomingEvent.TenantId,
-                dlqMessage,
-                cancellationToken);
+            await (tracingService?.CaptureSpanAsync(
+                "Publish DLQ",
+                "messaging.kafka",
+                () => kafkaProducer.ProduceAsync(
+                    KafkaTopics.WebhookDlq,
+                    incomingEvent.TenantId,
+                    dlqMessage,
+                    cancellationToken))
+                ?? kafkaProducer.ProduceAsync(
+                    KafkaTopics.WebhookDlq,
+                    incomingEvent.TenantId,
+                    dlqMessage,
+                    cancellationToken));
         }
         catch (Exception ex)
         {

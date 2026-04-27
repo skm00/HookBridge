@@ -8,8 +8,9 @@ using HookBridge.Api.Security;
 using HookBridge.Application.DependencyInjection;
 using HookBridge.Application.Interfaces;
 using HookBridge.Domain.Enums;
-using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.DependencyInjection;
+using Elastic.Apm.NetCoreAll;
+using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
@@ -108,11 +109,18 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole(AdminRole.Owner.ToString(), AdminRole.Admin.ToString(), AdminRole.Developer.ToString(), AdminRole.Viewer.ToString()));
 });
 
+var elasticApmSettings = builder.Configuration.GetSection("ElasticApm").Get<ElasticApmSettings>() ?? new ElasticApmSettings();
+
 var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalExceptionMiddleware>();
+
+if (elasticApmSettings.Enabled)
+{
+    app.UseAllElasticApm(builder.Configuration);
+}
 
 if (app.Environment.IsDevelopment())
 {
