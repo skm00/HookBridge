@@ -40,6 +40,8 @@ config:
   elasticApm:
     serverUrl: "https://apm.prod.svc"
     enabled: "true"
+  security:
+    allowPrivateNetworkTargetUrls: "false"
 
 secrets:
   stripe:

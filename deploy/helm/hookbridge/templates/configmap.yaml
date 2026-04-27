@@ -12,3 +12,4 @@ data:
   Elastic__Environment: {{ .Values.config.elastic.environment | quote }}
   ElasticApm__ServerUrl: {{ .Values.config.elasticApm.serverUrl | quote }}
   ElasticApm__Enabled: {{ .Values.config.elasticApm.enabled | quote }}
+  Security__AllowPrivateNetworkTargetUrls: {{ .Values.config.security.allowPrivateNetworkTargetUrls | quote }}

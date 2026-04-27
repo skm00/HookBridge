@@ -168,6 +168,37 @@ public sealed class EventIngestionServiceTests
         Assert.Equal("corr-999", message.CorrelationId);
     }
 
+
+    [Fact]
+    public void EventType_WithInvalidCharacters_FailsValidation()
+    {
+        var validator = new EventIngestionRequestDtoValidator();
+        var result = validator.TestValidate(new EventIngestionRequestDto
+        {
+            EventType = "order/created",
+            EventId = "evt-1",
+            Data = new { orderId = "1001" },
+        });
+
+        result.ShouldHaveValidationErrorFor(x => x.EventType)
+            .WithErrorMessage("EventType may contain only letters, numbers, dot (.), dash (-), and underscore (_).");
+    }
+
+    [Fact]
+    public void PayloadLargerThanLimit_FailsValidation()
+    {
+        var validator = new EventIngestionRequestDtoValidator();
+        var result = validator.TestValidate(new EventIngestionRequestDto
+        {
+            EventType = "order.created",
+            EventId = "evt-1",
+            Data = new { blob = new string('a', HookBridge.Shared.Constants.ValidationLimits.MaxPayloadSizeBytes + 10) },
+        });
+
+        result.ShouldHaveValidationErrorFor(x => x.Data)
+            .WithErrorMessage($"Data payload exceeds {HookBridge.Shared.Constants.ValidationLimits.MaxPayloadSizeBytes} bytes.");
+    }
+
     [Fact]
     public void InvalidRequestValidation_Fails()
     {

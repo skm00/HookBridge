@@ -25,6 +25,8 @@ public sealed class DeliveryAttempt : BaseEntity
 
     public string? ResponseBody { get; set; }
 
+    public bool ResponseBodyTruncated { get; set; }
+
     public string? ErrorMessage { get; set; }
 
     public long DurationMs { get; set; }

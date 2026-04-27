@@ -66,6 +66,8 @@ config:
   elasticApm:
     serverUrl: "http://apm-server:8200"
     enabled: "true"
+  security:
+    allowPrivateNetworkTargetUrls: "false"
 
 secrets:
   stripe:

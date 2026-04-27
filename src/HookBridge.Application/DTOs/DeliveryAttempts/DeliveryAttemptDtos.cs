@@ -24,6 +24,8 @@ public sealed class DeliveryAttemptResponseDto
 
     public string? ResponseBody { get; set; }
 
+    public bool ResponseBodyTruncated { get; set; }
+
     public string? ErrorMessage { get; set; }
 
     public long DurationMs { get; set; }

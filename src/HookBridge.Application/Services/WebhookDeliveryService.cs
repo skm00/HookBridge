@@ -243,6 +243,8 @@ public sealed class WebhookDeliveryService(
         string? correlationId,
         DateTime attemptedAt)
     {
+        var storedResponseBody = BuildStoredResponseBody(result.ResponseBody, out var responseBodyTruncated);
+
         return new DeliveryAttempt
         {
             TenantId = incomingEvent.TenantId,
@@ -253,7 +255,8 @@ public sealed class WebhookDeliveryService(
             AttemptNumber = attemptNumber,
             Status = result.IsSuccess ? DeliveryStatus.Success : DeliveryStatus.Failed,
             HttpStatusCode = result.HttpStatusCode,
-            ResponseBody = result.ResponseBody,
+            ResponseBody = storedResponseBody,
+            ResponseBodyTruncated = responseBodyTruncated,
             ErrorMessage = result.ErrorMessage,
             DurationMs = result.DurationMs,
             AttemptedAt = attemptedAt,
@@ -261,6 +264,21 @@ public sealed class WebhookDeliveryService(
             CreatedAt = attemptedAt,
             UpdatedAt = null,
         };
+    }
+
+
+    private static string? BuildStoredResponseBody(string? responseBody, out bool isTruncated)
+    {
+        isTruncated = false;
+
+        if (string.IsNullOrEmpty(responseBody)
+            || responseBody.Length <= ValidationLimits.MaxResponseBodyStoredLength)
+        {
+            return responseBody;
+        }
+
+        isTruncated = true;
+        return responseBody[..ValidationLimits.MaxResponseBodyStoredLength];
     }
 
     private async Task TryScheduleRetryAsync(

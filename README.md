@@ -87,6 +87,48 @@ ElasticApm__ServiceName=hookbridge-api
 ElasticApm__Environment=Production
 ```
 
+
+## Validation and Security Limits
+
+HookBridge enforces strict input validation to reduce abuse and unsafe outbound configuration.
+
+### Event ingestion limits
+- `EventType` is required, max 150 chars, and only allows letters/numbers/`.`/`-`/`_`.
+- `EventId` is required and max 150 chars.
+- `Data` is required and capped at 1,000,000 bytes.
+
+### Subscription and outbound request limits
+- `TargetUrl` is required, max 2048 chars, and must be an absolute HTTP/HTTPS URL.
+- In `Production`, localhost/private-network target URLs are blocked by default.
+- Custom headers are limited to 30 entries.
+- Header names/values are required, length-limited (`100` / `1000`), and CR/LF-safe.
+- Restricted outbound headers are blocked: `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`.
+
+### Authentication validation
+- `Basic`: username/password required.
+- `OAuth2ClientCredentials`: token URL/client id/client secret required; HTTPS token URL required in `Production`.
+- `ApiKeyHeader`: header name/value required and CR/LF-safe.
+- `HmacSignature`: secret required and algorithm must be `HMACSHA256`.
+
+### Delivery attempt response-body storage
+- Stored response bodies are truncated to 5000 characters.
+- Truncation is tracked via `ResponseBodyTruncated`.
+
+### Security configuration
+Use the `Security` section:
+
+```json
+{
+  "Security": {
+    "AllowPrivateNetworkTargetUrls": false
+  }
+}
+```
+
+Defaults:
+- `Development`: `true`
+- `Production`: `false`
+
 ## Local Docker Compose Startup
 
 From the repository root:
