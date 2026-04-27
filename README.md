@@ -141,6 +141,19 @@ The `/failed-events` dashboard route now integrates with admin failed-event APIs
 - "View Details" modal backed by `GET /api/v1/admin/failed-events/{id}` showing complete failed-event fields (tenant, event, subscription, target URL, reason, retry metadata, and correlation id).
 - Manual retry action backed by `POST /api/v1/admin/failed-events/{id}/retry` for DLQ records with confirmation and success/error feedback.
 
+## Health Dashboard Page
+
+The `/health` dashboard route now integrates with service health endpoints and includes:
+- Health cards for MongoDB, Kafka, Worker, and Elasticsearch.
+- Endpoint integration with:
+  - `GET /api/v1/health/mongodb`
+  - `GET /api/v1/health/kafka`
+  - `GET /api/v1/health/worker`
+  - `GET /api/v1/health/elasticsearch`
+- Per-service healthy/unhealthy badges, status messages, and last-checked timestamps.
+- Refresh action that reruns all health checks with loading feedback.
+- Partial-failure handling where one failing endpoint marks only that service unhealthy while the rest still render.
+
 ## Admin API Tenant Security
 
 - Admin JWTs include a `tenantId` claim and admin endpoints resolve the current tenant from the JWT on every request.
