@@ -501,3 +501,15 @@ The app expects an API base URL in `.env` (see `.env.example`):
 ```bash
 VITE_API_BASE_URL=http://localhost:5000
 ```
+
+## Dashboard Subscriptions Page
+
+The `/subscriptions` dashboard route now integrates with subscription admin APIs and supports:
+- Listing subscriptions from `GET /api/v1/admin/subscriptions` in a table with event type, target URL, active status, timeout, retry policy, and creation time.
+- Server-backed filters for `eventType`, `targetUrl`, and `isActive`.
+- Creating subscriptions with tenant id, webhook target configuration, retry policy, timeout, custom headers, and authentication setup.
+- Basic edit flow using `GET /api/v1/admin/subscriptions/{id}` + `PUT /api/v1/admin/subscriptions/{id}`.
+- Operational actions for enable/disable and delete (`POST /enable`, `POST /disable`, `DELETE`).
+- Loading, success, and error states, deletion confirmation prompts, and masked rendering of secret values in the UI.
+
+All requests are sent through the shared dashboard `apiClient`, which automatically includes the JWT Bearer token.
