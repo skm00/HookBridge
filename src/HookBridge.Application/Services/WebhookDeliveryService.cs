@@ -6,6 +6,7 @@ using HookBridge.Application.Messaging;
 using HookBridge.Application.Models.Delivery;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
+using HookBridge.Shared.Constants;
 using Microsoft.Extensions.Logging;
 
 namespace HookBridge.Application.Services;
@@ -16,6 +17,8 @@ public sealed class WebhookDeliveryService(
     IMongoRepository<DeliveryAttempt> deliveryAttemptRepository,
     IDateTimeProvider dateTimeProvider,
     IWebhookDeliveryClient webhookDeliveryClient,
+    IKafkaProducer kafkaProducer,
+    IRetryPolicyService retryPolicyService,
     ILogger<WebhookDeliveryService> logger) : IWebhookDeliveryService
 {
     public async Task ProcessEventAsync(WebhookEventMessage message, CancellationToken cancellationToken = default)
@@ -65,6 +68,7 @@ public sealed class WebhookDeliveryService(
         {
             var request = BuildRequest(subscription, incomingEvent, message.CorrelationId);
             var result = await webhookDeliveryClient.SendAsync(request, cancellationToken);
+            const int currentAttemptNumber = 1;
 
             if (result.IsSuccess)
             {
@@ -78,7 +82,7 @@ public sealed class WebhookDeliveryService(
                 SubscriptionId = subscription.Id,
                 EventType = incomingEvent.EventType,
                 TargetUrl = subscription.TargetUrl,
-                AttemptNumber = 1,
+                AttemptNumber = currentAttemptNumber,
                 Status = result.IsSuccess ? DeliveryStatus.Success : DeliveryStatus.Failed,
                 HttpStatusCode = result.HttpStatusCode,
                 ResponseBody = result.ResponseBody,
@@ -91,6 +95,62 @@ public sealed class WebhookDeliveryService(
             };
 
             await deliveryAttemptRepository.AddAsync(attempt, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                var retryPolicy = new RetryPolicyDto
+                {
+                    MaxAttempts = subscription.RetryPolicy.MaxAttempts,
+                    InitialDelaySeconds = subscription.RetryPolicy.InitialDelaySeconds,
+                    BackoffType = subscription.RetryPolicy.BackoffType,
+                };
+
+                if (retryPolicyService.ShouldRetry(retryPolicy, currentAttemptNumber))
+                {
+                    var retryDelay = retryPolicyService.CalculateDelay(retryPolicy, currentAttemptNumber);
+                    var nextRetryAt = dateTimeProvider.UtcNow.Add(retryDelay);
+                    var nextAttemptNumber = currentAttemptNumber + 1;
+                    var retryMessage = new WebhookRetryMessage
+                    {
+                        EventId = incomingEvent.EventId,
+                        TenantId = incomingEvent.TenantId,
+                        SubscriptionId = subscription.Id,
+                        AttemptNumber = nextAttemptNumber,
+                        NextRetryAt = nextRetryAt,
+                        CorrelationId = message.CorrelationId,
+                    };
+
+                    try
+                    {
+                        await kafkaProducer.ProduceAsync(
+                            KafkaTopics.WebhookRetry,
+                            incomingEvent.TenantId,
+                            retryMessage,
+                            cancellationToken);
+
+                        logger.LogInformation(
+                            "Webhook retry scheduled. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, DelaySeconds: {DelaySeconds}, CorrelationId: {CorrelationId}",
+                            incomingEvent.TenantId,
+                            incomingEvent.EventId,
+                            subscription.Id,
+                            nextAttemptNumber,
+                            nextRetryAt,
+                            retryDelay.TotalSeconds,
+                            message.CorrelationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(
+                            ex,
+                            "Failed to publish webhook retry message. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, CorrelationId: {CorrelationId}",
+                            incomingEvent.TenantId,
+                            incomingEvent.EventId,
+                            subscription.Id,
+                            nextAttemptNumber,
+                            message.CorrelationId);
+                    }
+                }
+            }
 
             logger.LogInformation(
                 "Webhook delivery attempt completed. TenantId: {TenantId}, EventId: {EventId}, EventType: {EventType}, SubscriptionId: {SubscriptionId}, TargetUrl: {TargetUrl}, DeliveryStatus: {DeliveryStatus}, HttpStatusCode: {HttpStatusCode}, DurationMs: {DurationMs}, CorrelationId: {CorrelationId}",

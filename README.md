@@ -139,9 +139,11 @@ Delivery flow:
 2. Kafka carries `WebhookEventMessage` on `webhook-events`.
 3. Worker loads matching active subscriptions by tenant + event type.
 4. Worker sends webhook POST requests to each subscription target URL.
-5. Worker stores `DeliveryAttempt` logs and updates `IncomingEvent` status.
+5. Worker stores a `DeliveryAttempt` for every first-attempt delivery result.
+6. If a first attempt fails and retry attempts remain in the subscription retry policy, worker publishes a `WebhookRetryMessage` to `webhook-retry` with the scheduled `nextRetryAt` time.
+7. Worker updates `IncomingEvent` status.
 
-Current scope is first-attempt delivery only (no retry or DLQ yet).
+Current scope includes first-attempt delivery plus retry scheduling only. Retry consumption/execution and DLQ handling will be implemented later.
 
 ## Outbound Webhook Delivery Request Format
 
