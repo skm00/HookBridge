@@ -63,3 +63,24 @@ curl -X PUT http://localhost:5000/api/v1/admin/tenants/{tenantId} \
 ```bash
 curl -X DELETE http://localhost:5000/api/v1/admin/tenants/{tenantId}
 ```
+
+## API Key Management API (Admin)
+
+### Create API key
+```bash
+curl -X POST http://localhost:5000/api/v1/admin/tenants/{tenantId}/api-keys \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Ingestion Key"
+  }'
+```
+
+### List API keys
+```bash
+curl http://localhost:5000/api/v1/admin/tenants/{tenantId}/api-keys
+```
+
+### Revoke API key
+```bash
+curl -X DELETE http://localhost:5000/api/v1/admin/tenants/{tenantId}/api-keys/{keyId}
+```
