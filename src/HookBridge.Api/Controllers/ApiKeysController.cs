@@ -1,5 +1,6 @@
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,9 @@ namespace HookBridge.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/admin/tenants/{tenantId}/api-keys")]
-public sealed class ApiKeysController(IApiKeyService apiKeyService) : ControllerBase
+public sealed class ApiKeysController(
+    IApiKeyService apiKeyService,
+    TenantAccessValidator tenantAccessValidator) : ControllerBase
 {
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
@@ -22,6 +25,7 @@ public sealed class ApiKeysController(IApiKeyService apiKeyService) : Controller
         [FromBody] CreateApiKeyRequestDto request,
         CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(tenantId);
         var created = await apiKeyService.CreateAsync(tenantId, request, cancellationToken);
         return CreatedAtAction(nameof(GetByTenantAsync), new { tenantId }, created);
     }
@@ -32,6 +36,7 @@ public sealed class ApiKeysController(IApiKeyService apiKeyService) : Controller
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<ApiKeyResponseDto>>> GetByTenantAsync(string tenantId, CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(tenantId);
         var keys = await apiKeyService.GetByTenantAsync(tenantId, cancellationToken);
         return Ok(keys);
     }
@@ -42,6 +47,7 @@ public sealed class ApiKeysController(IApiKeyService apiKeyService) : Controller
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(tenantId);
         var revoked = await apiKeyService.RevokeAsync(tenantId, keyId, cancellationToken);
         if (!revoked)
         {

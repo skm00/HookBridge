@@ -1,5 +1,7 @@
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Security;
+using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +11,10 @@ namespace HookBridge.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/admin/subscriptions")]
-public sealed class SubscriptionsController(ISubscriptionService subscriptionService) : ControllerBase
+public sealed class SubscriptionsController(
+    ISubscriptionService subscriptionService,
+    ICurrentUserContext currentUserContext,
+    TenantAccessValidator tenantAccessValidator) : ControllerBase
 {
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
@@ -21,6 +26,7 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
         [FromBody] CreateSubscriptionRequestDto request,
         CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(request.TenantId);
         var created = await subscriptionService.CreateAsync(request, cancellationToken);
         return CreatedAtAction(nameof(GetByIdAsync), new { id = created.Id }, created);
     }
@@ -37,6 +43,7 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
             return NotFound();
         }
 
+        tenantAccessValidator.EnsureTenantAccess(subscription.TenantId);
         return Ok(subscription);
     }
 
@@ -50,10 +57,12 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
         [FromQuery] bool? isActive,
         CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
+
         var subscriptions = await subscriptionService.SearchAsync(
             new SubscriptionSearchRequestDto
             {
-                TenantId = tenantId,
+                TenantId = currentUserContext.TenantId,
                 EventType = eventType,
                 TargetUrl = targetUrl,
                 IsActive = isActive,
@@ -73,6 +82,14 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
         [FromBody] UpdateSubscriptionRequestDto request,
         CancellationToken cancellationToken)
     {
+        var existing = await subscriptionService.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        tenantAccessValidator.EnsureTenantAccess(existing.TenantId);
+
         var updated = await subscriptionService.UpdateAsync(id, request, cancellationToken);
         if (updated is null)
         {
@@ -88,6 +105,14 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteAsync(string id, CancellationToken cancellationToken)
     {
+        var existing = await subscriptionService.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        tenantAccessValidator.EnsureTenantAccess(existing.TenantId);
+
         var deleted = await subscriptionService.DeleteAsync(id, cancellationToken);
         if (!deleted)
         {
@@ -103,6 +128,14 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> EnableAsync(string id, CancellationToken cancellationToken)
     {
+        var existing = await subscriptionService.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        tenantAccessValidator.EnsureTenantAccess(existing.TenantId);
+
         var enabled = await subscriptionService.EnableAsync(id, cancellationToken);
         if (!enabled)
         {
@@ -118,6 +151,14 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DisableAsync(string id, CancellationToken cancellationToken)
     {
+        var existing = await subscriptionService.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        tenantAccessValidator.EnsureTenantAccess(existing.TenantId);
+
         var disabled = await subscriptionService.DisableAsync(id, cancellationToken);
         if (!disabled)
         {

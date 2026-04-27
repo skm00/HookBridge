@@ -25,7 +25,7 @@ public sealed class BillingControllerTests
     }
 
     private static BillingController BuildController(IBillingService billingService)
-        => new(billingService)
+        => new(billingService, TenantIsolationTestHelpers.CreateValidator())
         {
             ControllerContext = new ControllerContext
             {

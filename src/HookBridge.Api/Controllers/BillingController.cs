@@ -1,5 +1,6 @@
 using HookBridge.Application.DTOs.Billing;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,9 @@ namespace HookBridge.Api.Controllers;
 
 [ApiController]
 [Authorize]
-public sealed class BillingController(IBillingService billingService) : ControllerBase
+public sealed class BillingController(
+    IBillingService billingService,
+    TenantAccessValidator tenantAccessValidator) : ControllerBase
 {
     [HttpPost("api/v1/admin/tenants/{tenantId}/billing/checkout")]
     [Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
@@ -21,6 +24,7 @@ public sealed class BillingController(IBillingService billingService) : Controll
         [FromBody] CreateCheckoutSessionRequestDto request,
         CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(tenantId);
         var checkout = await billingService.CreateCheckoutSessionAsync(tenantId, request, cancellationToken);
         return Ok(checkout);
     }
@@ -31,6 +35,7 @@ public sealed class BillingController(IBillingService billingService) : Controll
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<BillingStatusResponseDto>> GetStatusAsync(string tenantId, CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(tenantId);
         var status = await billingService.GetBillingStatusAsync(tenantId, cancellationToken);
         if (status is null)
         {

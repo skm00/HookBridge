@@ -76,6 +76,20 @@ public sealed class GlobalExceptionMiddleware(RequestDelegate next)
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
+        catch (ForbiddenException forbiddenException)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                message = forbiddenException.Message,
+                traceId = context.TraceIdentifier,
+                statusCode = StatusCodes.Status403Forbidden,
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        }
         catch (TooManyRequestsException tooManyRequestsException)
         {
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;

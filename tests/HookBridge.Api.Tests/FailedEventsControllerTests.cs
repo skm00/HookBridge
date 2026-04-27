@@ -12,7 +12,7 @@ public sealed class FailedEventsControllerTests
     public async Task SearchAsync_ReturnsOk()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
 
         var result = await controller.SearchAsync("tenant-1", null, null, null, "DLQ", null, null, CancellationToken.None);
 
@@ -25,7 +25,7 @@ public sealed class FailedEventsControllerTests
     public async Task GetByIdAsync_ReturnsOk_WhenFound()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
 
         var result = await controller.GetByIdAsync("failed-1", CancellationToken.None);
 
@@ -38,7 +38,7 @@ public sealed class FailedEventsControllerTests
     public async Task GetByIdAsync_ReturnsNotFound_WhenMissing()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
 
         var result = await controller.GetByIdAsync("missing", CancellationToken.None);
 
@@ -49,7 +49,7 @@ public sealed class FailedEventsControllerTests
     public async Task RetryAsync_ReturnsAccepted_WhenRetryRequested()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
 
         var result = await controller.RetryAsync("failed-1", CancellationToken.None);
 
@@ -60,7 +60,7 @@ public sealed class FailedEventsControllerTests
     public async Task RetryAsync_ReturnsNotFound_WhenMissing()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
 
         var result = await controller.RetryAsync("missing", CancellationToken.None);
 
@@ -72,7 +72,7 @@ public sealed class FailedEventsControllerTests
     {
         var service = new FakeFailedEventService();
         service.SetStatus("failed-1", "RetryRequested");
-        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
 
         var result = await controller.RetryAsync("failed-1", CancellationToken.None);
 

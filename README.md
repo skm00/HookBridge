@@ -87,6 +87,14 @@ curl http://localhost:5000/api/v1/admin/tenants   -H "Authorization: Bearer <jwt
 
 Event ingestion remains API-key based (`x-api-key`) and is intentionally not JWT-based.
 
+## Admin API Tenant Security
+
+- Admin JWTs include a `tenantId` claim and admin endpoints resolve the current tenant from the JWT on every request.
+- Admin APIs are tenant-scoped: tenant route/query inputs are validated or overridden to the authenticated admin tenant.
+- Cross-tenant admin access is blocked by design and returns `403 Forbidden`.
+- Missing/invalid tenant claims for authenticated admin requests return `401 Unauthorized`.
+- Event ingestion remains API-key based and keeps using `x-api-key` + `/api/v1/events/{tenantId}` routing.
+
 ## Tenant Management API (Admin)
 
 ### Create tenant
