@@ -162,6 +162,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
         services.AddScoped<IFailedEventRepository, FailedEventRepository>();
         services.AddScoped<IUsageMetricRepository, UsageMetricRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddHostedService<MongoIndexInitializerHostedService>();
 
         return services;

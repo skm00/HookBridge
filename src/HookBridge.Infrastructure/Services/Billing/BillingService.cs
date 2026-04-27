@@ -3,6 +3,7 @@ using HookBridge.Application.DTOs.Billing;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Configuration;
+using HookBridge.Domain.Constants;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
 using HookBridge.Infrastructure.Configuration;
@@ -20,6 +21,7 @@ public sealed class BillingService(
     IValidator<CreateCheckoutSessionRequestDto> checkoutValidator,
     IOptions<StripeSettings> stripeOptions,
     IStripeGateway stripeGateway,
+    INotificationService notificationService,
     ILogger<BillingService> logger) : IBillingService
 {
     private readonly StripeSettings stripeSettings = stripeOptions.Value;
@@ -234,6 +236,17 @@ public sealed class BillingService(
 
         tenant.BillingStatus = "PaymentFailed";
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
+
+        await notificationService.CreateAsync(new Notification
+        {
+            TenantId = tenant.Id,
+            Type = NotificationTypes.BillingPaymentFailed,
+            Severity = NotificationSeverities.Critical,
+            Title = "Billing payment failed",
+            Message = "Stripe reported a failed payment. Please update your billing method.",
+            IsRead = false,
+        }, cancellationToken);
+
         await TryAuditAsync(BuildWebhookAuditLog(tenant, "BillingPlanStatusUpdatedFromStripeWebhook", stripeEvent.Type), cancellationToken);
     }
 

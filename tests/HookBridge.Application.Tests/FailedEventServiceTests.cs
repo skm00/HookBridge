@@ -4,6 +4,7 @@ using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using HookBridge.Application.Services;
+using HookBridge.Domain.Constants;
 using HookBridge.Domain.Entities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -91,6 +92,36 @@ public sealed class FailedEventServiceTests
         Assert.Null(result);
     }
 
+
+    [Fact]
+    public async Task CreateAsync_CreatesDlqNotification()
+    {
+        var fixture = new Fixture();
+
+        var failedEvent = new FailedEvent
+        {
+            Id = "failed-new",
+            TenantId = "tenant-1",
+            EventId = "evt-new",
+            SubscriptionId = "sub-1",
+            EventType = "order.created",
+            TargetUrl = "https://example.com",
+            Reason = "Retry attempts exhausted",
+            FinalAttemptNumber = 3,
+            Status = "DLQ",
+            FailedAt = new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc),
+            CreatedAt = new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc),
+        };
+
+        await fixture.Service.CreateAsync(failedEvent);
+
+        var notification = Assert.Single(fixture.Notifications.Created);
+        Assert.Equal(NotificationTypes.DlqCreated, notification.Type);
+        Assert.Equal(NotificationSeverities.Error, notification.Severity);
+        Assert.Equal(nameof(FailedEvent), notification.ResourceType);
+        Assert.Equal("failed-new", notification.ResourceId);
+    }
+
     [Fact]
     public async Task RetryAsync_Success_PublishesWebhookRetryMessageAndUpdatesStatus()
     {
@@ -166,8 +197,9 @@ public sealed class FailedEventServiceTests
         public RecordingAuditLogService Audit { get; } = new();
 
         private readonly FakeDateTimeProvider _dateTimeProvider = new(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc));
+        public RecordingNotificationService Notifications { get; } = new();
 
-        public FailedEventService Service => new(Repository, KafkaProducer, Audit, _dateTimeProvider, NullLogger<FailedEventService>.Instance);
+        public FailedEventService Service => new(Repository, KafkaProducer, Audit, _dateTimeProvider, Notifications, NullLogger<FailedEventService>.Instance);
 
         public void Seed()
         {
@@ -238,6 +270,30 @@ public sealed class FailedEventServiceTests
 
         public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
+    }
+
+
+    public sealed class RecordingNotificationService : INotificationService
+    {
+        public List<Notification> Created { get; } = [];
+
+        public Task CreateAsync(Notification notification, CancellationToken cancellationToken = default)
+        {
+            Created.Add(notification);
+            return Task.CompletedTask;
+        }
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.Notifications.NotificationResponseDto>> SearchAsync(HookBridge.Application.DTOs.Notifications.NotificationSearchRequestDto request, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<HookBridge.Application.DTOs.Notifications.NotificationResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<bool> MarkAsReadAsync(string id, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<int> GetUnreadCountAsync(string tenantId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
     private sealed class InMemoryFailedEventRepository : IFailedEventRepository
