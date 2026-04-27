@@ -1,16 +1,19 @@
 using HookBridge.Application.DTOs.Usage;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
 [Route("api/v1/admin/tenants/{tenantId}/usage")]
 public sealed class UsageController(
     IUsageService usageService,

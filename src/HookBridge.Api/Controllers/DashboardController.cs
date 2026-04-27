@@ -1,15 +1,18 @@
 using HookBridge.Api.Authorization;
+using HookBridge.Api.RateLimiting;
 using HookBridge.Application.DTOs.Dashboard;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
 [Route("api/v1/admin/dashboard")]
 public sealed class DashboardController(
     IDashboardService dashboardService,

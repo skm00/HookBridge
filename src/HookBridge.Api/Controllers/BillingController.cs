@@ -1,9 +1,11 @@
 using HookBridge.Application.DTOs.Billing;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Stripe;
 
 namespace HookBridge.Api.Controllers;
@@ -15,6 +17,7 @@ public sealed class BillingController(
     TenantAccessValidator tenantAccessValidator) : ControllerBase
 {
     [HttpPost("api/v1/admin/tenants/{tenantId}/billing/checkout")]
+    [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
     [Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
     [ProducesResponseType(typeof(CheckoutSessionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -30,6 +33,7 @@ public sealed class BillingController(
     }
 
     [HttpGet("api/v1/admin/tenants/{tenantId}/billing/status")]
+    [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(BillingStatusResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
