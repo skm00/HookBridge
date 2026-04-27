@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hookbridge.apiName" . }}
+  labels:
+    {{- include "hookbridge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hookbridge.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "hookbridge.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.api.service.targetPort }}
+              name: http
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: ASPNETCORE_ENVIRONMENT
+            - name: MongoDb__DatabaseName
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: MongoDb__DatabaseName
+            - name: Kafka__BootstrapServers
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: Kafka__BootstrapServers
+            - name: Elastic__ElasticsearchUrl
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: Elastic__ElasticsearchUrl
+            - name: Elastic__Environment
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: Elastic__Environment
+            - name: ElasticApm__ServerUrl
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: ElasticApm__ServerUrl
+            - name: ElasticApm__Enabled
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: ElasticApm__Enabled
+            - name: MongoDb__ConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-secret
+                  key: MongoDb__ConnectionString
+            - name: Stripe__SecretKey
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-secret
+                  key: Stripe__SecretKey
+            - name: Stripe__WebhookSecret
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-secret
+                  key: Stripe__WebhookSecret
+            - name: Jwt__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-secret
+                  key: Jwt__Secret
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/mongodb
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/mongodb
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}

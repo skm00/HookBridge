@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hookbridge.workerName" . }}
+  labels:
+    {{- include "hookbridge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hookbridge.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "hookbridge.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: ASPNETCORE_ENVIRONMENT
+            - name: MongoDb__DatabaseName
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: MongoDb__DatabaseName
+            - name: Kafka__BootstrapServers
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: Kafka__BootstrapServers
+            - name: Elastic__ElasticsearchUrl
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: Elastic__ElasticsearchUrl
+            - name: Elastic__Environment
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: Elastic__Environment
+            - name: ElasticApm__ServerUrl
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: ElasticApm__ServerUrl
+            - name: ElasticApm__Enabled
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-config
+                  key: ElasticApm__Enabled
+            - name: MongoDb__ConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-secret
+                  key: MongoDb__ConnectionString
+            - name: Stripe__SecretKey
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-secret
+                  key: Stripe__SecretKey
+            - name: Stripe__WebhookSecret
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-secret
+                  key: Stripe__WebhookSecret
+            - name: Jwt__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hookbridge.fullname" . }}-secret
+                  key: Jwt__Secret
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}

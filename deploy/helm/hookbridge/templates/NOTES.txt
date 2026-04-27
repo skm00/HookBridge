@@ -1,0 +1,12 @@
+{{- if .Values.ingress.enabled }}
+HookBridge Dashboard URL:
+  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/
+
+HookBridge API Swagger URL:
+  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/api/swagger
+{{- else }}
+Ingress is disabled. Expose services to access dashboard and API.
+{{- end }}
+
+Upgrade command:
+  helm upgrade --install {{ .Release.Name }} {{ .Chart.Name }} -f values-dev.yaml

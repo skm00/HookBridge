@@ -1,0 +1,68 @@
+api:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+worker:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+dashboard:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+config:
+  aspnetcoreEnvironment: "Production"
+  mongodb:
+    connectionString: ""
+  kafka:
+    bootstrapServers: "kafka:9092"
+  elastic:
+    elasticsearchUrl: "https://elasticsearch.prod.svc"
+    environment: "production"
+  elasticApm:
+    serverUrl: "https://apm.prod.svc"
+    enabled: "true"
+
+secrets:
+  stripe:
+    secretKey: ""
+    webhookSecret: ""
+  jwt:
+    secret: ""
+
+ingress:
+  enabled: true
+  host: app.hookbridge.example.com
+  tls:
+    enabled: true
+    secretName: hookbridge-tls
+
+autoscaling:
+  api:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 12
+    targetCPUUtilizationPercentage: 70
+  worker:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 12
+    targetCPUUtilizationPercentage: 70
