@@ -52,6 +52,8 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IKafkaConsumer, KafkaConsumer>();
         services.AddSingleton<IKafkaAdminService, KafkaAdminServicePlaceholder>();
         services.AddHttpClient();
+        services.AddSingleton<IOAuthTokenService, OAuthTokenService>();
+        services.AddScoped<IWebhookAuthenticationHandler, WebhookAuthenticationHandler>();
         services.AddScoped<IWebhookDeliveryClient, WebhookDeliveryClient>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();

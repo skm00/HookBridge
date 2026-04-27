@@ -152,6 +152,13 @@ Default HookBridge headers added on every request:
 
 Custom subscription headers are also added, except `Content-Type` which is intentionally ignored so JSON content type remains authoritative.
 
+Supported outbound authentication modes on subscriptions:
+- `None`
+- `Basic`
+- `ApiKeyHeader`
+- `HmacSignature` (`HMACSHA256`, header format `sha256=<signature>`, default header `x-hookbridge-signature`)
+- `OAuth2ClientCredentials` (client credentials flow with in-memory token caching)
+
 Delivery result model captured by the client:
 - `isSuccess` (true only for HTTP 2xx)
 - `httpStatusCode`
@@ -208,6 +215,63 @@ curl -X POST http://localhost:5000/api/v1/admin/subscriptions \
     },
     "timeoutSeconds": 30
   }'
+```
+
+### Outbound auth examples
+
+#### Basic auth
+```json
+{
+  "authentication": {
+    "type": "Basic",
+    "basic": {
+      "username": "hook-user",
+      "password": "super-secret"
+    }
+  }
+}
+```
+
+#### API key header
+```json
+{
+  "authentication": {
+    "type": "ApiKeyHeader",
+    "apiKeyHeader": {
+      "headerName": "x-api-key",
+      "headerValue": "subscription-secret-key"
+    }
+  }
+}
+```
+
+#### HMAC signature
+```json
+{
+  "authentication": {
+    "type": "HmacSignature",
+    "hmacSignature": {
+      "secret": "hmac-shared-secret",
+      "headerName": "x-hookbridge-signature",
+      "algorithm": "HMACSHA256"
+    }
+  }
+}
+```
+
+#### OAuth2 client credentials
+```json
+{
+  "authentication": {
+    "type": "OAuth2ClientCredentials",
+    "oauth2": {
+      "tokenUrl": "https://auth.example.com/oauth2/token",
+      "clientId": "webhook-client-id",
+      "clientSecret": "webhook-client-secret",
+      "scope": "webhook.deliver"
+    }
+  }
+}
 ```
 
 ### Get subscription by id

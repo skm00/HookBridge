@@ -16,6 +16,8 @@ public sealed class WebhookDeliveryRequest
 
     public List<KeyValueDto> Headers { get; set; } = [];
 
+    public AuthenticationDto? Authentication { get; set; }
+
     public int TimeoutSeconds { get; set; }
 
     public string? CorrelationId { get; set; }

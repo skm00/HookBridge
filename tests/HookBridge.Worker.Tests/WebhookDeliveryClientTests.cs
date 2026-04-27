@@ -182,8 +182,12 @@ public sealed class WebhookDeliveryClientTests
     {
         var factory = new Mock<IHttpClientFactory>();
         factory.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(new HttpClient(handler));
+        var authHandler = new Mock<HookBridge.Application.Interfaces.IWebhookAuthenticationHandler>();
+        authHandler
+            .Setup(x => x.ApplyAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<WebhookDeliveryRequest>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        return new WebhookDeliveryClient(factory.Object, new TestLogger<WebhookDeliveryClient>());
+        return new WebhookDeliveryClient(factory.Object, authHandler.Object, new TestLogger<WebhookDeliveryClient>());
     }
 
     private static WebhookDeliveryRequest CreateRequest()
