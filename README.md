@@ -358,6 +358,16 @@ The `/delivery-logs` dashboard route now integrates with admin delivery-attempt 
 - Delivery status badges (Success, Failed, Pending), formatted timestamps, and duration display in milliseconds.
 - "View Details" modal backed by `GET /api/v1/admin/delivery-logs/{id}` showing full attempt payload fields (tenant, event, subscription, status, response body, error message, and correlation data).
 
+## Audit Logs Dashboard Page
+
+The `/audit-logs` dashboard route now integrates with admin audit-log APIs and includes:
+- Audit log listing backed by `GET /api/v1/admin/audit-logs`.
+- Filters for user email, action, resource type, resource id, and created-at date range.
+- Loading/error/empty states with refresh and clear-filters actions.
+- Sortable columns for created time, user email, action, and resource type, plus server-backed pagination controls.
+- Action/resource-type badges, truncation for long resource id + description values in table rows, and a details modal backed by `GET /api/v1/admin/audit-logs/{id}`.
+- Defensive metadata rendering that masks values for sensitive keys (for example password/secret/token/authorization/apiKey/clientSecret).
+
 ## Failed Events / DLQ Dashboard Page
 
 The `/failed-events` dashboard route now integrates with admin failed-event APIs and includes:
@@ -792,7 +802,7 @@ All requests are sent through the shared dashboard `apiClient`, which automatica
 
 The admin list dashboard pages now use backend paged responses and server-side sorting:
 
-- Updated pages: `/subscriptions`, `/delivery-logs`, `/failed-events`, and `/events`.
+- Updated pages: `/subscriptions`, `/delivery-logs`, `/failed-events`, `/events`, and `/audit-logs`.
 - Shared pagination model: `PagedResponse<T>` and `PagedRequest` in `src/HookBridge.Dashboard/src/types/pagination.ts`.
 - API calls now send and preserve `pageNumber`, `pageSize`, `sortBy`, and `sortDirection`.
 - Reusable UI components:
