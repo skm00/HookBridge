@@ -20,5 +20,9 @@ public sealed class RegisterAdminRequestDtoValidator : AbstractValidator<Registe
 
         RuleFor(x => x.FullName)
             .NotEmpty();
+
+        RuleFor(x => x.Role)
+            .IsInEnum()
+            .When(x => x.Role.HasValue);
     }
 }

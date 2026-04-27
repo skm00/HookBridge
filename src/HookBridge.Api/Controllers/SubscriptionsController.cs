@@ -1,4 +1,5 @@
 using HookBridge.Application.DTOs.Subscriptions;
+using HookBridge.Api.Authorization;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace HookBridge.Api.Controllers;
 public sealed class SubscriptionsController(ISubscriptionService subscriptionService) : ControllerBase
 {
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(typeof(SubscriptionResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -24,6 +26,7 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(SubscriptionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SubscriptionResponseDto>> GetByIdAsync(string id, CancellationToken cancellationToken)
@@ -38,6 +41,7 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     }
 
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(IReadOnlyList<SubscriptionResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<SubscriptionResponseDto>>> SearchAsync(
         [FromQuery] string? tenantId,
@@ -60,6 +64,7 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(typeof(SubscriptionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -78,6 +83,7 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteAsync(string id, CancellationToken cancellationToken)
@@ -92,6 +98,7 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     }
 
     [HttpPost("{id}/enable")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> EnableAsync(string id, CancellationToken cancellationToken)
@@ -106,6 +113,7 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
     }
 
     [HttpPost("{id}/disable")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DisableAsync(string id, CancellationToken cancellationToken)

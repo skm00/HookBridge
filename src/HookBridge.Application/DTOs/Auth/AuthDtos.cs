@@ -1,3 +1,4 @@
+using HookBridge.Domain.Enums;
 namespace HookBridge.Application.DTOs.Auth;
 
 public sealed class RegisterAdminRequestDto
@@ -9,6 +10,8 @@ public sealed class RegisterAdminRequestDto
     public string Password { get; set; } = string.Empty;
 
     public string FullName { get; set; } = string.Empty;
+
+    public AdminRole? Role { get; set; }
 }
 
 public sealed class LoginRequestDto
@@ -31,6 +34,8 @@ public sealed class AdminUserResponseDto
     public bool IsActive { get; set; }
 
     public DateTime? LastLoginAt { get; set; }
+
+    public AdminRole Role { get; set; }
 }
 
 public sealed class AuthResponseDto

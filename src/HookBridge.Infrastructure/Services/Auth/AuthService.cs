@@ -58,6 +58,7 @@ public sealed class AuthService(
             Email = normalizedEmail,
             PasswordHash = passwordHasher.HashPassword(request.Password),
             FullName = request.FullName.Trim(),
+            Role = request.Role ?? AdminRole.Viewer,
             IsActive = true,
             LastLoginAt = now,
             CreatedAt = now,
@@ -99,6 +100,7 @@ public sealed class AuthService(
             new("tenantId", adminUser.TenantId),
             new(JwtRegisteredClaimNames.Email, adminUser.Email),
             new("fullName", adminUser.FullName),
+            new("role", adminUser.Role.ToString()),
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
@@ -125,6 +127,7 @@ public sealed class AuthService(
                 FullName = adminUser.FullName,
                 IsActive = adminUser.IsActive,
                 LastLoginAt = adminUser.LastLoginAt,
+                Role = adminUser.Role,
             },
         };
     }

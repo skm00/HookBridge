@@ -1,4 +1,5 @@
 using HookBridge.Application.DTOs.FailedEvents;
+using HookBridge.Api.Authorization;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ public sealed class FailedEventsController(
     ILogger<FailedEventsController> logger) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(IReadOnlyList<FailedEventResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<FailedEventResponseDto>>> SearchAsync(
         [FromQuery] string? tenantId,
@@ -48,6 +50,7 @@ public sealed class FailedEventsController(
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(FailedEventResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<FailedEventResponseDto>> GetByIdAsync(string id, CancellationToken cancellationToken)
@@ -62,6 +65,7 @@ public sealed class FailedEventsController(
     }
 
     [HttpPost("{id}/retry")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
