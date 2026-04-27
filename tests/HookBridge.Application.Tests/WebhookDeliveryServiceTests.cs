@@ -1,5 +1,6 @@
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using HookBridge.Application.Models.Delivery;
 using HookBridge.Application.Services;
@@ -147,12 +148,66 @@ public sealed class WebhookDeliveryServiceTests
         Assert.Single(sent.Headers);
     }
 
+    [Fact]
+    public async Task ProcessEvent_FailedDelivery_PublishesWebhookRetryMessage()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 3, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom", DurationMs = 50 });
+
+        await fixture.Service.ProcessEventAsync(fixture.Message);
+
+        var published = Assert.Single(fixture.KafkaProducer.Published);
+        Assert.Equal("webhook-retry", published.Topic);
+        Assert.Equal("tenant-1", published.Key);
+        var retryMessage = Assert.IsType<WebhookRetryMessage>(published.Message);
+        Assert.Equal("evt-1", retryMessage.EventId);
+        Assert.Equal("tenant-1", retryMessage.TenantId);
+        Assert.Equal("sub-1", retryMessage.SubscriptionId);
+        Assert.Equal(2, retryMessage.AttemptNumber);
+        Assert.Equal(new DateTime(2026, 4, 27, 11, 0, 30, DateTimeKind.Utc), retryMessage.NextRetryAt);
+        Assert.Equal("corr-1", retryMessage.CorrelationId);
+    }
+
+    [Fact]
+    public async Task ProcessEvent_SuccessfulDelivery_DoesNotPublishRetryMessage()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 3, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200, DurationMs = 20 });
+
+        await fixture.Service.ProcessEventAsync(fixture.Message);
+
+        Assert.Empty(fixture.KafkaProducer.Published);
+    }
+
+    [Fact]
+    public async Task ProcessEvent_RetryPublishFailure_DoesNotThrow()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 3, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom", DurationMs = 50 });
+        fixture.KafkaProducer.ThrowOnProduce = true;
+
+        var exception = await Record.ExceptionAsync(() => fixture.Service.ProcessEventAsync(fixture.Message));
+
+        Assert.Null(exception);
+        var incoming = (await fixture.IncomingEvents.FindAsync(x => x.EventId == fixture.Message.EventId)).Single();
+        Assert.Equal("Failed", incoming.Status);
+        var attempt = (await fixture.Attempts.GetAllAsync()).Single();
+        Assert.Equal(DeliveryStatus.Failed, attempt.Status);
+    }
+
     private sealed class Fixture
     {
         public InMemoryRepository<IncomingEvent> IncomingEvents { get; } = new();
         public InMemoryRepository<Subscription> Subscriptions { get; } = new();
         public InMemoryRepository<DeliveryAttempt> Attempts { get; } = new();
         public FakeWebhookDeliveryClient DeliveryClient { get; } = new();
+        public FakeKafkaProducer KafkaProducer { get; } = new();
         public ListLogger<WebhookDeliveryService> Logger { get; } = new();
         public WebhookEventMessage Message { get; } = new()
         {
@@ -169,6 +224,8 @@ public sealed class WebhookDeliveryServiceTests
             Attempts,
             new FixedDateTimeProvider(),
             DeliveryClient,
+            KafkaProducer,
+            new RetryPolicyService(),
             Logger);
 
         public void SeedIncomingEvent()
@@ -186,7 +243,13 @@ public sealed class WebhookDeliveryServiceTests
             }).GetAwaiter().GetResult();
         }
 
-        public void SeedSubscription(string id, string url = "https://example.com/orders", int timeoutSeconds = 30)
+        public void SeedSubscription(
+            string id,
+            string url = "https://example.com/orders",
+            int timeoutSeconds = 30,
+            int maxAttempts = 3,
+            int initialDelaySeconds = 30,
+            string backoffType = "Exponential")
         {
             Subscriptions.AddAsync(new Subscription
             {
@@ -196,6 +259,12 @@ public sealed class WebhookDeliveryServiceTests
                 TargetUrl = url,
                 IsActive = true,
                 TimeoutSeconds = timeoutSeconds,
+                RetryPolicy = new RetryPolicy
+                {
+                    MaxAttempts = maxAttempts,
+                    InitialDelaySeconds = initialDelaySeconds,
+                    BackoffType = backoffType,
+                },
                 Headers = [new KeyValueItem { Name = "x-test", Value = "abc" }],
                 Authentication = new AuthenticationConfig
                 {
@@ -210,6 +279,25 @@ public sealed class WebhookDeliveryServiceTests
             }).GetAwaiter().GetResult();
         }
     }
+
+    private sealed class FakeKafkaProducer : IKafkaProducer
+    {
+        public List<PublishedMessage> Published { get; } = [];
+        public bool ThrowOnProduce { get; set; }
+
+        public Task ProduceAsync<T>(string topic, string key, T message, CancellationToken cancellationToken = default)
+        {
+            if (ThrowOnProduce)
+            {
+                throw new InvalidOperationException("Kafka unavailable");
+            }
+
+            Published.Add(new PublishedMessage(topic, key, message!));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed record PublishedMessage(string Topic, string Key, object Message);
 
     private sealed class FixedDateTimeProvider : HookBridge.Application.Interfaces.IDateTimeProvider
     {
