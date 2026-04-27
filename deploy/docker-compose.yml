@@ -6,26 +6,85 @@ services:
     container_name: hookbridge-mongodb
     ports:
       - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: hookbridge-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: hookbridge-kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:19092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
     container_name: hookbridge-elasticsearch
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
     ports:
       - "9200:9200"
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 25s
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
     container_name: hookbridge-kibana
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
     ports:
       - "5601:5601"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5601/api/status >/dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 40s
 
   apm-server:
     image: docker.elastic.co/apm/apm-server:8.14.3
@@ -34,32 +93,97 @@ services:
       apm-server -e
       -E apm-server.host=0.0.0.0:8200
       -E output.elasticsearch.hosts=["elasticsearch:9200"]
+      -E output.elasticsearch.enabled=true
+      -E apm-server.auth.anonymous.enabled=true
+      -E apm-server.auth.api_key.enabled=false
       -E apm-server.kibana.enabled=true
-      -E apm-server.kibana.host=kibana:5601
+      -E apm-server.kibana.host=http://kibana:5601
+      -E apm-server.secret_token=
     ports:
       - "8200:8200"
     depends_on:
-      - elasticsearch
-      - kibana
+      elasticsearch:
+        condition: service_healthy
+      kibana:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8200/ >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
 
   hookbridge-api:
     image: hookbridge-api:latest
+    container_name: hookbridge-api
     build:
       context: ..
       dockerfile: src/HookBridge.Api/Dockerfile
     ports:
-      - "8080:8080"
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      MongoDb__ConnectionString: mongodb://mongodb:27017
+      MongoDb__DatabaseName: hookbridge
+      Kafka__BootstrapServers: kafka:9092
+      Elastic__ElasticsearchUrl: http://elasticsearch:9200
+      Elastic__EnableElasticsearchSink: "true"
+      ElasticApm__ServerUrl: http://apm-server:8200
+      ElasticApm__Enabled: "true"
+      ElasticApm__ServiceName: hookbridge-api
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY:-}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-}
+      Jwt__Secret: ${JWT_SECRET:-local-dev-secret-change-me}
     depends_on:
-      - mongodb
-      - elasticsearch
-      - apm-server
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      apm-server:
+        condition: service_healthy
 
   hookbridge-worker:
     image: hookbridge-worker:latest
+    container_name: hookbridge-worker
     build:
       context: ..
       dockerfile: src/HookBridge.Worker/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      MongoDb__ConnectionString: mongodb://mongodb:27017
+      MongoDb__DatabaseName: hookbridge
+      Kafka__BootstrapServers: kafka:9092
+      Elastic__ElasticsearchUrl: http://elasticsearch:9200
+      Elastic__EnableElasticsearchSink: "true"
+      ElasticApm__ServerUrl: http://apm-server:8200
+      ElasticApm__Enabled: "true"
+      ElasticApm__ServiceName: hookbridge-worker
     depends_on:
-      - mongodb
-      - elasticsearch
-      - apm-server
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      apm-server:
+        condition: service_healthy
+
+  hookbridge-dashboard:
+    image: hookbridge-dashboard:latest
+    container_name: hookbridge-dashboard
+    build:
+      context: ..
+      dockerfile: src/HookBridge.Dashboard/Dockerfile
+    environment:
+      VITE_API_BASE_URL: http://localhost:5000
+    ports:
+      - "3000:80"
+    depends_on:
+      hookbridge-api:
+        condition: service_started
+
+volumes:
+  mongo-data:
+  elastic-data:
