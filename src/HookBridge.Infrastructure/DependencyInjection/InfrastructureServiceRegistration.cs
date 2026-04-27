@@ -57,6 +57,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IWebhookDeliveryClient, WebhookDeliveryClient>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
+        services.AddScoped<IFailedEventRepository, FailedEventRepository>();
         services.AddHostedService<MongoIndexInitializerHostedService>();
 
         return services;
