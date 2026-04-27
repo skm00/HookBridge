@@ -3,6 +3,7 @@ using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
 
 namespace HookBridge.Api.Tests;
 

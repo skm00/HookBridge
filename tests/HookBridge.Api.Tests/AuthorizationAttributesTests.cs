@@ -1,6 +1,7 @@
 using HookBridge.Api.Controllers;
 using HookBridge.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
+using Xunit;
 
 namespace HookBridge.Api.Tests;
 

@@ -2,6 +2,7 @@ using HookBridge.Api.Controllers;
 using HookBridge.Application.DTOs.Dashboard;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using Xunit;
 
 namespace HookBridge.Api.Tests;
 

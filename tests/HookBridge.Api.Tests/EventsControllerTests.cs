@@ -4,6 +4,7 @@ using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Xunit;
 
 namespace HookBridge.Api.Tests;
 

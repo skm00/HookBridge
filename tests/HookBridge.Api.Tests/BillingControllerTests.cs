@@ -6,6 +6,7 @@ using HookBridge.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Stripe;
+using Xunit;
 
 namespace HookBridge.Api.Tests;
 

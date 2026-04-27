@@ -5,6 +5,7 @@ using HookBridge.Application.DTOs.Usage;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
+using Xunit;
 
 namespace HookBridge.Api.Tests;
 
