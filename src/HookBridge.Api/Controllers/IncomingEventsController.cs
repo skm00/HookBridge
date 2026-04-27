@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
@@ -11,9 +12,10 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
 [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
-[Route("api/v1/admin/events")]
+[Route("api/v{version:apiVersion}/admin/events")]
 public sealed class IncomingEventsController(
     IIncomingEventQueryService incomingEventQueryService,
     ICurrentUserContext currentUserContext,

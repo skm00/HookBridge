@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using HookBridge.Application.DTOs.Usage;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
@@ -12,9 +13,10 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
 [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
-[Route("api/v1/admin/tenants/{tenantId}/usage")]
+[Route("api/v{version:apiVersion}/admin/tenants/{tenantId}/usage")]
 public sealed class UsageController(
     IUsageService usageService,
     IMongoRepository<Tenant> tenantRepository,
