@@ -134,6 +134,31 @@ If Kafka publish fails after the event is stored, the API still returns `202 Acc
 - Logs the received message metadata (`TenantId`, `EventId`, `EventType`, `CorrelationId`).
 - Does **not** deliver webhooks yet (delivery/retry/DLQ are intentionally not implemented in this stage).
 
+## Outbound Webhook Delivery Request Format
+
+The reusable outbound delivery client sends a POST request per delivery attempt with:
+
+- URL: subscription `targetUrl` (absolute URL required).
+- Method: `POST`.
+- Body: JSON-serialized event payload.
+- Content-Type: `application/json`.
+- Timeout: uses subscription/request `timeoutSeconds`.
+
+Default HookBridge headers added on every request:
+- `x-hookbridge-event-id`
+- `x-hookbridge-event-type`
+- `x-hookbridge-tenant-id`
+- `x-correlation-id` (only when available)
+
+Custom subscription headers are also added, except `Content-Type` which is intentionally ignored so JSON content type remains authoritative.
+
+Delivery result model captured by the client:
+- `isSuccess` (true only for HTTP 2xx)
+- `httpStatusCode`
+- `responseBody`
+- `errorMessage`
+- `durationMs`
+
 ## Running API and Worker Locally
 
 From the repository root:
