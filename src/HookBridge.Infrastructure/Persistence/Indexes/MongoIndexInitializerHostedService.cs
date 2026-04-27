@@ -36,6 +36,34 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             new CreateIndexOptions { Name = "ix_apikey_tenantid_isactive" });
 
         await apiKeys.Indexes.CreateManyAsync([hashUniqueIndex, tenantIndex, tenantActiveIndex], cancellationToken);
+        var incomingEvents = database.GetCollection<IncomingEvent>(nameof(IncomingEvent));
+
+        var tenantEventUniqueIndex = new CreateIndexModel<IncomingEvent>(
+            Builders<IncomingEvent>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Ascending(x => x.EventId),
+            new CreateIndexOptions { Unique = true, Name = "ux_incomingevent_tenantid_eventid" });
+
+        var eventTenantIndex = new CreateIndexModel<IncomingEvent>(
+            Builders<IncomingEvent>.IndexKeys.Ascending(x => x.TenantId),
+            new CreateIndexOptions { Name = "ix_incomingevent_tenantid" });
+
+        var eventTypeIndex = new CreateIndexModel<IncomingEvent>(
+            Builders<IncomingEvent>.IndexKeys.Ascending(x => x.EventType),
+            new CreateIndexOptions { Name = "ix_incomingevent_eventtype" });
+
+        var receivedAtIndex = new CreateIndexModel<IncomingEvent>(
+            Builders<IncomingEvent>.IndexKeys.Ascending(x => x.ReceivedAt),
+            new CreateIndexOptions { Name = "ix_incomingevent_receivedat" });
+
+        var statusIndex = new CreateIndexModel<IncomingEvent>(
+            Builders<IncomingEvent>.IndexKeys.Ascending(x => x.Status),
+            new CreateIndexOptions { Name = "ix_incomingevent_status" });
+
+        await incomingEvents.Indexes.CreateManyAsync(
+            [tenantEventUniqueIndex, eventTenantIndex, eventTypeIndex, receivedAtIndex, statusIndex],
+            cancellationToken);
+
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
