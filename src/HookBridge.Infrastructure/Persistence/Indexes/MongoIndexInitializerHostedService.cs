@@ -36,6 +36,31 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             new CreateIndexOptions { Name = "ix_apikey_tenantid_isactive" });
 
         await apiKeys.Indexes.CreateManyAsync([hashUniqueIndex, tenantIndex, tenantActiveIndex], cancellationToken);
+        var subscriptions = database.GetCollection<Subscription>(nameof(Subscription));
+
+        var subscriptionTenantIndex = new CreateIndexModel<Subscription>(
+            Builders<Subscription>.IndexKeys.Ascending(x => x.TenantId),
+            new CreateIndexOptions { Name = "ix_subscription_tenantid" });
+
+        var subscriptionEventTypeIndex = new CreateIndexModel<Subscription>(
+            Builders<Subscription>.IndexKeys.Ascending(x => x.EventType),
+            new CreateIndexOptions { Name = "ix_subscription_eventtype" });
+
+        var subscriptionIsActiveIndex = new CreateIndexModel<Subscription>(
+            Builders<Subscription>.IndexKeys.Ascending(x => x.IsActive),
+            new CreateIndexOptions { Name = "ix_subscription_isactive" });
+
+        var subscriptionTenantEventActiveIndex = new CreateIndexModel<Subscription>(
+            Builders<Subscription>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Ascending(x => x.EventType)
+                .Ascending(x => x.IsActive),
+            new CreateIndexOptions { Name = "ix_subscription_tenantid_eventtype_isactive" });
+
+        await subscriptions.Indexes.CreateManyAsync(
+            [subscriptionTenantIndex, subscriptionEventTypeIndex, subscriptionIsActiveIndex, subscriptionTenantEventActiveIndex],
+            cancellationToken);
+
         var incomingEvents = database.GetCollection<IncomingEvent>(nameof(IncomingEvent));
 
         var tenantEventUniqueIndex = new CreateIndexModel<IncomingEvent>(
