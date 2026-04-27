@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { eventsApi } from '../api/eventsApi';
+import { Pagination } from '../components/Pagination';
+import { SortableHeader } from '../components/SortableHeader';
 import type { IncomingEventResponse, IncomingEventSearchRequest, IncomingEventStatus } from '../types/event';
+import type { PagedResponse } from '../types/pagination';
 
 type FilterState = {
   eventId: string;
@@ -12,6 +15,13 @@ type FilterState = {
   correlationId: string;
 };
 
+type PageRequest = {
+  pageNumber: number;
+  pageSize: number;
+  sortBy: string;
+  sortDirection: 'asc' | 'desc';
+};
+
 const defaultFilters: FilterState = {
   eventId: '',
   eventType: '',
@@ -19,6 +29,16 @@ const defaultFilters: FilterState = {
   fromDate: '',
   toDate: '',
   correlationId: ''
+};
+
+const defaultPagedResponse: PagedResponse<IncomingEventResponse> = {
+  items: [],
+  pageNumber: 1,
+  pageSize: 25,
+  totalCount: 0,
+  totalPages: 0,
+  hasPreviousPage: false,
+  hasNextPage: false
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -123,7 +143,14 @@ const formatPayload = (payload: unknown): string => {
 
 const EventsPage = (): JSX.Element => {
   const [events, setEvents] = useState<IncomingEventResponse[]>([]);
+  const [pageData, setPageData] = useState<PagedResponse<IncomingEventResponse>>(defaultPagedResponse);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [pageRequest, setPageRequest] = useState<PageRequest>({
+    pageNumber: 1,
+    pageSize: 25,
+    sortBy: 'receivedAt',
+    sortDirection: 'desc' as const
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -157,8 +184,13 @@ const EventsPage = (): JSX.Element => {
       mappedFilters.correlationId = filters.correlationId.trim();
     }
 
+    mappedFilters.pageNumber = pageRequest.pageNumber;
+    mappedFilters.pageSize = pageRequest.pageSize;
+    mappedFilters.sortBy = pageRequest.sortBy;
+    mappedFilters.sortDirection = pageRequest.sortDirection;
+
     return mappedFilters;
-  }, [filters]);
+  }, [filters, pageRequest]);
 
   const loadEvents = useCallback(async (activeFilters: IncomingEventSearchRequest): Promise<void> => {
     setIsLoading(true);
@@ -166,9 +198,11 @@ const EventsPage = (): JSX.Element => {
 
     try {
       const response = await eventsApi.searchEvents(activeFilters);
-      setEvents(response);
+      setEvents(response.items);
+      setPageData(response);
     } catch (error) {
       setEvents([]);
+      setPageData(defaultPagedResponse);
       setErrorMessage(getApiErrorMessage(error, 'Unable to load incoming events.'));
     } finally {
       setIsLoading(false);
@@ -180,6 +214,10 @@ const EventsPage = (): JSX.Element => {
   }, [loadEvents, requestFilters]);
 
   const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]): void => {
+    setPageRequest((previous) => ({
+      ...previous,
+      pageNumber: 1
+    }));
     setFilters((previous) => ({
       ...previous,
       [key]: value
@@ -188,10 +226,23 @@ const EventsPage = (): JSX.Element => {
 
   const handleClearFilters = (): void => {
     setFilters(defaultFilters);
+    setPageRequest((previous) => ({
+      ...previous,
+      pageNumber: 1
+    }));
   };
 
   const handleRefresh = (): void => {
     void loadEvents(requestFilters);
+  };
+
+  const handleSort = (sortBy: string, sortDirection: 'asc' | 'desc'): void => {
+    setPageRequest((previous) => ({
+      ...previous,
+      sortBy,
+      sortDirection,
+      pageNumber: 1
+    }));
   };
 
   const handleViewDetails = async (id: string): Promise<void> => {
@@ -292,10 +343,34 @@ const EventsPage = (): JSX.Element => {
         <table className="min-w-[1200px] divide-y divide-slate-200 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
             <tr>
-              <th className="px-4 py-3">ReceivedAt</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="ReceivedAt"
+                  sortKey="receivedAt"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">EventId</th>
-              <th className="px-4 py-3">EventType</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="EventType"
+                  sortKey="eventType"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="Status"
+                  sortKey="status"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">ApiKeyId</th>
               <th className="px-4 py-3">CorrelationId</th>
               <th className="px-4 py-3">Actions</th>
@@ -350,6 +425,27 @@ const EventsPage = (): JSX.Element => {
           </tbody>
         </table>
       </div>
+      <Pagination
+        pageNumber={pageData.pageNumber}
+        pageSize={pageData.pageSize}
+        totalCount={pageData.totalCount}
+        totalPages={pageData.totalPages}
+        hasPreviousPage={pageData.hasPreviousPage}
+        hasNextPage={pageData.hasNextPage}
+        onPageChange={(nextPage) => {
+          setPageRequest((previous) => ({
+            ...previous,
+            pageNumber: nextPage
+          }));
+        }}
+        onPageSizeChange={(nextPageSize) => {
+          setPageRequest((previous) => ({
+            ...previous,
+            pageSize: nextPageSize,
+            pageNumber: 1
+          }));
+        }}
+      />
 
       {(selectedEvent || detailErrorMessage || isDetailLoading) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">

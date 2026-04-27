@@ -1,11 +1,14 @@
 import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { deliveryLogsApi } from '../api/deliveryLogsApi';
+import { Pagination } from '../components/Pagination';
+import { SortableHeader } from '../components/SortableHeader';
 import type {
   DeliveryAttemptResponse,
   DeliveryAttemptSearchRequest,
   DeliveryAttemptStatus
 } from '../types/deliveryLog';
+import type { PagedResponse } from '../types/pagination';
 
 type FilterState = {
   eventId: string;
@@ -18,6 +21,13 @@ type FilterState = {
   targetUrl: string;
 };
 
+type PageRequest = {
+  pageNumber: number;
+  pageSize: number;
+  sortBy: string;
+  sortDirection: 'asc' | 'desc';
+};
+
 const defaultFilters: FilterState = {
   eventId: '',
   subscriptionId: '',
@@ -27,6 +37,16 @@ const defaultFilters: FilterState = {
   fromDate: '',
   toDate: '',
   targetUrl: ''
+};
+
+const defaultPagedResponse: PagedResponse<DeliveryAttemptResponse> = {
+  items: [],
+  pageNumber: 1,
+  pageSize: 25,
+  totalCount: 0,
+  totalPages: 0,
+  hasPreviousPage: false,
+  hasNextPage: false
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -116,7 +136,14 @@ const getStatusBadgeClassName = (status: DeliveryAttemptStatus | 'Unknown'): str
 
 const DeliveryLogsPage = (): JSX.Element => {
   const [logs, setLogs] = useState<DeliveryAttemptResponse[]>([]);
+  const [pageData, setPageData] = useState<PagedResponse<DeliveryAttemptResponse>>(defaultPagedResponse);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [pageRequest, setPageRequest] = useState<PageRequest>({
+    pageNumber: 1,
+    pageSize: 25,
+    sortBy: 'attemptedAt',
+    sortDirection: 'desc' as const
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -162,8 +189,13 @@ const DeliveryLogsPage = (): JSX.Element => {
       mappedFilters.targetUrl = filters.targetUrl.trim();
     }
 
+    mappedFilters.pageNumber = pageRequest.pageNumber;
+    mappedFilters.pageSize = pageRequest.pageSize;
+    mappedFilters.sortBy = pageRequest.sortBy;
+    mappedFilters.sortDirection = pageRequest.sortDirection;
+
     return mappedFilters;
-  }, [filters]);
+  }, [filters, pageRequest]);
 
   const loadDeliveryLogs = useCallback(async (activeFilters: DeliveryAttemptSearchRequest): Promise<void> => {
     setIsLoading(true);
@@ -171,9 +203,11 @@ const DeliveryLogsPage = (): JSX.Element => {
 
     try {
       const response = await deliveryLogsApi.searchDeliveryLogs(activeFilters);
-      setLogs(response);
+      setLogs(response.items);
+      setPageData(response);
     } catch (error) {
       setLogs([]);
+      setPageData(defaultPagedResponse);
       setErrorMessage(getApiErrorMessage(error, 'Unable to load delivery logs.'));
     } finally {
       setIsLoading(false);
@@ -185,6 +219,10 @@ const DeliveryLogsPage = (): JSX.Element => {
   }, [loadDeliveryLogs, requestFilters]);
 
   const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]): void => {
+    setPageRequest((previous) => ({
+      ...previous,
+      pageNumber: 1
+    }));
     setFilters((previous) => ({
       ...previous,
       [key]: value
@@ -193,10 +231,23 @@ const DeliveryLogsPage = (): JSX.Element => {
 
   const handleClearFilters = (): void => {
     setFilters(defaultFilters);
+    setPageRequest((previous) => ({
+      ...previous,
+      pageNumber: 1
+    }));
   };
 
   const handleRefresh = (): void => {
     void loadDeliveryLogs(requestFilters);
+  };
+
+  const handleSort = (sortBy: string, sortDirection: 'asc' | 'desc'): void => {
+    setPageRequest((previous) => ({
+      ...previous,
+      sortBy,
+      sortDirection,
+      pageNumber: 1
+    }));
   };
 
   const handleViewDetails = async (id: string): Promise<void> => {
@@ -308,15 +359,55 @@ const DeliveryLogsPage = (): JSX.Element => {
         <table className="min-w-[1500px] divide-y divide-slate-200 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
             <tr>
-              <th className="px-4 py-3">AttemptedAt</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="AttemptedAt"
+                  sortKey="attemptedAt"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">EventId</th>
-              <th className="px-4 py-3">EventType</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="EventType"
+                  sortKey="eventType"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">SubscriptionId</th>
               <th className="px-4 py-3">TargetUrl</th>
               <th className="px-4 py-3">AttemptNumber</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">HttpStatusCode</th>
-              <th className="px-4 py-3">DurationMs</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="Status"
+                  sortKey="status"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="HttpStatusCode"
+                  sortKey="httpStatusCode"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="DurationMs"
+                  sortKey="durationMs"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">CorrelationId</th>
               <th className="px-4 py-3">ResponseBody</th>
               <th className="px-4 py-3">Actions</th>
@@ -376,6 +467,27 @@ const DeliveryLogsPage = (): JSX.Element => {
           </tbody>
         </table>
       </div>
+      <Pagination
+        pageNumber={pageData.pageNumber}
+        pageSize={pageData.pageSize}
+        totalCount={pageData.totalCount}
+        totalPages={pageData.totalPages}
+        hasPreviousPage={pageData.hasPreviousPage}
+        hasNextPage={pageData.hasNextPage}
+        onPageChange={(nextPage) => {
+          setPageRequest((previous) => ({
+            ...previous,
+            pageNumber: nextPage
+          }));
+        }}
+        onPageSizeChange={(nextPageSize) => {
+          setPageRequest((previous) => ({
+            ...previous,
+            pageSize: nextPageSize,
+            pageNumber: 1
+          }));
+        }}
+      />
 
       {(selectedLog || detailErrorMessage || isDetailLoading) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">

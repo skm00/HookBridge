@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { failedEventsApi } from '../api/failedEventsApi';
+import { Pagination } from '../components/Pagination';
+import { SortableHeader } from '../components/SortableHeader';
 import type { FailedEventResponse, FailedEventSearchRequest, FailedEventStatus } from '../types/failedEvent';
+import type { PagedResponse } from '../types/pagination';
 
 type FilterState = {
   eventId: string;
@@ -12,6 +15,13 @@ type FilterState = {
   toDate: string;
 };
 
+type PageRequest = {
+  pageNumber: number;
+  pageSize: number;
+  sortBy: string;
+  sortDirection: 'asc' | 'desc';
+};
+
 const defaultFilters: FilterState = {
   eventId: '',
   subscriptionId: '',
@@ -19,6 +29,16 @@ const defaultFilters: FilterState = {
   status: '',
   fromDate: '',
   toDate: ''
+};
+
+const defaultPagedResponse: PagedResponse<FailedEventResponse> = {
+  items: [],
+  pageNumber: 1,
+  pageSize: 25,
+  totalCount: 0,
+  totalPages: 0,
+  hasPreviousPage: false,
+  hasNextPage: false
 };
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -86,7 +106,14 @@ const getStatusBadgeClassName = (status: FailedEventStatus | 'Unknown'): string 
 
 const FailedEventsPage = (): JSX.Element => {
   const [failedEvents, setFailedEvents] = useState<FailedEventResponse[]>([]);
+  const [pageData, setPageData] = useState<PagedResponse<FailedEventResponse>>(defaultPagedResponse);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [pageRequest, setPageRequest] = useState<PageRequest>({
+    pageNumber: 1,
+    pageSize: 25,
+    sortBy: 'failedAt',
+    sortDirection: 'desc' as const
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -122,8 +149,13 @@ const FailedEventsPage = (): JSX.Element => {
       mappedFilters.toDate = new Date(filters.toDate).toISOString();
     }
 
+    mappedFilters.pageNumber = pageRequest.pageNumber;
+    mappedFilters.pageSize = pageRequest.pageSize;
+    mappedFilters.sortBy = pageRequest.sortBy;
+    mappedFilters.sortDirection = pageRequest.sortDirection;
+
     return mappedFilters;
-  }, [filters]);
+  }, [filters, pageRequest]);
 
   const loadFailedEvents = useCallback(async (activeFilters: FailedEventSearchRequest): Promise<void> => {
     setIsLoading(true);
@@ -131,9 +163,11 @@ const FailedEventsPage = (): JSX.Element => {
 
     try {
       const response = await failedEventsApi.searchFailedEvents(activeFilters);
-      setFailedEvents(response);
+      setFailedEvents(response.items);
+      setPageData(response);
     } catch {
       setFailedEvents([]);
+      setPageData(defaultPagedResponse);
       setErrorMessage('Unable to load failed events.');
     } finally {
       setIsLoading(false);
@@ -145,6 +179,10 @@ const FailedEventsPage = (): JSX.Element => {
   }, [loadFailedEvents, requestFilters]);
 
   const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]): void => {
+    setPageRequest((previous) => ({
+      ...previous,
+      pageNumber: 1
+    }));
     setFilters((previous) => ({
       ...previous,
       [key]: value
@@ -153,12 +191,25 @@ const FailedEventsPage = (): JSX.Element => {
 
   const handleClearFilters = (): void => {
     setFilters(defaultFilters);
+    setPageRequest((previous) => ({
+      ...previous,
+      pageNumber: 1
+    }));
     setActionMessage('');
   };
 
   const handleRefresh = (): void => {
     setActionMessage('');
     void loadFailedEvents(requestFilters);
+  };
+
+  const handleSort = (sortBy: string, sortDirection: 'asc' | 'desc'): void => {
+    setPageRequest((previous) => ({
+      ...previous,
+      sortBy,
+      sortDirection,
+      pageNumber: 1
+    }));
   };
 
   const handleViewDetails = async (id: string): Promise<void> => {
@@ -292,14 +343,46 @@ const FailedEventsPage = (): JSX.Element => {
         <table className="min-w-[1750px] divide-y divide-slate-200 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
             <tr>
-              <th className="px-4 py-3">FailedAt</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="FailedAt"
+                  sortKey="failedAt"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">EventId</th>
-              <th className="px-4 py-3">EventType</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="EventType"
+                  sortKey="eventType"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">SubscriptionId</th>
               <th className="px-4 py-3">TargetUrl</th>
-              <th className="px-4 py-3">FinalAttemptNumber</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="FinalAttemptNumber"
+                  sortKey="finalAttemptNumber"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">LastHttpStatusCode</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">
+                <SortableHeader
+                  label="Status"
+                  sortKey="status"
+                  currentSortBy={pageRequest.sortBy}
+                  currentSortDirection={pageRequest.sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
               <th className="px-4 py-3">Reason</th>
               <th className="px-4 py-3">CorrelationId</th>
               <th className="px-4 py-3">LastErrorMessage</th>
@@ -383,6 +466,27 @@ const FailedEventsPage = (): JSX.Element => {
           </tbody>
         </table>
       </div>
+      <Pagination
+        pageNumber={pageData.pageNumber}
+        pageSize={pageData.pageSize}
+        totalCount={pageData.totalCount}
+        totalPages={pageData.totalPages}
+        hasPreviousPage={pageData.hasPreviousPage}
+        hasNextPage={pageData.hasNextPage}
+        onPageChange={(nextPage) => {
+          setPageRequest((previous) => ({
+            ...previous,
+            pageNumber: nextPage
+          }));
+        }}
+        onPageSizeChange={(nextPageSize) => {
+          setPageRequest((previous) => ({
+            ...previous,
+            pageSize: nextPageSize,
+            pageNumber: 1
+          }));
+        }}
+      />
 
       {(selectedEvent || detailErrorMessage || isDetailLoading) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">

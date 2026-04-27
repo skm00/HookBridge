@@ -1,15 +1,15 @@
 import { apiClient } from './apiClient';
 import type { FailedEventResponse, FailedEventSearchRequest } from '../types/failedEvent';
-import type { PagedResponse } from '../types/paging';
+import type { PagedResponse } from '../types/pagination';
 
 const searchFailedEvents = async (
   filters: FailedEventSearchRequest = {}
-): Promise<FailedEventResponse[]> => {
+): Promise<PagedResponse<FailedEventResponse>> => {
   const response = await apiClient.get<PagedResponse<FailedEventResponse>>('/api/v1/admin/failed-events', {
     params: filters
   });
 
-  return response.data.items;
+  return response.data;
 };
 
 const getFailedEventById = async (id: string): Promise<FailedEventResponse> => {

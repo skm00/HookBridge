@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { subscriptionsApi } from '../api/subscriptionsApi';
+import { Pagination } from '../components/Pagination';
+import { SortableHeader } from '../components/SortableHeader';
+import type { PagedResponse } from '../types/pagination';
 import type {
   Authentication,
   AuthenticationType,
@@ -24,6 +27,13 @@ type FilterState = {
   eventType: string;
   targetUrl: string;
   isActive: 'all' | 'true' | 'false';
+};
+
+type PageRequest = {
+  pageNumber: number;
+  pageSize: number;
+  sortBy: string;
+  sortDirection: 'asc' | 'desc';
 };
 
 type SubscriptionFormState = {
@@ -70,6 +80,16 @@ const defaultFormState: SubscriptionFormState = {
   oauthClientId: '',
   oauthClientSecret: '',
   oauthScope: ''
+};
+
+const defaultPagedResponse: PagedResponse<Subscription> = {
+  items: [],
+  pageNumber: 1,
+  pageSize: 25,
+  totalCount: 0,
+  totalPages: 0,
+  hasPreviousPage: false,
+  hasNextPage: false
 };
 
 const buildHeaderFormItem = (name = '', value = ''): HeaderFormItem => ({
@@ -211,6 +231,13 @@ const getApiErrorMessage = (error: unknown, fallback: string): string => {
 
 const SubscriptionsPage = (): JSX.Element => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [pageData, setPageData] = useState<PagedResponse<Subscription>>(defaultPagedResponse);
+  const [pageRequest, setPageRequest] = useState<PageRequest>({
+    pageNumber: 1,
+    pageSize: 25,
+    sortBy: 'createdAt',
+    sortDirection: 'desc' as const
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
@@ -248,14 +275,27 @@ const SubscriptionsPage = (): JSX.Element => {
     return payload;
   }, [filters]);
 
+  const requestFilters = useMemo<SubscriptionListFilters>(
+    () => ({
+      ...mappedFilters,
+      pageNumber: pageRequest.pageNumber,
+      pageSize: pageRequest.pageSize,
+      sortBy: pageRequest.sortBy,
+      sortDirection: pageRequest.sortDirection
+    }),
+    [mappedFilters, pageRequest]
+  );
+
   const loadSubscriptions = useCallback(async (activeFilters?: SubscriptionListFilters): Promise<void> => {
     setIsLoading(true);
     setErrorMessage('');
 
     try {
-      const items = await subscriptionsApi.getSubscriptions(activeFilters);
-      setSubscriptions(items);
+      const response = await subscriptionsApi.getSubscriptions(activeFilters);
+      setSubscriptions(response.items);
+      setPageData(response);
     } catch (error) {
+      setPageData(defaultPagedResponse);
       setErrorMessage(getApiErrorMessage(error, 'Unable to load subscriptions.'));
     } finally {
       setIsLoading(false);
@@ -263,8 +303,8 @@ const SubscriptionsPage = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
-    void loadSubscriptions();
-  }, [loadSubscriptions]);
+    void loadSubscriptions(requestFilters);
+  }, [loadSubscriptions, requestFilters]);
 
   const setFormField = <K extends keyof SubscriptionFormState>(key: K, value: SubscriptionFormState[K]): void => {
     setForm((previous) => ({
@@ -375,7 +415,7 @@ const SubscriptionsPage = (): JSX.Element => {
       }
 
       resetForm();
-      await loadSubscriptions(mappedFilters);
+      await loadSubscriptions(requestFilters);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'Unable to save subscription.'));
     } finally {
@@ -417,7 +457,7 @@ const SubscriptionsPage = (): JSX.Element => {
       if (editingSubscriptionId === id) {
         resetForm();
       }
-      await loadSubscriptions(mappedFilters);
+      await loadSubscriptions(requestFilters);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'Unable to delete subscription.'));
     } finally {
@@ -439,7 +479,7 @@ const SubscriptionsPage = (): JSX.Element => {
         setSuccessMessage('Subscription enabled successfully.');
       }
 
-      await loadSubscriptions(mappedFilters);
+      await loadSubscriptions(requestFilters);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'Unable to update subscription status.'));
     } finally {
@@ -447,12 +487,15 @@ const SubscriptionsPage = (): JSX.Element => {
     }
   };
 
-  const handleApplyFilters = async (): Promise<void> => {
+  const handleApplyFilters = (): void => {
     setSuccessMessage('');
-    await loadSubscriptions(mappedFilters);
+    setPageRequest((previous) => ({
+      ...previous,
+      pageNumber: 1
+    }));
   };
 
-  const handleResetFilters = async (): Promise<void> => {
+  const handleResetFilters = (): void => {
     const nextFilters: FilterState = {
       eventType: '',
       targetUrl: '',
@@ -460,8 +503,20 @@ const SubscriptionsPage = (): JSX.Element => {
     };
 
     setFilters(nextFilters);
+    setPageRequest((previous) => ({
+      ...previous,
+      pageNumber: 1
+    }));
     setSuccessMessage('');
-    await loadSubscriptions();
+  };
+
+  const handleSort = (sortBy: string, sortDirection: 'asc' | 'desc'): void => {
+    setPageRequest((previous) => ({
+      ...previous,
+      sortBy,
+      sortDirection,
+      pageNumber: 1
+    }));
   };
 
   return (
@@ -482,7 +537,10 @@ const SubscriptionsPage = (): JSX.Element => {
             <input
               type="text"
               value={filters.eventType}
-              onChange={(event) => setFilters((previous) => ({ ...previous, eventType: event.target.value }))}
+              onChange={(event) => {
+                setPageRequest((previous) => ({ ...previous, pageNumber: 1 }));
+                setFilters((previous) => ({ ...previous, eventType: event.target.value }));
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
               placeholder="order.created"
             />
@@ -493,7 +551,10 @@ const SubscriptionsPage = (): JSX.Element => {
             <input
               type="text"
               value={filters.targetUrl}
-              onChange={(event) => setFilters((previous) => ({ ...previous, targetUrl: event.target.value }))}
+              onChange={(event) => {
+                setPageRequest((previous) => ({ ...previous, pageNumber: 1 }));
+                setFilters((previous) => ({ ...previous, targetUrl: event.target.value }));
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
               placeholder="https://example.com/webhook"
             />
@@ -503,12 +564,13 @@ const SubscriptionsPage = (): JSX.Element => {
             Is Active
             <select
               value={filters.isActive}
-              onChange={(event) =>
+              onChange={(event) => {
+                setPageRequest((previous) => ({ ...previous, pageNumber: 1 }));
                 setFilters((previous) => ({
                   ...previous,
                   isActive: event.target.value as FilterState['isActive']
-                }))
-              }
+                }));
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
             >
               <option value="all">All</option>
@@ -520,14 +582,14 @@ const SubscriptionsPage = (): JSX.Element => {
           <div className="flex items-end gap-2">
             <button
               type="button"
-              onClick={() => void handleApplyFilters()}
+              onClick={handleApplyFilters}
               className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
             >
               Apply
             </button>
             <button
               type="button"
-              onClick={() => void handleResetFilters()}
+              onClick={handleResetFilters}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               Reset
@@ -541,12 +603,44 @@ const SubscriptionsPage = (): JSX.Element => {
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
               <tr>
-                <th className="px-4 py-3">EventType</th>
-                <th className="px-4 py-3">TargetUrl</th>
-                <th className="px-4 py-3">IsActive</th>
+                <th className="px-4 py-3">
+                  <SortableHeader
+                    label="EventType"
+                    sortKey="eventType"
+                    currentSortBy={pageRequest.sortBy}
+                    currentSortDirection={pageRequest.sortDirection}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="px-4 py-3">
+                  <SortableHeader
+                    label="TargetUrl"
+                    sortKey="targetUrl"
+                    currentSortBy={pageRequest.sortBy}
+                    currentSortDirection={pageRequest.sortDirection}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="px-4 py-3">
+                  <SortableHeader
+                    label="IsActive"
+                    sortKey="isActive"
+                    currentSortBy={pageRequest.sortBy}
+                    currentSortDirection={pageRequest.sortDirection}
+                    onSort={handleSort}
+                  />
+                </th>
                 <th className="px-4 py-3">TimeoutSeconds</th>
                 <th className="px-4 py-3">RetryPolicy</th>
-                <th className="px-4 py-3">CreatedAt</th>
+                <th className="px-4 py-3">
+                  <SortableHeader
+                    label="CreatedAt"
+                    sortKey="createdAt"
+                    currentSortBy={pageRequest.sortBy}
+                    currentSortDirection={pageRequest.sortDirection}
+                    onSort={handleSort}
+                  />
+                </th>
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
@@ -620,6 +714,28 @@ const SubscriptionsPage = (): JSX.Element => {
           </table>
         </div>
       </div>
+
+      <Pagination
+        pageNumber={pageData.pageNumber}
+        pageSize={pageData.pageSize}
+        totalCount={pageData.totalCount}
+        totalPages={pageData.totalPages}
+        hasPreviousPage={pageData.hasPreviousPage}
+        hasNextPage={pageData.hasNextPage}
+        onPageChange={(nextPage) => {
+          setPageRequest((previous) => ({
+            ...previous,
+            pageNumber: nextPage
+          }));
+        }}
+        onPageSizeChange={(nextPageSize) => {
+          setPageRequest((previous) => ({
+            ...previous,
+            pageSize: nextPageSize,
+            pageNumber: 1
+          }));
+        }}
+      />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
