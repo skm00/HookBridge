@@ -99,6 +99,17 @@ The React dashboard now includes end-to-end authentication screens and route pro
 
 Set `VITE_API_BASE_URL` (see `src/HookBridge.Dashboard/.env.example`) so the dashboard can call `POST /api/v1/auth/register` and `POST /api/v1/auth/login`.
 
+
+## Dashboard Overview Page
+
+The `/overview` dashboard route now integrates with `GET /api/v1/admin/dashboard/overview` and includes:
+- Tenant summary (tenant name and tenant id).
+- Plan badge and monthly usage display (`eventsReceivedThisMonth / monthlyEventLimit`).
+- Automatic `Unlimited` usage display for Enterprise (or effectively unlimited) plans.
+- Metrics cards for received/delivered/failed events, delivery attempts, DLQ events, and success rate.
+- Loading and non-401 error states with a refresh action.
+- Formatted date range, locale-formatted numbers, and a success-rate badge with 2 decimal precision.
+
 ## Admin API Tenant Security
 
 - Admin JWTs include a `tenantId` claim and admin endpoints resolve the current tenant from the JWT on every request.
