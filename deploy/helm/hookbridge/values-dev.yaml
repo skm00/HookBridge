@@ -1,0 +1,68 @@
+api:
+  replicaCount: 1
+  image:
+    tag: "dev"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+worker:
+  replicaCount: 1
+  image:
+    tag: "dev"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+dashboard:
+  replicaCount: 1
+  image:
+    tag: "dev"
+  env:
+    viteApiBaseUrl: "http://hookbridge.local/api"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 128Mi
+
+config:
+  aspnetcoreEnvironment: "Development"
+  mongodb:
+    connectionString: "mongodb://localhost:27017"
+  kafka:
+    bootstrapServers: "localhost:9092"
+  elastic:
+    elasticsearchUrl: "http://localhost:9200"
+    environment: "development"
+  elasticApm:
+    serverUrl: "http://localhost:8200"
+    enabled: "false"
+
+ingress:
+  enabled: true
+  host: hookbridge.local
+  tls:
+    enabled: false
+
+autoscaling:
+  api:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 80
+  worker:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 80
