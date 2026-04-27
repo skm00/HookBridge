@@ -25,3 +25,41 @@ docker compose -f deploy/docker-compose.yml up -d
 Both API and Worker development settings use:
 - Connection string: `mongodb://localhost:27017`
 - Database: `hookbridge`
+
+## Tenant Management API (Admin)
+
+### Create tenant
+```bash
+curl -X POST http://localhost:5000/api/v1/admin/tenants \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Acme Inc",
+    "slug": "acme-inc",
+    "contactEmail": "ops@acme.com"
+  }'
+```
+
+### Get all tenants
+```bash
+curl http://localhost:5000/api/v1/admin/tenants
+```
+
+### Get tenant by id
+```bash
+curl http://localhost:5000/api/v1/admin/tenants/{tenantId}
+```
+
+### Update tenant
+```bash
+curl -X PUT http://localhost:5000/api/v1/admin/tenants/{tenantId} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Acme Corporation",
+    "contactEmail": "platform@acme.com"
+  }'
+```
+
+### Disable tenant
+```bash
+curl -X DELETE http://localhost:5000/api/v1/admin/tenants/{tenantId}
+```

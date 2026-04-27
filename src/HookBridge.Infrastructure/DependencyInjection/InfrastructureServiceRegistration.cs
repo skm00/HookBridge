@@ -2,6 +2,7 @@ using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Persistence;
+using HookBridge.Infrastructure.Persistence.Indexes;
 using HookBridge.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,6 +42,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
+        services.AddHostedService<MongoIndexInitializerHostedService>();
 
         return services;
     }

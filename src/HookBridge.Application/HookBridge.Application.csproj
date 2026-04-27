@@ -6,4 +6,7 @@
     <ProjectReference Include="..\HookBridge.Domain\HookBridge.Domain.csproj" />
     <ProjectReference Include="..\HookBridge.Shared\HookBridge.Shared.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+  </ItemGroup>
 </Project>

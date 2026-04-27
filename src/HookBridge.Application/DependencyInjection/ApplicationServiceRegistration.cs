@@ -1,0 +1,23 @@
+using FluentValidation;
+using HookBridge.Application.DTOs.Tenants;
+using HookBridge.Application.Interfaces.Services;
+using HookBridge.Application.Services;
+using HookBridge.Application.Validation.Tenants;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace HookBridge.Application.DependencyInjection;
+
+/// <summary>
+/// Registers application-layer services.
+/// </summary>
+public static class ApplicationServiceRegistration
+{
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    {
+        services.AddScoped<ITenantService, TenantService>();
+        services.AddScoped<IValidator<CreateTenantRequestDto>, CreateTenantRequestDtoValidator>();
+        services.AddScoped<IValidator<UpdateTenantRequestDto>, UpdateTenantRequestDtoValidator>();
+
+        return services;
+    }
+}

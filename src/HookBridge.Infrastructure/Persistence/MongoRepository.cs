@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Domain.Entities;
 using MongoDB.Driver;
@@ -21,6 +22,19 @@ public sealed class MongoRepository<T>(IMongoDatabase database) : IMongoReposito
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        var entities = await _collection.Find(predicate).ToListAsync(cancellationToken);
+        return entities;
+    }
+
+    /// <inheritdoc />
+    public Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        return _collection.Find(predicate).FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var filter = Builders<T>.Filter.Empty;
@@ -35,12 +49,10 @@ public sealed class MongoRepository<T>(IMongoDatabase database) : IMongoReposito
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
+    public Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
-        entity.UpdatedAt = DateTime.UtcNow;
-
         var filter = Builders<T>.Filter.Eq(current => current.Id, entity.Id);
-        await _collection.ReplaceOneAsync(filter, entity, cancellationToken: cancellationToken);
+        return _collection.ReplaceOneAsync(filter, entity, cancellationToken: cancellationToken);
     }
 
     /// <inheritdoc />
