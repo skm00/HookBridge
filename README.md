@@ -131,8 +131,17 @@ If Kafka publish fails after the event is stored, the API still returns `202 Acc
 `HookBridge.Worker` runs `WebhookEventConsumerWorker`, which:
 - Subscribes to Kafka topic `webhook-events` with `Kafka:ConsumerGroupId`.
 - Deserializes each message into `WebhookEventMessage`.
-- Logs the received message metadata (`TenantId`, `EventId`, `EventType`, `CorrelationId`).
-- Does **not** deliver webhooks yet (delivery/retry/DLQ are intentionally not implemented in this stage).
+- Calls the application delivery flow for first-attempt delivery.
+- Continues processing later events if one event fails.
+
+Delivery flow:
+1. Event ingestion stores incoming events.
+2. Kafka carries `WebhookEventMessage` on `webhook-events`.
+3. Worker loads matching active subscriptions by tenant + event type.
+4. Worker sends webhook POST requests to each subscription target URL.
+5. Worker stores `DeliveryAttempt` logs and updates `IncomingEvent` status.
+
+Current scope is first-attempt delivery only (no retry or DLQ yet).
 
 ## Outbound Webhook Delivery Request Format
 
