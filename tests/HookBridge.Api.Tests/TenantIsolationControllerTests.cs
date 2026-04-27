@@ -2,6 +2,7 @@ using HookBridge.Api.Controllers;
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Application.DTOs.DeliveryAttempts;
 using HookBridge.Application.DTOs.FailedEvents;
+using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.DTOs.Tenants;
 using HookBridge.Application.Exceptions;
@@ -98,6 +99,24 @@ public sealed class TenantIsolationControllerTests
             NullLogger<FailedEventsController>.Instance);
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.RetryAsync("failed-1", CancellationToken.None));
+    }
+
+
+    [Fact]
+    public async Task IncomingEventGetById_ForAnotherTenant_IsBlocked()
+    {
+        var service = new FakeIncomingEventQueryService
+        {
+            Item = new IncomingEventResponseDto { Id = "incoming-1", TenantId = "tenant-2", EventId = "evt-1", EventType = "order.created", Status = "Accepted", ReceivedAt = DateTime.UtcNow, Payload = new { } },
+        };
+
+        var controller = new IncomingEventsController(
+            service,
+            new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
+            TenantIsolationTestHelpers.CreateValidator(),
+            NullLogger<IncomingEventsController>.Instance);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByIdAsync("incoming-1", CancellationToken.None));
     }
 
     [Fact]
@@ -206,6 +225,18 @@ public sealed class TenantIsolationControllerTests
             => Task.FromResult(Item);
 
         public Task<bool> RetryAsync(string failedEventId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+    }
+
+
+    private sealed class FakeIncomingEventQueryService : IIncomingEventQueryService
+    {
+        public IncomingEventResponseDto? Item { get; set; }
+
+        public Task<IReadOnlyList<IncomingEventResponseDto>> SearchAsync(IncomingEventSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<IncomingEventResponseDto>>([]);
+
+        public Task<IncomingEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult(Item);
     }
 
     private sealed class FakeTenantService : ITenantService
