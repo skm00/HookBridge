@@ -4,6 +4,7 @@ using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Services.Messaging;
 using Microsoft.Extensions.Options;
 using Moq;
+using Xunit;
 
 namespace HookBridge.Worker.Tests;
 

@@ -6,6 +6,7 @@ using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.Models.Delivery;
 using HookBridge.Infrastructure.Services;
 using Moq;
+using Xunit;
 
 namespace HookBridge.Worker.Tests;
 
