@@ -1,4 +1,5 @@
 using FluentValidation;
+using HookBridge.Application.Configuration;
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
@@ -7,7 +8,9 @@ using HookBridge.Application.Services;
 using HookBridge.Application.Validation.Subscriptions;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace HookBridge.Application.Tests;
@@ -86,6 +89,108 @@ public sealed class SubscriptionServiceTests
             new KeyValueDto { Name = "x-signature", Value = "1" },
             new KeyValueDto { Name = "X-Signature", Value = "2" },
         ];
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+    }
+
+
+    [Fact]
+    public async Task TargetUrl_NonHttpScheme_FailsValidation()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+
+        var request = BuildValidRequest();
+        request.TargetUrl = "ftp://example.com/hook";
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+    }
+
+    [Fact]
+    public async Task TargetUrl_PrivateAddressInProduction_FailsValidation()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var createValidator = new CreateSubscriptionRequestDtoValidator(
+            new TestHostEnvironment(Environments.Production),
+            Options.Create(new SecuritySettings { AllowPrivateNetworkTargetUrls = false }));
+        var updateValidator = new UpdateSubscriptionRequestDtoValidator(
+            new TestHostEnvironment(Environments.Production),
+            Options.Create(new SecuritySettings { AllowPrivateNetworkTargetUrls = false }));
+        var service = CreateService(subscriptionRepo, tenantRepo, createValidator, updateValidator);
+
+        var request = BuildValidRequest();
+        request.TargetUrl = "http://127.0.0.1:8080/hook";
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+    }
+
+    [Fact]
+    public async Task HeaderCrLfInjection_FailsValidation()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+
+        var request = BuildValidRequest();
+        request.Headers = [new KeyValueDto { Name = "x-test", Value = "ok\r\nmalicious:true" }];
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+    }
+
+    [Fact]
+    public async Task TooManyCustomHeaders_FailsValidation()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+
+        var request = BuildValidRequest();
+        request.Headers = Enumerable.Range(1, 31)
+            .Select(index => new KeyValueDto { Name = $"x-test-{index}", Value = "value" })
+            .ToList();
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+    }
+
+    [Fact]
+    public async Task RestrictedHeader_FailsValidation()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+
+        var request = BuildValidRequest();
+        request.Headers = [new KeyValueDto { Name = "Host", Value = "example.com" }];
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+    }
+
+    [Fact]
+    public async Task OAuthTokenUrl_RequiresHttpsInProduction()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var createValidator = new CreateSubscriptionRequestDtoValidator(
+            new TestHostEnvironment(Environments.Production),
+            Options.Create(new SecuritySettings { AllowPrivateNetworkTargetUrls = false }));
+        var updateValidator = new UpdateSubscriptionRequestDtoValidator(
+            new TestHostEnvironment(Environments.Production),
+            Options.Create(new SecuritySettings { AllowPrivateNetworkTargetUrls = false }));
+        var service = CreateService(subscriptionRepo, tenantRepo, createValidator, updateValidator);
+
+        var request = BuildValidRequest();
+        request.Authentication = new AuthenticationDto
+        {
+            Type = "OAuth2ClientCredentials",
+            OAuth2 = new OAuth2ClientCredentialsDto
+            {
+                TokenUrl = "http://auth.example.com/token",
+                ClientId = "client-id",
+                ClientSecret = "client-secret",
+            },
+        };
 
         await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
     }
@@ -381,15 +486,19 @@ public sealed class SubscriptionServiceTests
         TimeoutSeconds = 30,
     };
 
-    private static SubscriptionService CreateService(InMemoryRepository<Subscription> subscriptionRepo, InMemoryRepository<Tenant> tenantRepo)
+    private static SubscriptionService CreateService(
+        InMemoryRepository<Subscription> subscriptionRepo,
+        InMemoryRepository<Tenant> tenantRepo,
+        CreateSubscriptionRequestDtoValidator? createValidator = null,
+        UpdateSubscriptionRequestDtoValidator? updateValidator = null)
     {
         return new SubscriptionService(
             subscriptionRepo,
             tenantRepo,
             new FixedGuidGenerator(),
             new FixedDateTimeProvider(),
-            new CreateSubscriptionRequestDtoValidator(),
-            new UpdateSubscriptionRequestDtoValidator(),
+            createValidator ?? new CreateSubscriptionRequestDtoValidator(),
+            updateValidator ?? new UpdateSubscriptionRequestDtoValidator(),
             NullLogger<SubscriptionService>.Instance);
     }
 
@@ -422,6 +531,15 @@ public sealed class SubscriptionServiceTests
     private sealed class FixedDateTimeProvider : IDateTimeProvider
     {
         public DateTime UtcNow => new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private sealed class TestHostEnvironment(string environmentName) : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ApplicationName { get; set; } = "HookBridge.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; }
+            = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(AppContext.BaseDirectory);
     }
 
     private sealed class InMemoryRepository<T> : IMongoRepository<T>

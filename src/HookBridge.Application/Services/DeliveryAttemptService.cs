@@ -33,6 +33,7 @@ public sealed class DeliveryAttemptService(IDeliveryAttemptRepository deliveryAt
         Status = entity.Status,
         HttpStatusCode = entity.HttpStatusCode,
         ResponseBody = entity.ResponseBody,
+        ResponseBodyTruncated = entity.ResponseBodyTruncated,
         ErrorMessage = entity.ErrorMessage,
         DurationMs = entity.DurationMs,
         AttemptedAt = entity.AttemptedAt,

@@ -151,6 +151,30 @@ public sealed class WebhookDeliveryServiceTests
         Assert.Single(sent.Headers);
     }
 
+
+    [Fact]
+    public async Task ResponseBody_IsTruncatedBeforeStorage()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1");
+        var largeBody = new string('x', HookBridge.Shared.Constants.ValidationLimits.MaxResponseBodyStoredLength + 250);
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult
+        {
+            IsSuccess = false,
+            HttpStatusCode = 500,
+            ResponseBody = largeBody,
+            ErrorMessage = "too large",
+            DurationMs = 18,
+        });
+
+        await fixture.Service.ProcessEventAsync(fixture.Message);
+
+        var attempt = (await fixture.Attempts.GetAllAsync()).Single();
+        Assert.Equal(HookBridge.Shared.Constants.ValidationLimits.MaxResponseBodyStoredLength, attempt.ResponseBody!.Length);
+        Assert.True(attempt.ResponseBodyTruncated);
+    }
+
     [Fact]
     public async Task ProcessEvent_FailedDelivery_PublishesWebhookRetryMessage()
     {

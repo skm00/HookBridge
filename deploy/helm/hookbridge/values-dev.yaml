@@ -48,6 +48,8 @@ config:
   elasticApm:
     serverUrl: "http://localhost:8200"
     enabled: "false"
+  security:
+    allowPrivateNetworkTargetUrls: "true"
 
 ingress:
   enabled: true

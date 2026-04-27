@@ -1,3 +1,4 @@
+using HookBridge.Application.Configuration;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
@@ -103,6 +104,19 @@ public static class InfrastructureServiceRegistration
                 settings.Enabled ? Required(settings.ServiceName, "ServiceName") : null,
                 settings.Enabled ? Required(settings.Environment, "Environment") : null,
             ]);
+
+        services.AddValidatedOptions<SecuritySettings>(
+            configuration,
+            "Security",
+            _ => []);
+
+        services.PostConfigure<SecuritySettings>(settings =>
+        {
+            if (string.IsNullOrWhiteSpace(configuration["Security:AllowPrivateNetworkTargetUrls"]))
+            {
+                settings.AllowPrivateNetworkTargetUrls = environment.IsDevelopment();
+            }
+        });
 
         services.AddSingleton<IMongoClient>(serviceProvider =>
         {
