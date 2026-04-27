@@ -462,3 +462,19 @@ curl "http://localhost:5000/api/v1/admin/delivery-logs?tenantId={tenantId}&event
 ```bash
 curl http://localhost:5000/api/v1/admin/delivery-logs/{deliveryAttemptId}
 ```
+
+## Dashboard Frontend (React)
+
+A React + TypeScript + Vite dashboard foundation is available at `src/HookBridge.Dashboard`.
+
+```bash
+cd src/HookBridge.Dashboard
+npm install
+npm run dev
+```
+
+The app expects an API base URL in `.env` (see `.env.example`):
+
+```bash
+VITE_API_BASE_URL=http://localhost:5000
+```
