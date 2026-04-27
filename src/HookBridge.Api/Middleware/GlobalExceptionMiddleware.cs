@@ -48,6 +48,20 @@ public sealed class GlobalExceptionMiddleware(RequestDelegate next)
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
+        catch (KeyNotFoundException keyNotFoundException)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                message = keyNotFoundException.Message,
+                traceId = context.TraceIdentifier,
+                statusCode = StatusCodes.Status404NotFound,
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        }
         catch (Exception)
         {
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
