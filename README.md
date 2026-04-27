@@ -87,6 +87,18 @@ curl http://localhost:5000/api/v1/admin/tenants   -H "Authorization: Bearer <jwt
 
 Event ingestion remains API-key based (`x-api-key`) and is intentionally not JWT-based.
 
+
+## Dashboard Authentication Flow
+
+The React dashboard now includes end-to-end authentication screens and route protection:
+- Register at `/register` by providing tenant id, full name, email, password, and role.
+- Login at `/login` with email and password.
+- On successful login/registration, the JWT is stored in browser local storage.
+- Protected dashboard routes (for example `/overview`) require a stored token and redirect unauthenticated users to `/login`.
+- Logout clears the local token and returns the user to `/login`.
+
+Set `VITE_API_BASE_URL` (see `src/HookBridge.Dashboard/.env.example`) so the dashboard can call `POST /api/v1/auth/register` and `POST /api/v1/auth/login`.
+
 ## Admin API Tenant Security
 
 - Admin JWTs include a `tenantId` claim and admin endpoints resolve the current tenant from the JWT on every request.
