@@ -205,6 +205,12 @@ Current usage endpoint:
 curl http://localhost:5000/api/v1/admin/tenants/{tenantId}/usage/current
 ```
 
+Dashboard overview endpoint:
+```bash
+curl http://localhost:5000/api/v1/admin/dashboard/overview \
+  -H "Authorization: Bearer <jwt-token>"
+```
+
 ## Stripe Billing Setup (Foundation)
 
 Add Stripe settings under `Stripe` in `src/HookBridge.Api/appsettings.Development.json`:

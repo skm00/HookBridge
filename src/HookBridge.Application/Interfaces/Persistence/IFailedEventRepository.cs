@@ -14,4 +14,9 @@ public interface IFailedEventRepository
     Task<FailedEvent?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default);
+
+    Task<long> CountByStatusAsync(
+        string tenantId,
+        string status,
+        CancellationToken cancellationToken = default);
 }

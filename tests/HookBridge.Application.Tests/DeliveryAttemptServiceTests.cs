@@ -240,5 +240,20 @@ public sealed class DeliveryAttemptServiceTests
 
         public Task<DeliveryAttempt?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
+
+        public Task<long> CountAsync(string tenantId, DateTime fromDateInclusive, DateTime toDateExclusive, DeliveryStatus? status, CancellationToken cancellationToken = default)
+        {
+            IEnumerable<DeliveryAttempt> query = _items.Where(x =>
+                x.TenantId == tenantId &&
+                x.AttemptedAt >= fromDateInclusive &&
+                x.AttemptedAt < toDateExclusive);
+
+            if (status.HasValue)
+            {
+                query = query.Where(x => x.Status == status.Value);
+            }
+
+            return Task.FromResult(query.LongCount());
+        }
     }
 }

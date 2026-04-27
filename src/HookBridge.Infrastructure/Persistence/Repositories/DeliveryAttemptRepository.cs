@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using HookBridge.Application.DTOs.DeliveryAttempts;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Domain.Entities;
+using HookBridge.Domain.Enums;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -80,4 +81,26 @@ public sealed class DeliveryAttemptRepository(IMongoDatabase database) : IDelive
     {
         return _collection.Find(x => x.Id == id).FirstOrDefaultAsync(cancellationToken);
     }
+
+
+    public Task<long> CountAsync(
+        string tenantId,
+        DateTime fromDateInclusive,
+        DateTime toDateExclusive,
+        DeliveryStatus? status,
+        CancellationToken cancellationToken = default)
+    {
+        var filter = Builders<DeliveryAttempt>.Filter.And(
+            Builders<DeliveryAttempt>.Filter.Eq(x => x.TenantId, tenantId),
+            Builders<DeliveryAttempt>.Filter.Gte(x => x.AttemptedAt, fromDateInclusive),
+            Builders<DeliveryAttempt>.Filter.Lt(x => x.AttemptedAt, toDateExclusive));
+
+        if (status.HasValue)
+        {
+            filter &= Builders<DeliveryAttempt>.Filter.Eq(x => x.Status, status.Value);
+        }
+
+        return _collection.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+    }
+
 }
