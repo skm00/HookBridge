@@ -1,4 +1,5 @@
 using HookBridge.Domain.Enums;
+using HookBridge.Domain.Configuration;
 
 namespace HookBridge.Domain.Entities;
 
@@ -7,6 +8,16 @@ namespace HookBridge.Domain.Entities;
 /// </summary>
 public sealed class Tenant : BaseEntity
 {
+    /// <summary>
+    /// Gets or sets the tenant billing plan.
+    /// </summary>
+    public BillingPlan Plan { get; set; } = BillingPlan.Free;
+
+    /// <summary>
+    /// Gets or sets the max number of events accepted in the current month.
+    /// </summary>
+    public int MonthlyEventLimit { get; set; } = BillingPlanLimits.Free;
+
     /// <summary>
     /// Gets or sets the tenant display name.
     /// </summary>

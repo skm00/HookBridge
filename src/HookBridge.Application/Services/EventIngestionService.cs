@@ -14,6 +14,7 @@ namespace HookBridge.Application.Services;
 public sealed class EventIngestionService(
     IMongoRepository<IncomingEvent> incomingEventRepository,
     IApiKeyService apiKeyService,
+    IUsageService usageService,
     IGuidGenerator guidGenerator,
     IDateTimeProvider dateTimeProvider,
     IValidator<EventIngestionRequestDto> validator,
@@ -62,6 +63,12 @@ public sealed class EventIngestionService(
             };
         }
 
+        var canAccept = await usageService.CanAcceptEventAsync(tenantId, cancellationToken);
+        if (!canAccept)
+        {
+            throw new TooManyRequestsException("Monthly event limit exceeded for the current billing plan.");
+        }
+
         var now = dateTimeProvider.UtcNow;
         var incomingEvent = new IncomingEvent
         {
@@ -80,6 +87,7 @@ public sealed class EventIngestionService(
         };
 
         await incomingEventRepository.AddAsync(incomingEvent, cancellationToken);
+        await usageService.IncrementEventsReceivedAsync(tenantId, cancellationToken);
 
         try
         {

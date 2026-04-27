@@ -13,6 +13,7 @@ public sealed class EventsController(IEventIngestionService eventIngestionServic
     [ProducesResponseType(typeof(EventIngestionResponseDto), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<EventIngestionResponseDto>> IngestAsync(
         string tenantId,
         [FromBody] EventIngestionRequestDto request,
@@ -41,6 +42,10 @@ public sealed class EventsController(IEventIngestionService eventIngestionServic
         catch (UnauthorizedException)
         {
             return Unauthorized(new { message = "Invalid API key." });
+        }
+        catch (TooManyRequestsException ex)
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new { message = ex.Message });
         }
     }
 }

@@ -27,6 +27,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IDeliveryAttemptService, DeliveryAttemptService>();
         services.AddScoped<IFailedEventService, FailedEventService>();
         services.AddScoped<IWebhookDeliveryService, WebhookDeliveryService>();
+        services.AddScoped<IUsageService, UsageService>();
         services.AddScoped<IRetryPolicyService, RetryPolicyService>();
         services.AddScoped<IValidator<CreateTenantRequestDto>, CreateTenantRequestDtoValidator>();
         services.AddScoped<IValidator<UpdateTenantRequestDto>, UpdateTenantRequestDtoValidator>();

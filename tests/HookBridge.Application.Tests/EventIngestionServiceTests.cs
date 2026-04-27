@@ -21,7 +21,8 @@ public sealed class EventIngestionServiceTests
     {
         var repository = new InMemoryRepository<IncomingEvent>();
         var kafkaProducer = new FakeKafkaProducer();
-        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer);
+        var usageService = new FakeUsageService();
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer, usageService);
 
         var response = await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-1"), "corr-1");
 
@@ -57,7 +58,8 @@ public sealed class EventIngestionServiceTests
         });
 
         var kafkaProducer = new FakeKafkaProducer();
-        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer);
+        var usageService = new FakeUsageService();
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer, usageService);
         var response = await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-1"), "corr-1");
 
         Assert.Equal("accepted", response.Status);
@@ -66,6 +68,32 @@ public sealed class EventIngestionServiceTests
         var stored = await repository.FindAsync(x => x.TenantId == "tenant-1" && x.EventId == "evt-1");
         Assert.Single(stored);
         Assert.False(kafkaProducer.WasCalled);
+        Assert.Equal(0, usageService.EventsReceivedIncrements);
+    }
+
+    [Fact]
+    public async Task IngestEvent_IncrementsEventsReceived()
+    {
+        var repository = new InMemoryRepository<IncomingEvent>();
+        var usageService = new FakeUsageService { CanAcceptEvent = true };
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), new FakeKafkaProducer(), usageService);
+
+        await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-usage"), "corr-usage");
+
+        Assert.Equal(1, usageService.EventsReceivedIncrements);
+    }
+
+    [Fact]
+    public async Task IngestEvent_WhenLimitExceeded_ThrowsTooManyRequests()
+    {
+        var repository = new InMemoryRepository<IncomingEvent>();
+        var usageService = new FakeUsageService { CanAcceptEvent = false };
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), new FakeKafkaProducer(), usageService);
+
+        var ex = await Assert.ThrowsAsync<TooManyRequestsException>(() =>
+            service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-limit"), "corr-limit"));
+
+        Assert.Equal("Monthly event limit exceeded for the current billing plan.", ex.Message);
     }
 
     [Fact]
@@ -158,11 +186,13 @@ public sealed class EventIngestionServiceTests
     private static EventIngestionService CreateService(
         InMemoryRepository<IncomingEvent> repository,
         IApiKeyService apiKeyService,
-        IKafkaProducer kafkaProducer)
+        IKafkaProducer kafkaProducer,
+        IUsageService? usageService = null)
     {
         return new EventIngestionService(
             repository,
             apiKeyService,
+            usageService ?? new FakeUsageService(),
             new FixedGuidGenerator(),
             new FixedDateTimeProvider(),
             new EventIngestionRequestDtoValidator(),
@@ -219,6 +249,36 @@ public sealed class EventIngestionServiceTests
             => Task.FromResult(valid
                 ? new ApiKeyValidationResult { IsValid = true, TenantId = tenantId, ApiKeyId = "api-key-1" }
                 : new ApiKeyValidationResult { IsValid = false, FailureReason = "api_key_not_found" });
+    }
+
+    private sealed class FakeUsageService : IUsageService
+    {
+        public bool CanAcceptEvent { get; set; } = true;
+        public int EventsReceivedIncrements { get; private set; }
+
+        public Task<UsageMetric> GetCurrentMonthUsageAsync(string tenantId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new UsageMetric
+            {
+                TenantId = tenantId,
+                Year = 2026,
+                Month = 4,
+                EventsReceived = EventsReceivedIncrements,
+                LastUpdatedAt = new DateTime(2026, 4, 27, 10, 30, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 4, 27, 10, 30, 0, DateTimeKind.Utc),
+            });
+
+        public Task IncrementEventsReceivedAsync(string tenantId, CancellationToken cancellationToken = default)
+        {
+            EventsReceivedIncrements++;
+            return Task.CompletedTask;
+        }
+
+        public Task IncrementEventsDeliveredAsync(string tenantId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task IncrementEventsFailedAsync(string tenantId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<bool> CanAcceptEventAsync(string tenantId, CancellationToken cancellationToken = default)
+            => Task.FromResult(CanAcceptEvent);
     }
 
     private sealed class FixedGuidGenerator : IGuidGenerator
