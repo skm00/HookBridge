@@ -14,6 +14,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="FluentValidation.TestHelper" Version="11.11.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\HookBridge.Application\HookBridge.Application.csproj" />

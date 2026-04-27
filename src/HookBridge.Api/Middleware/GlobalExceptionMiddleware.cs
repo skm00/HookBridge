@@ -1,4 +1,6 @@
 using System.Text.Json;
+using FluentValidation;
+using HookBridge.Application.Exceptions;
 
 namespace HookBridge.Api.Middleware;
 
@@ -16,6 +18,35 @@ public sealed class GlobalExceptionMiddleware(RequestDelegate next)
         try
         {
             await next(context);
+        }
+        catch (ValidationException validationException)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                message = "Validation failed.",
+                errors = validationException.Errors.Select(x => new { x.PropertyName, x.ErrorMessage }),
+                traceId = context.TraceIdentifier,
+                statusCode = StatusCodes.Status400BadRequest,
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        }
+        catch (ConflictException conflictException)
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                message = conflictException.Message,
+                traceId = context.TraceIdentifier,
+                statusCode = StatusCodes.Status409Conflict,
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
         catch (Exception)
         {
