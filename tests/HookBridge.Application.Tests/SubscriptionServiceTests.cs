@@ -188,6 +188,184 @@ public sealed class SubscriptionServiceTests
         Assert.Equal("********", created.Authentication!.Basic!.Password);
     }
 
+    [Fact]
+    public async Task UpdateSubscription_Success()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+        var created = await service.CreateAsync(BuildValidRequest());
+
+        var updated = await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        {
+            EventType = "order.updated",
+            TargetUrl = "https://example.com/updated",
+            TimeoutSeconds = 60,
+        });
+
+        Assert.NotNull(updated);
+        Assert.Equal("order.updated", updated!.EventType);
+        Assert.Equal("https://example.com/updated", updated.TargetUrl);
+        Assert.Equal(60, updated.TimeoutSeconds);
+        Assert.Equal(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), updated.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task UpdateSubscription_OnlyProvidedFieldsAreChanged()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+        var created = await service.CreateAsync(BuildValidRequest());
+
+        var updated = await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        {
+            TargetUrl = "https://example.com/new-target",
+        });
+
+        Assert.NotNull(updated);
+        Assert.Equal("order.created", updated!.EventType);
+        Assert.Equal("https://example.com/new-target", updated.TargetUrl);
+        Assert.Equal(30, updated.TimeoutSeconds);
+    }
+
+    [Fact]
+    public async Task UpdateSubscription_ReturnsNull_WhenNotFound()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+
+        var updated = await service.UpdateAsync("missing", new UpdateSubscriptionRequestDto
+        {
+            EventType = "order.updated",
+        });
+
+        Assert.Null(updated);
+    }
+
+    [Fact]
+    public async Task UpdateSubscription_InvalidTargetUrl_FailsValidation()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+        var created = await service.CreateAsync(BuildValidRequest());
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        {
+            TargetUrl = "/invalid",
+        }));
+    }
+
+    [Fact]
+    public async Task UpdateSubscription_DuplicateHeaders_FailsValidation()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+        var created = await service.CreateAsync(BuildValidRequest());
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        {
+            Headers =
+            [
+                new KeyValueDto { Name = "x-test", Value = "1" },
+                new KeyValueDto { Name = "X-Test", Value = "2" },
+            ],
+        }));
+    }
+
+    [Fact]
+    public async Task DeleteSubscription_Success()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+        var created = await service.CreateAsync(BuildValidRequest());
+
+        var deleted = await service.DeleteAsync(created.Id);
+        var fetched = await service.GetByIdAsync(created.Id);
+
+        Assert.True(deleted);
+        Assert.Null(fetched);
+    }
+
+    [Fact]
+    public async Task DeleteSubscription_ReturnsFalse_WhenNotFound()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+
+        var deleted = await service.DeleteAsync("missing");
+
+        Assert.False(deleted);
+    }
+
+    [Fact]
+    public async Task DisableSubscription_SetsInactiveAndDisabledAt()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+        var created = await service.CreateAsync(BuildValidRequest());
+
+        var disabled = await service.DisableAsync(created.Id);
+        var fetched = await service.GetByIdAsync(created.Id);
+
+        Assert.True(disabled);
+        Assert.NotNull(fetched);
+        Assert.False(fetched!.IsActive);
+        Assert.Equal(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), fetched.DisabledAt);
+        Assert.Equal(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), fetched.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task EnableSubscription_SetsActiveAndClearsDisabledAt()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+        var created = await service.CreateAsync(BuildValidRequest());
+        await service.DisableAsync(created.Id);
+
+        var enabled = await service.EnableAsync(created.Id);
+        var fetched = await service.GetByIdAsync(created.Id);
+
+        Assert.True(enabled);
+        Assert.NotNull(fetched);
+        Assert.True(fetched!.IsActive);
+        Assert.Null(fetched.DisabledAt);
+        Assert.Equal(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), fetched.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task SecretValues_AreMaskedAfterUpdate()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var service = CreateService(subscriptionRepo, tenantRepo);
+        var created = await service.CreateAsync(BuildValidRequest());
+
+        var updated = await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        {
+            Authentication = new AuthenticationDto
+            {
+                Type = "ApiKeyHeader",
+                ApiKeyHeader = new ApiKeyHeaderDto
+                {
+                    HeaderName = "x-api-key",
+                    HeaderValue = "new-super-secret",
+                },
+            },
+        });
+
+        Assert.NotNull(updated);
+        Assert.NotNull(updated!.Authentication);
+        Assert.Equal("********", updated.Authentication!.ApiKeyHeader!.HeaderValue);
+    }
+
     private static CreateSubscriptionRequestDto BuildValidRequest() => new()
     {
         TenantId = "tenant-1",
@@ -210,6 +388,7 @@ public sealed class SubscriptionServiceTests
             new FixedGuidGenerator(),
             new FixedDateTimeProvider(),
             new CreateSubscriptionRequestDtoValidator(),
+            new UpdateSubscriptionRequestDtoValidator(),
             NullLogger<SubscriptionService>.Instance);
     }
 

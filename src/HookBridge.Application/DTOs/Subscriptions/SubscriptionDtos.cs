@@ -30,8 +30,6 @@ public sealed class UpdateSubscriptionRequestDto
     public RetryPolicyDto? RetryPolicy { get; set; }
 
     public int? TimeoutSeconds { get; set; }
-
-    public bool? IsActive { get; set; }
 }
 
 public sealed class SubscriptionResponseDto

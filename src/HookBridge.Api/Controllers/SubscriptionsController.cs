@@ -56,4 +56,64 @@ public sealed class SubscriptionsController(ISubscriptionService subscriptionSer
 
         return Ok(subscriptions);
     }
+
+    [HttpPut("{id}")]
+    [ProducesResponseType(typeof(SubscriptionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SubscriptionResponseDto>> UpdateAsync(
+        string id,
+        [FromBody] UpdateSubscriptionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var updated = await subscriptionService.UpdateAsync(id, request, cancellationToken);
+        if (updated is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(updated);
+    }
+
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteAsync(string id, CancellationToken cancellationToken)
+    {
+        var deleted = await subscriptionService.DeleteAsync(id, cancellationToken);
+        if (!deleted)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
+    }
+
+    [HttpPost("{id}/enable")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> EnableAsync(string id, CancellationToken cancellationToken)
+    {
+        var enabled = await subscriptionService.EnableAsync(id, cancellationToken);
+        if (!enabled)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
+    }
+
+    [HttpPost("{id}/disable")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DisableAsync(string id, CancellationToken cancellationToken)
+    {
+        var disabled = await subscriptionService.DisableAsync(id, cancellationToken);
+        if (!disabled)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
+    }
 }

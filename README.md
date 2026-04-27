@@ -142,3 +142,33 @@ curl http://localhost:5000/api/v1/admin/subscriptions/{subscriptionId}
 ```bash
 curl "http://localhost:5000/api/v1/admin/subscriptions?tenantId={tenantId}&eventType=order.created&targetUrl=example.com&isActive=true"
 ```
+
+### Update subscription
+```bash
+curl -X PUT http://localhost:5000/api/v1/admin/subscriptions/{subscriptionId} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "targetUrl": "https://example.com/webhooks/orders-v2",
+    "timeoutSeconds": 45,
+    "retryPolicy": {
+      "maxAttempts": 5,
+      "initialDelaySeconds": 15,
+      "backoffType": "Fixed"
+    }
+  }'
+```
+
+### Disable subscription
+```bash
+curl -X POST http://localhost:5000/api/v1/admin/subscriptions/{subscriptionId}/disable
+```
+
+### Enable subscription
+```bash
+curl -X POST http://localhost:5000/api/v1/admin/subscriptions/{subscriptionId}/enable
+```
+
+### Delete subscription
+```bash
+curl -X DELETE http://localhost:5000/api/v1/admin/subscriptions/{subscriptionId}
+```
