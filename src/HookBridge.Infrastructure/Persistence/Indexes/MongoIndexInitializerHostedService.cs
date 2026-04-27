@@ -136,6 +136,46 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             ],
             cancellationToken);
 
+        var failedEvents = database.GetCollection<FailedEvent>(nameof(FailedEvent));
+
+        var failedTenantIdIndex = new CreateIndexModel<FailedEvent>(
+            Builders<FailedEvent>.IndexKeys.Ascending(x => x.TenantId),
+            new CreateIndexOptions { Name = "ix_failedevent_tenantid" });
+
+        var failedEventIdIndex = new CreateIndexModel<FailedEvent>(
+            Builders<FailedEvent>.IndexKeys.Ascending(x => x.EventId),
+            new CreateIndexOptions { Name = "ix_failedevent_eventid" });
+
+        var failedSubscriptionIdIndex = new CreateIndexModel<FailedEvent>(
+            Builders<FailedEvent>.IndexKeys.Ascending(x => x.SubscriptionId),
+            new CreateIndexOptions { Name = "ix_failedevent_subscriptionid" });
+
+        var failedStatusIndex = new CreateIndexModel<FailedEvent>(
+            Builders<FailedEvent>.IndexKeys.Ascending(x => x.Status),
+            new CreateIndexOptions { Name = "ix_failedevent_status" });
+
+        var failedAtIndex = new CreateIndexModel<FailedEvent>(
+            Builders<FailedEvent>.IndexKeys.Ascending(x => x.FailedAt),
+            new CreateIndexOptions { Name = "ix_failedevent_failedat" });
+
+        var failedTenantStatusFailedAtIndex = new CreateIndexModel<FailedEvent>(
+            Builders<FailedEvent>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Ascending(x => x.Status)
+                .Ascending(x => x.FailedAt),
+            new CreateIndexOptions { Name = "ix_failedevent_tenantid_status_failedat" });
+
+        await failedEvents.Indexes.CreateManyAsync(
+            [
+                failedTenantIdIndex,
+                failedEventIdIndex,
+                failedSubscriptionIdIndex,
+                failedStatusIndex,
+                failedAtIndex,
+                failedTenantStatusFailedAtIndex,
+            ],
+            cancellationToken);
+
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

@@ -145,8 +145,9 @@ Delivery flow:
 8. Retry worker waits until `nextRetryAt` when needed, then retries delivery for the specific subscription.
 9. Worker stores retry `DeliveryAttempt` records and, when retry policy still allows, reschedules by publishing a new `WebhookRetryMessage` to `webhook-retry`.
 10. Worker updates `IncomingEvent` status for first-attempt processing.
+11. When retry attempts are exhausted, worker writes a record to `failed_events` (Mongo collection `FailedEvent`) and publishes `WebhookDlqMessage` to `webhook-dlq`.
 
-Current scope includes first-attempt delivery plus retry scheduling and retry execution. DLQ handling will be implemented later.
+DLQ flow is now: **retry exhausted → `failed_events` collection → `webhook-dlq` topic**.
 
 ## Outbound Webhook Delivery Request Format
 

@@ -3,6 +3,7 @@ using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using HookBridge.Application.Models.Delivery;
+using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Application.Services;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
@@ -202,6 +203,72 @@ public sealed class WebhookDeliveryServiceTests
     }
 
     [Fact]
+    public async Task ProcessRetryAsync_FailedRetryWithNoAttemptsRemaining_CreatesFailedEvent()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 2, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom", DurationMs = 44 });
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        var failedEvent = Assert.Single(fixture.FailedEventService.CreatedEvents);
+        Assert.Equal("tenant-1", failedEvent.TenantId);
+        Assert.Equal("evt-1", failedEvent.EventId);
+        Assert.Equal("sub-1", failedEvent.SubscriptionId);
+        Assert.Equal("DLQ", failedEvent.Status);
+        Assert.Equal(2, failedEvent.FinalAttemptNumber);
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_FailedRetryWithNoAttemptsRemaining_PublishesWebhookDlqMessage()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 2, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom", DurationMs = 44 });
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        var published = Assert.Single(fixture.KafkaProducer.Published);
+        Assert.Equal("webhook-dlq", published.Topic);
+        Assert.Equal("tenant-1", published.Key);
+        var dlqMessage = Assert.IsType<WebhookDlqMessage>(published.Message);
+        Assert.Equal("evt-1", dlqMessage.EventId);
+        Assert.Equal("sub-1", dlqMessage.SubscriptionId);
+        Assert.Equal(2, dlqMessage.FinalAttemptNumber);
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_FailedEventStoredEvenIfDlqPublishFails()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 2, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom", DurationMs = 44 });
+        fixture.KafkaProducer.ThrowOnProduce = true;
+
+        var exception = await Record.ExceptionAsync(() => fixture.Service.ProcessRetryAsync(fixture.RetryMessage));
+
+        Assert.Null(exception);
+        Assert.Single(fixture.FailedEventService.CreatedEvents);
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_FailedEventStorageFailure_DoesNotThrow()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 2, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom", DurationMs = 44 });
+        fixture.FailedEventService.ThrowOnCreate = true;
+
+        var exception = await Record.ExceptionAsync(() => fixture.Service.ProcessRetryAsync(fixture.RetryMessage));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public async Task ProcessRetryAsync_Success_StoresDeliveryAttempt()
     {
         var fixture = new Fixture();
@@ -285,6 +352,7 @@ public sealed class WebhookDeliveryServiceTests
         public InMemoryRepository<DeliveryAttempt> Attempts { get; } = new();
         public FakeWebhookDeliveryClient DeliveryClient { get; } = new();
         public FakeKafkaProducer KafkaProducer { get; } = new();
+        public FakeFailedEventService FailedEventService { get; } = new();
         public ListLogger<WebhookDeliveryService> Logger { get; } = new();
         public WebhookEventMessage Message { get; } = new()
         {
@@ -312,6 +380,7 @@ public sealed class WebhookDeliveryServiceTests
             DeliveryClient,
             KafkaProducer,
             new RetryPolicyService(),
+            FailedEventService,
             Logger);
 
         public void SeedIncomingEvent()
@@ -382,6 +451,29 @@ public sealed class WebhookDeliveryServiceTests
             Published.Add(new PublishedMessage(topic, key, message!));
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeFailedEventService : IFailedEventService
+    {
+        public List<FailedEvent> CreatedEvents { get; } = [];
+        public bool ThrowOnCreate { get; set; }
+
+        public Task CreateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default)
+        {
+            if (ThrowOnCreate)
+            {
+                throw new InvalidOperationException("Mongo unavailable");
+            }
+
+            CreatedEvents.Add(failedEvent);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<FailedEventResponseDto>> SearchAsync(FailedEventSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<FailedEventResponseDto>>([]);
+
+        public Task<FailedEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult<FailedEventResponseDto?>(null);
     }
 
     private sealed record PublishedMessage(string Topic, string Key, object Message);

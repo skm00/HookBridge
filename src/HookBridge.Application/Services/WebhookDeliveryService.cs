@@ -19,6 +19,7 @@ public sealed class WebhookDeliveryService(
     IWebhookDeliveryClient webhookDeliveryClient,
     IKafkaProducer kafkaProducer,
     IRetryPolicyService retryPolicyService,
+    IFailedEventService failedEventService,
     ILogger<WebhookDeliveryService> logger) : IWebhookDeliveryService
 {
     public async Task ProcessEventAsync(WebhookEventMessage message, CancellationToken cancellationToken = default)
@@ -79,7 +80,7 @@ public sealed class WebhookDeliveryService(
 
             if (!result.IsSuccess)
             {
-                await TryScheduleRetryAsync(incomingEvent, subscription, currentAttemptNumber, message.CorrelationId, cancellationToken);
+                await TryScheduleRetryAsync(incomingEvent, subscription, result, currentAttemptNumber, message.CorrelationId, cancellationToken);
             }
 
             logger.LogInformation(
@@ -187,7 +188,7 @@ public sealed class WebhookDeliveryService(
             message.AttemptNumber,
             message.NextRetryAt,
             message.CorrelationId);
-        await TryScheduleRetryAsync(incomingEvent, subscription, message.AttemptNumber, message.CorrelationId, cancellationToken);
+        await TryScheduleRetryAsync(incomingEvent, subscription, result, message.AttemptNumber, message.CorrelationId, cancellationToken);
     }
 
     private DeliveryAttempt CreateDeliveryAttempt(
@@ -221,6 +222,7 @@ public sealed class WebhookDeliveryService(
     private async Task TryScheduleRetryAsync(
         IncomingEvent incomingEvent,
         Subscription subscription,
+        WebhookDeliveryResult result,
         int currentAttemptNumber,
         string? correlationId,
         CancellationToken cancellationToken)
@@ -234,6 +236,7 @@ public sealed class WebhookDeliveryService(
 
         if (!retryPolicyService.ShouldRetry(retryPolicy, currentAttemptNumber))
         {
+            await MoveToDlqAsync(incomingEvent, subscription, result, currentAttemptNumber, correlationId, cancellationToken);
             return;
         }
 
@@ -277,6 +280,93 @@ public sealed class WebhookDeliveryService(
                 incomingEvent.EventId,
                 subscription.Id,
                 nextAttemptNumber,
+                correlationId);
+        }
+    }
+
+    private async Task MoveToDlqAsync(
+        IncomingEvent incomingEvent,
+        Subscription subscription,
+        WebhookDeliveryResult result,
+        int finalAttemptNumber,
+        string? correlationId,
+        CancellationToken cancellationToken)
+    {
+        var failedAt = dateTimeProvider.UtcNow;
+        var failedEvent = new FailedEvent
+        {
+            TenantId = incomingEvent.TenantId,
+            EventId = incomingEvent.EventId,
+            SubscriptionId = subscription.Id,
+            EventType = incomingEvent.EventType,
+            TargetUrl = subscription.TargetUrl,
+            Reason = "Retry attempts exhausted",
+            FinalAttemptNumber = finalAttemptNumber,
+            LastHttpStatusCode = result.HttpStatusCode,
+            LastErrorMessage = result.ErrorMessage,
+            Status = "DLQ",
+            FailedAt = failedAt,
+            CorrelationId = correlationId,
+            CreatedAt = failedAt,
+            UpdatedAt = null,
+        };
+
+        var dlqMessage = new WebhookDlqMessage
+        {
+            EventId = incomingEvent.EventId,
+            TenantId = incomingEvent.TenantId,
+            SubscriptionId = subscription.Id,
+            Reason = failedEvent.Reason,
+            FinalAttemptNumber = finalAttemptNumber,
+            CorrelationId = correlationId,
+        };
+
+        try
+        {
+            await kafkaProducer.ProduceAsync(
+                KafkaTopics.WebhookDlq,
+                incomingEvent.TenantId,
+                dlqMessage,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Failed to publish DLQ webhook message. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, EventType: {EventType}, FinalAttemptNumber: {FinalAttemptNumber}, Reason: {Reason}, CorrelationId: {CorrelationId}",
+                incomingEvent.TenantId,
+                incomingEvent.EventId,
+                subscription.Id,
+                incomingEvent.EventType,
+                finalAttemptNumber,
+                failedEvent.Reason,
+                correlationId);
+        }
+
+        try
+        {
+            await failedEventService.CreateAsync(failedEvent, cancellationToken);
+            logger.LogInformation(
+                "Webhook moved to DLQ and stored as failed event. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, EventType: {EventType}, FinalAttemptNumber: {FinalAttemptNumber}, Reason: {Reason}, CorrelationId: {CorrelationId}",
+                incomingEvent.TenantId,
+                incomingEvent.EventId,
+                subscription.Id,
+                incomingEvent.EventType,
+                finalAttemptNumber,
+                failedEvent.Reason,
+                correlationId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Failed to store failed event after retry exhaustion. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, EventType: {EventType}, FinalAttemptNumber: {FinalAttemptNumber}, Reason: {Reason}, CorrelationId: {CorrelationId}",
+                incomingEvent.TenantId,
+                incomingEvent.EventId,
+                subscription.Id,
+                incomingEvent.EventType,
+                finalAttemptNumber,
+                failedEvent.Reason,
                 correlationId);
         }
     }
