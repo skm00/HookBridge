@@ -35,6 +35,7 @@ public static class InfrastructureServiceRegistration
         services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
         services.Configure<StripeSettings>(configuration.GetSection("Stripe"));
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+        services.Configure<ElasticSettings>(configuration.GetSection("Elastic"));
 
         services.AddSingleton<IMongoClient>(serviceProvider =>
         {

@@ -26,6 +26,21 @@ Both API and Worker development settings use:
 - Connection string: `mongodb://localhost:27017`
 - Database: `hookbridge`
 
+## Local Elastic Stack Setup
+
+Use Docker Compose from the repository root:
+```bash
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+Local endpoints:
+- Elasticsearch: `http://localhost:9200`
+- Kibana: `http://localhost:5601`
+
+Enable Elasticsearch shipping in development by setting `Elastic:EnableElasticsearchSink` to `true` in:
+- `src/HookBridge.Api/appsettings.Development.json`
+- `src/HookBridge.Worker/appsettings.Development.json`
+
 ## Local Kafka Configuration
 
 Both API and Worker development settings include a `Kafka` section:
