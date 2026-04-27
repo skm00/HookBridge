@@ -1,6 +1,7 @@
 using FluentValidation;
 using HookBridge.Application.DTOs.Billing;
 using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Validation.Billing;
 using HookBridge.Domain.Configuration;
 using HookBridge.Domain.Entities;
@@ -180,6 +181,7 @@ public sealed class BillingServiceTests
     private static InfrastructureBillingService CreateService(InMemoryTenantRepository tenantRepository, FakeStripeGateway stripe)
         => new(
             tenantRepository,
+            new NoopAuditLogService(),
             new CreateCheckoutSessionRequestDtoValidator(),
             Options.Create(new StripeSettings
             {
@@ -193,6 +195,17 @@ public sealed class BillingServiceTests
             }),
             stripe,
             NullLogger<InfrastructureBillingService>.Instance);
+
+    private sealed class NoopAuditLogService : IAuditLogService
+    {
+        public Task LogAsync(AuditLog auditLog, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>.Create([], 1, 50, 0));
+
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
+    }
 
     private sealed class InMemoryTenantRepository(Tenant tenant) : IMongoRepository<Tenant>
     {

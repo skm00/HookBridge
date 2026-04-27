@@ -1,5 +1,6 @@
 using HookBridge.Api.Controllers;
 using HookBridge.Application.DTOs.ApiKeys;
+using HookBridge.Application.DTOs.AuditLogs;
 using HookBridge.Application.DTOs.DeliveryAttempts;
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Application.DTOs.Events;
@@ -151,6 +152,36 @@ public sealed class TenantIsolationControllerTests
         await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetByTenantAsync("tenant-1", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task AuditLogsSearch_IsTenantScoped()
+    {
+        var service = new FakeAuditLogService();
+        var controller = new AuditLogsController(
+            service,
+            new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
+            TenantIsolationTestHelpers.CreateValidator());
+
+        var result = await controller.SearchAsync(null, null, null, null, null, null, null, 1, 50, null, "desc", CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal("tenant-1", service.LastSearchRequest?.TenantId);
+    }
+
+    [Fact]
+    public async Task AuditLogGetById_ForAnotherTenant_IsBlocked()
+    {
+        var service = new FakeAuditLogService
+        {
+            GetByIdResult = new AuditLogResponseDto { Id = "audit-1", TenantId = "tenant-2" },
+        };
+        var controller = new AuditLogsController(
+            service,
+            new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
+            TenantIsolationTestHelpers.CreateValidator());
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByIdAsync("audit-1", CancellationToken.None));
+    }
+
     private sealed class FakeApiKeyService : IApiKeyService
     {
         public string? LastTenantId { get; private set; }
@@ -267,5 +298,24 @@ public sealed class TenantIsolationControllerTests
 
         public Task HandleStripeWebhookAsync(string jsonPayload, string stripeSignature, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+    }
+
+    private sealed class FakeAuditLogService : IAuditLogService
+    {
+        public AuditLogSearchRequestDto? LastSearchRequest { get; private set; }
+
+        public AuditLogResponseDto? GetByIdResult { get; set; } = new() { Id = "audit-1", TenantId = "tenant-1" };
+
+        public Task LogAsync(HookBridge.Domain.Entities.AuditLog auditLog, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<AuditLogResponseDto>> SearchAsync(AuditLogSearchRequestDto request, CancellationToken cancellationToken = default)
+        {
+            LastSearchRequest = request;
+            return Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<AuditLogResponseDto>.Create([], 1, 50, 0));
+        }
+
+        public Task<AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult(GetByIdResult);
     }
 }

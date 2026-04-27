@@ -219,6 +219,50 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             [usageUniqueTenantYearMonth, usageTenantIndex, usageYearMonthIndex],
             cancellationToken);
 
+        var auditLogs = database.GetCollection<AuditLog>(nameof(AuditLog));
+
+        var auditTenantIdIndex = new CreateIndexModel<AuditLog>(
+            Builders<AuditLog>.IndexKeys.Ascending(x => x.TenantId),
+            new CreateIndexOptions { Name = "ix_auditlog_tenantid" });
+
+        var auditUserIdIndex = new CreateIndexModel<AuditLog>(
+            Builders<AuditLog>.IndexKeys.Ascending(x => x.UserId),
+            new CreateIndexOptions { Name = "ix_auditlog_userid" });
+
+        var auditActionIndex = new CreateIndexModel<AuditLog>(
+            Builders<AuditLog>.IndexKeys.Ascending(x => x.Action),
+            new CreateIndexOptions { Name = "ix_auditlog_action" });
+
+        var auditResourceTypeIndex = new CreateIndexModel<AuditLog>(
+            Builders<AuditLog>.IndexKeys.Ascending(x => x.ResourceType),
+            new CreateIndexOptions { Name = "ix_auditlog_resourcetype" });
+
+        var auditResourceIdIndex = new CreateIndexModel<AuditLog>(
+            Builders<AuditLog>.IndexKeys.Ascending(x => x.ResourceId),
+            new CreateIndexOptions { Name = "ix_auditlog_resourceid" });
+
+        var auditCreatedAtIndex = new CreateIndexModel<AuditLog>(
+            Builders<AuditLog>.IndexKeys.Descending(x => x.CreatedAt),
+            new CreateIndexOptions { Name = "ix_auditlog_createdat" });
+
+        var auditTenantCreatedAtIndex = new CreateIndexModel<AuditLog>(
+            Builders<AuditLog>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Descending(x => x.CreatedAt),
+            new CreateIndexOptions { Name = "ix_auditlog_tenantid_createdat" });
+
+        await auditLogs.Indexes.CreateManyAsync(
+            [
+                auditTenantIdIndex,
+                auditUserIdIndex,
+                auditActionIndex,
+                auditResourceTypeIndex,
+                auditResourceIdIndex,
+                auditCreatedAtIndex,
+                auditTenantCreatedAtIndex,
+            ],
+            cancellationToken);
+
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

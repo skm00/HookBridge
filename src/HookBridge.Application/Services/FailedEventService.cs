@@ -14,6 +14,7 @@ namespace HookBridge.Application.Services;
 public sealed class FailedEventService(
     IFailedEventRepository failedEventRepository,
     IKafkaProducer kafkaProducer,
+    IAuditLogService auditLogService,
     IDateTimeProvider dateTimeProvider,
     ILogger<FailedEventService> logger) : IFailedEventService
 {
@@ -106,6 +107,22 @@ public sealed class FailedEventService(
         failedEvent.Status = "RetryRequested";
         failedEvent.UpdatedAt = now;
         await failedEventRepository.UpdateAsync(failedEvent, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = failedEvent.TenantId,
+                Action = "FailedEventManualRetryRequested",
+                ResourceType = nameof(FailedEvent),
+                ResourceId = failedEvent.Id,
+                Description = $"Manual retry requested for failed event '{failedEvent.EventId}'.",
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["eventId"] = failedEvent.EventId,
+                    ["subscriptionId"] = failedEvent.SubscriptionId,
+                    ["correlationId"] = failedEvent.CorrelationId,
+                },
+            },
+            cancellationToken);
 
         logger.LogInformation(
             "Manual retry requested for failed event. FailedEventId: {FailedEventId}, TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, CorrelationId: {CorrelationId}",
@@ -136,4 +153,16 @@ public sealed class FailedEventService(
         CreatedAt = entity.CreatedAt,
         UpdatedAt = entity.UpdatedAt,
     };
+
+    private async Task TryAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await auditLogService.LogAsync(auditLog, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Audit logging failed for action {Action}.", auditLog.Action);
+        }
+    }
 }

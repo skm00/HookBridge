@@ -4,10 +4,12 @@ using HookBridge.Application.DTOs.Tenants;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Services;
 using HookBridge.Application.Validation.Tenants;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace HookBridge.Application.Tests;
@@ -109,10 +111,19 @@ public sealed class TenantServiceTests
     {
         return new TenantService(
             repo,
+            new NoopAuditLogService(),
             new FixedGuidGenerator(),
             new FixedDateTimeProvider(),
             new CreateTenantRequestDtoValidator(),
-            new UpdateTenantRequestDtoValidator());
+            new UpdateTenantRequestDtoValidator(),
+            NullLogger<TenantService>.Instance);
+    }
+
+    private sealed class NoopAuditLogService : IAuditLogService
+    {
+        public Task LogAsync(AuditLog auditLog, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>.Create([], 1, 50, 0));
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
     }
 
     private sealed class FixedGuidGenerator : IGuidGenerator

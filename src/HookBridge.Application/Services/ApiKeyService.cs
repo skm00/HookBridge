@@ -7,17 +7,20 @@ using HookBridge.Application.Interfaces.Security;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace HookBridge.Application.Services;
 
 public sealed class ApiKeyService(
     IMongoRepository<ApiKey> apiKeyRepository,
     IMongoRepository<Tenant> tenantRepository,
+    IAuditLogService auditLogService,
     IGuidGenerator guidGenerator,
     IDateTimeProvider dateTimeProvider,
     IApiKeyGenerator apiKeyGenerator,
     IApiKeyHasher apiKeyHasher,
-    IValidator<CreateApiKeyRequestDto> createValidator) : IApiKeyService
+    IValidator<CreateApiKeyRequestDto> createValidator,
+    ILogger<ApiKeyService> logger) : IApiKeyService
 {
     public async Task<CreateApiKeyResponseDto> CreateAsync(string tenantId, CreateApiKeyRequestDto request, CancellationToken cancellationToken = default)
     {
@@ -52,6 +55,21 @@ public sealed class ApiKeyService(
         };
 
         await apiKeyRepository.AddAsync(apiKey, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = tenantId,
+                Action = "ApiKeyCreated",
+                ResourceType = nameof(ApiKey),
+                ResourceId = apiKey.Id,
+                Description = $"API key '{apiKey.Name}' created.",
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["name"] = apiKey.Name,
+                    ["keyPrefix"] = apiKey.KeyPrefix,
+                },
+            },
+            cancellationToken);
 
         return new CreateApiKeyResponseDto
         {
@@ -91,6 +109,21 @@ public sealed class ApiKeyService(
         apiKey.UpdatedAt = apiKey.RevokedAt;
 
         await apiKeyRepository.UpdateAsync(apiKey, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = tenantId,
+                Action = "ApiKeyRevoked",
+                ResourceType = nameof(ApiKey),
+                ResourceId = apiKey.Id,
+                Description = $"API key '{apiKey.Name}' revoked.",
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["name"] = apiKey.Name,
+                    ["keyPrefix"] = apiKey.KeyPrefix,
+                },
+            },
+            cancellationToken);
         return true;
     }
 
@@ -156,4 +189,16 @@ public sealed class ApiKeyService(
         IsValid = false,
         FailureReason = reason,
     };
+
+    private async Task TryAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await auditLogService.LogAsync(auditLog, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Audit logging failed for action {Action}.", auditLog.Action);
+        }
+    }
 }

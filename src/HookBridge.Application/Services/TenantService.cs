@@ -6,15 +6,18 @@ using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace HookBridge.Application.Services;
 
 public sealed class TenantService(
     IMongoRepository<Tenant> tenantRepository,
+    IAuditLogService auditLogService,
     IGuidGenerator guidGenerator,
     IDateTimeProvider dateTimeProvider,
     IValidator<CreateTenantRequestDto> createValidator,
-    IValidator<UpdateTenantRequestDto> updateValidator) : ITenantService
+    IValidator<UpdateTenantRequestDto> updateValidator,
+    ILogger<TenantService> logger) : ITenantService
 {
     public async Task<TenantResponseDto> CreateAsync(CreateTenantRequestDto request, CancellationToken cancellationToken = default)
     {
@@ -39,6 +42,21 @@ public sealed class TenantService(
         };
 
         await tenantRepository.AddAsync(tenant, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = tenant.Id,
+                Action = "TenantCreated",
+                ResourceType = nameof(Tenant),
+                ResourceId = tenant.Id,
+                Description = $"Tenant '{tenant.Name}' created.",
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["name"] = tenant.Name,
+                    ["slug"] = tenant.Slug,
+                },
+            },
+            cancellationToken);
         return Map(tenant);
     }
 
@@ -73,6 +91,21 @@ public sealed class TenantService(
         tenant.UpdatedAt = dateTimeProvider.UtcNow;
 
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = tenant.Id,
+                Action = "TenantUpdated",
+                ResourceType = nameof(Tenant),
+                ResourceId = tenant.Id,
+                Description = $"Tenant '{tenant.Name}' updated.",
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["name"] = tenant.Name,
+                    ["contactEmail"] = tenant.ContactEmail,
+                },
+            },
+            cancellationToken);
         return Map(tenant);
     }
 
@@ -88,6 +121,16 @@ public sealed class TenantService(
         tenant.UpdatedAt = dateTimeProvider.UtcNow;
 
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = tenant.Id,
+                Action = "TenantDisabled",
+                ResourceType = nameof(Tenant),
+                ResourceId = tenant.Id,
+                Description = $"Tenant '{tenant.Name}' disabled.",
+            },
+            cancellationToken);
         return true;
     }
 
@@ -101,4 +144,16 @@ public sealed class TenantService(
         CreatedAt = tenant.CreatedAt,
         UpdatedAt = tenant.UpdatedAt,
     };
+
+    private async Task TryAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await auditLogService.LogAsync(auditLog, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Audit logging failed for action {Action}.", auditLog.Action);
+        }
+    }
 }
