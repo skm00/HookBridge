@@ -148,7 +148,7 @@ public sealed class TenantIsolationControllerTests
         public Task<bool> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public Task<ApiKeyValidationResult> ValidateAsync(string tenantId, string plainApiKey, CancellationToken cancellationToken = default)
-            => Task.FromResult(new ApiKeyValidationResult(false, null));
+            => Task.FromResult(new ApiKeyValidationResult { IsValid = false });
     }
 
     private sealed class FakeSubscriptionService : ISubscriptionService
