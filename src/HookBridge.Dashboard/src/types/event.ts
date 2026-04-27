@@ -1,4 +1,4 @@
-import type { PagedRequest } from './paging';
+import type { PagedRequest } from './pagination';
 
 export type IncomingEventStatus = 'Accepted' | 'Delivered' | 'Failed' | 'PartiallyFailed' | 'NoSubscriptions';
 

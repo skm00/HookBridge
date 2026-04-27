@@ -788,6 +788,22 @@ The `/subscriptions` dashboard route now integrates with subscription admin APIs
 
 All requests are sent through the shared dashboard `apiClient`, which automatically includes the JWT Bearer token.
 
+## Dashboard Pagination and Sorting
+
+The admin list dashboard pages now use backend paged responses and server-side sorting:
+
+- Updated pages: `/subscriptions`, `/delivery-logs`, `/failed-events`, and `/events`.
+- Shared pagination model: `PagedResponse<T>` and `PagedRequest` in `src/HookBridge.Dashboard/src/types/pagination.ts`.
+- API calls now send and preserve `pageNumber`, `pageSize`, `sortBy`, and `sortDirection`.
+- Reusable UI components:
+  - `Pagination` (`Previous` / `Next`, page-size selector, page indicator, and `Showing X–Y of Z records` text)
+  - `SortableHeader` (click-to-toggle `asc`/`desc` with arrow indicator)
+- Filter and paging UX behavior:
+  - Changing filters resets `pageNumber` to `1`
+  - Changing page size resets `pageNumber` to `1`
+  - Sorting keeps current filters applied
+  - `Previous` and `Next` are disabled using backend `hasPreviousPage` and `hasNextPage`
+
 ## Billing Dashboard Page
 
 The `/billing` dashboard route now integrates with tenant billing APIs and includes:

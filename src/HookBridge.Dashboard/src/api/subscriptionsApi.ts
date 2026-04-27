@@ -5,14 +5,14 @@ import type {
   SubscriptionListFilters,
   UpdateSubscriptionRequest
 } from '../types/subscription';
-import type { PagedResponse } from '../types/paging';
+import type { PagedResponse } from '../types/pagination';
 
-const getSubscriptions = async (filters?: SubscriptionListFilters): Promise<Subscription[]> => {
+const getSubscriptions = async (filters?: SubscriptionListFilters): Promise<PagedResponse<Subscription>> => {
   const response = await apiClient.get<PagedResponse<Subscription>>('/api/v1/admin/subscriptions', {
     params: filters
   });
 
-  return response.data.items;
+  return response.data;
 };
 
 const getSubscriptionById = async (id: string): Promise<Subscription> => {
