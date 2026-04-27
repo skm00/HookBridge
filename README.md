@@ -9,6 +9,84 @@ Initial production-style SaaS solution scaffold for a multi-tenant webhook deliv
 - Kafka (planned)
 - React dashboard (planned)
 
+## Configuration Validation
+
+HookBridge validates critical configuration sections at startup and fails fast with actionable errors (for example, `Jwt:Secret must be at least 32 characters long.`).
+
+### Required production settings
+
+In `Production`, the following settings are required:
+
+- `MongoDb:ConnectionString`
+- `MongoDb:DatabaseName`
+- `Kafka:BootstrapServers`
+- `Kafka:MessageTimeoutMs` (> 0)
+- `Kafka:ConsumerGroupId` (Worker service)
+- `Jwt:Issuer`
+- `Jwt:Audience`
+- `Jwt:Secret` (minimum 32 characters)
+- `Jwt:ExpiryMinutes` (> 0)
+- `Stripe:SecretKey`
+- `Stripe:WebhookSecret`
+- `Stripe:StarterPriceId`
+- `Stripe:ProPriceId`
+- `Stripe:SuccessUrl`
+- `Stripe:CancelUrl`
+- `Elastic:ServiceName`
+- `Elastic:Environment`
+- `Elastic:ElasticsearchUrl` (required when `Elastic:EnableElasticsearchSink=true`)
+- `ElasticApm:ServerUrl`, `ElasticApm:ServiceName`, `ElasticApm:Environment` (required when `ElasticApm:Enabled=true`)
+
+### Development exceptions
+
+In `Development`, Stripe secrets are allowed to be empty so local startup is not blocked:
+
+- `Stripe:SecretKey`
+- `Stripe:WebhookSecret`
+- `Stripe:StarterPriceId`
+- `Stripe:ProPriceId`
+
+`Stripe:SuccessUrl` and `Stripe:CancelUrl` are still required in all environments.
+
+### Example environment variables
+
+```bash
+# MongoDB
+MongoDb__ConnectionString=mongodb://localhost:27017
+MongoDb__DatabaseName=hookbridge
+
+# Kafka
+Kafka__BootstrapServers=localhost:9092
+Kafka__ConsumerGroupId=hookbridge-worker
+Kafka__MessageTimeoutMs=10000
+
+# JWT
+Jwt__Issuer=hookbridge
+Jwt__Audience=hookbridge-clients
+Jwt__Secret=replace-with-at-least-32-char-secret
+Jwt__ExpiryMinutes=60
+
+# Stripe
+Stripe__SecretKey=sk_live_...
+Stripe__WebhookSecret=whsec_...
+Stripe__StarterPriceId=price_...
+Stripe__ProPriceId=price_...
+Stripe__SuccessUrl=https://app.hookbridge.com/billing/success
+Stripe__CancelUrl=https://app.hookbridge.com/billing/cancel
+
+# Elastic
+Elastic__EnableElasticsearchSink=true
+Elastic__ElasticsearchUrl=http://elasticsearch:9200
+Elastic__ServiceName=hookbridge-api
+Elastic__Environment=Production
+
+# Elastic APM
+ElasticApm__Enabled=true
+ElasticApm__ServerUrl=http://apm-server:8200
+ElasticApm__ServiceName=hookbridge-api
+ElasticApm__Environment=Production
+```
+
 ## Local Docker Compose Startup
 
 From the repository root:
