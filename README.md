@@ -544,3 +544,13 @@ The `/subscriptions` dashboard route now integrates with subscription admin APIs
 - Loading, success, and error states, deletion confirmation prompts, and masked rendering of secret values in the UI.
 
 All requests are sent through the shared dashboard `apiClient`, which automatically includes the JWT Bearer token.
+
+## Billing Dashboard Page
+
+The `/billing` dashboard route now integrates with tenant billing APIs and includes:
+- Billing status retrieval backed by `GET /api/v1/admin/tenants/{tenantId}/billing/status`.
+- Plan upgrade initiation for paid tiers backed by `POST /api/v1/admin/tenants/{tenantId}/billing/checkout`.
+- Current billing summary cards (plan, status badge, monthly event limit, current period start/end).
+- Pricing cards for Free, Starter, Pro, and Enterprise with current-plan highlighting.
+- Checkout UX states for loading, errors, and in-progress redirect handling.
+- Stripe redirect using only backend-provided checkout URL (no Stripe secrets in the dashboard).
