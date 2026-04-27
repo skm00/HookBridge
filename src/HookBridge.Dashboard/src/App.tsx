@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './auth/ProtectedRoute';
 import Layout from './components/Layout';
 import ApiKeysPage from './pages/ApiKeysPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 import BillingPage from './pages/BillingPage';
 import DeliveryLogsPage from './pages/DeliveryLogsPage';
 import EventsPage from './pages/EventsPage';
@@ -29,6 +30,7 @@ const App = (): JSX.Element => {
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/delivery-logs" element={<DeliveryLogsPage />} />
+          <Route path="/audit-logs" element={<AuditLogsPage />} />
           <Route path="/failed-events" element={<FailedEventsPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
