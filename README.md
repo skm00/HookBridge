@@ -726,3 +726,56 @@ The `/billing` dashboard route now integrates with tenant billing APIs and inclu
 - Pricing cards for Free, Starter, Pro, and Enterprise with current-plan highlighting.
 - Checkout UX states for loading, errors, and in-progress redirect handling.
 - Stripe redirect using only backend-provided checkout URL (no Stripe secrets in the dashboard).
+
+
+## API Rate Limiting
+
+HookBridge API uses ASP.NET Core rate limiting with separate policies for ingestion and admin APIs.
+
+### Default limits (Development)
+
+Configured in `src/HookBridge.Api/appsettings.Development.json`:
+
+- `RateLimit:Enabled=true`
+- Event ingestion (`POST /api/v1/events/{tenantId}`): `100` requests per `60` seconds
+- Admin APIs (`/api/v1/admin/*`): `300` requests per `60` seconds
+
+### How partitioning works
+
+- **Event ingestion policy (`EventIngestionPolicy`)**
+  - Partition key prefers route `tenantId`
+  - Falls back to client IP when `tenantId` is unavailable
+- **Admin API policy (`AdminApiPolicy`)**
+  - Partition key prefers JWT `sub` claim
+  - Falls back to client IP when `sub` is unavailable
+
+### Limit exceeded behavior
+
+When a request exceeds the configured limit, HookBridge returns:
+
+- `429 Too Many Requests`
+- JSON body:
+
+```json
+{
+  "message": "Rate limit exceeded. Please try again later.",
+  "traceId": "...",
+  "statusCode": 429
+}
+```
+
+- `Retry-After` header when the limiter can determine the next retry window
+
+### Configuration
+
+Set the `RateLimit` section in configuration (for example via environment variables):
+
+```bash
+RateLimit__Enabled=true
+RateLimit__EventIngestionPermitLimit=100
+RateLimit__EventIngestionWindowSeconds=60
+RateLimit__AdminApiPermitLimit=300
+RateLimit__AdminApiWindowSeconds=60
+```
+
+Set `RateLimit__Enabled=false` to disable limiter enforcement without removing policy wiring.

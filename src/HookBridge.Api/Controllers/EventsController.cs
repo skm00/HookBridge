@@ -1,12 +1,15 @@
+using HookBridge.Api.RateLimiting;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/events/{tenantId}")]
+[EnableRateLimiting(RateLimitingPolicyNames.EventIngestionPolicy)]
 public sealed class EventsController(IEventIngestionService eventIngestionService) : ControllerBase
 {
     [HttpPost]

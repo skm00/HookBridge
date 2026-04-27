@@ -73,6 +73,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<TenantAccessValidator>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
+builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
 var jwtSecret = string.IsNullOrWhiteSpace(jwtSettings.Secret) ? new string('x', 32) : jwtSettings.Secret;
@@ -129,6 +130,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

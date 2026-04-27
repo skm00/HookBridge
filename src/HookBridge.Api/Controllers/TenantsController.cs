@@ -1,15 +1,18 @@
 using HookBridge.Application.DTOs.Tenants;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
 [Route("api/v1/admin/tenants")]
 public sealed class TenantsController(
     ITenantService tenantService,

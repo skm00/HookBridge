@@ -1,16 +1,19 @@
 using HookBridge.Application.DTOs.DeliveryAttempts;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
 [Route("api/v1/admin/delivery-logs")]
 public sealed class DeliveryLogsController(
     IDeliveryAttemptService deliveryAttemptService,
