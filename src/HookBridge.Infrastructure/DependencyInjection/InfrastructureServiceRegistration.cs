@@ -154,6 +154,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IOAuthTokenService, OAuthTokenService>();
         services.AddScoped<IWebhookAuthenticationHandler, WebhookAuthenticationHandler>();
         services.AddScoped<IWebhookDeliveryClient, WebhookDeliveryClient>();
+        services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IStripeGateway, StripeGateway>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IAuthService, AuthService>();

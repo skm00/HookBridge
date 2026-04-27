@@ -15,6 +15,7 @@ namespace HookBridge.Application.Services;
 public sealed class SubscriptionService(
     IMongoRepository<Subscription> subscriptionRepository,
     IMongoRepository<Tenant> tenantRepository,
+    IAuditLogService auditLogService,
     IGuidGenerator guidGenerator,
     IDateTimeProvider dateTimeProvider,
     IValidator<CreateSubscriptionRequestDto> createValidator,
@@ -59,6 +60,17 @@ public sealed class SubscriptionService(
         };
 
         await subscriptionRepository.AddAsync(subscription, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = subscription.TenantId,
+                Action = "SubscriptionCreated",
+                ResourceType = nameof(Subscription),
+                ResourceId = subscription.Id,
+                Description = $"Subscription created for event '{subscription.EventType}'.",
+                Metadata = BuildSubscriptionMetadata(subscription),
+            },
+            cancellationToken);
 
         logger.LogInformation(
             "Subscription created for TenantId={TenantId}, SubscriptionId={SubscriptionId}, EventType={EventType}, TargetUrl={TargetUrl}",
@@ -172,6 +184,17 @@ public sealed class SubscriptionService(
         subscription.UpdatedAt = dateTimeProvider.UtcNow;
 
         await subscriptionRepository.UpdateAsync(subscription, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = subscription.TenantId,
+                Action = "SubscriptionUpdated",
+                ResourceType = nameof(Subscription),
+                ResourceId = subscription.Id,
+                Description = $"Subscription '{subscription.Id}' updated.",
+                Metadata = BuildSubscriptionMetadata(subscription),
+            },
+            cancellationToken);
 
         logger.LogInformation(
             "Subscription updated SubscriptionId={SubscriptionId} TenantId={TenantId} EventType={EventType}",
@@ -191,6 +214,21 @@ public sealed class SubscriptionService(
         }
 
         await subscriptionRepository.DeleteAsync(id, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = subscription.TenantId,
+                Action = "SubscriptionDeleted",
+                ResourceType = nameof(Subscription),
+                ResourceId = subscription.Id,
+                Description = $"Subscription '{subscription.Id}' deleted.",
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["eventType"] = subscription.EventType,
+                    ["targetUrl"] = subscription.TargetUrl,
+                },
+            },
+            cancellationToken);
 
         logger.LogInformation(
             "Subscription deleted SubscriptionId={SubscriptionId} TenantId={TenantId} EventType={EventType}",
@@ -214,6 +252,17 @@ public sealed class SubscriptionService(
         subscription.UpdatedAt = dateTimeProvider.UtcNow;
 
         await subscriptionRepository.UpdateAsync(subscription, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = subscription.TenantId,
+                Action = "SubscriptionEnabled",
+                ResourceType = nameof(Subscription),
+                ResourceId = subscription.Id,
+                Description = $"Subscription '{subscription.Id}' enabled.",
+                Metadata = BuildSubscriptionMetadata(subscription),
+            },
+            cancellationToken);
 
         logger.LogInformation(
             "Subscription enabled SubscriptionId={SubscriptionId} TenantId={TenantId} EventType={EventType}",
@@ -238,6 +287,17 @@ public sealed class SubscriptionService(
         subscription.UpdatedAt = now;
 
         await subscriptionRepository.UpdateAsync(subscription, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = subscription.TenantId,
+                Action = "SubscriptionDisabled",
+                ResourceType = nameof(Subscription),
+                ResourceId = subscription.Id,
+                Description = $"Subscription '{subscription.Id}' disabled.",
+                Metadata = BuildSubscriptionMetadata(subscription),
+            },
+            cancellationToken);
 
         logger.LogInformation(
             "Subscription disabled SubscriptionId={SubscriptionId} TenantId={TenantId} EventType={EventType}",
@@ -393,4 +453,28 @@ public sealed class SubscriptionService(
             Algorithm = config.HmacSignature.Algorithm,
         },
     };
+
+    private static IReadOnlyDictionary<string, object?> BuildSubscriptionMetadata(Subscription subscription)
+        => new Dictionary<string, object?>
+        {
+            ["eventType"] = subscription.EventType,
+            ["targetUrl"] = subscription.TargetUrl,
+            ["isActive"] = subscription.IsActive,
+            ["timeoutSeconds"] = subscription.TimeoutSeconds,
+            ["retryMaxAttempts"] = subscription.RetryPolicy.MaxAttempts,
+            ["headersCount"] = subscription.Headers.Count,
+            ["authenticationType"] = subscription.Authentication?.Type,
+        };
+
+    private async Task TryAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await auditLogService.LogAsync(auditLog, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Audit logging failed for action {Action}.", auditLog.Action);
+        }
+    }
 }

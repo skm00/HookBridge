@@ -1,12 +1,13 @@
-using FluentValidation;
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Security;
+using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Services;
 using HookBridge.Application.Validation.ApiKeys;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace HookBridge.Application.Tests;
@@ -25,6 +26,46 @@ public sealed class ApiKeyServiceTests
         Assert.Equal("hb_live_test-value", response.PlainApiKey);
         Assert.Equal("Primary", response.ApiKey.Name);
         Assert.Equal("hb_live_test****", response.ApiKey.KeyPrefix);
+    }
+
+    [Fact]
+    public async Task CreateApiKey_WritesAuditLog()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var apiKeyRepo = new InMemoryRepository<ApiKey>();
+        var audit = new RecordingAuditLogService();
+        var service = CreateService(apiKeyRepo, tenantRepo, audit);
+
+        await service.CreateAsync("tenant-1", new CreateApiKeyRequestDto { Name = "Primary" });
+
+        var log = Assert.Single(audit.Logged);
+        Assert.Equal("ApiKeyCreated", log.Action);
+    }
+
+    [Fact]
+    public async Task RevokeApiKey_WritesAuditLog()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var apiKeyRepo = new InMemoryRepository<ApiKey>();
+        var audit = new RecordingAuditLogService();
+        var service = CreateService(apiKeyRepo, tenantRepo, audit);
+        var created = await service.CreateAsync("tenant-1", new CreateApiKeyRequestDto { Name = "Primary" });
+        audit.Logged.Clear();
+
+        await service.RevokeAsync("tenant-1", created.ApiKey.Id);
+
+        var log = Assert.Single(audit.Logged);
+        Assert.Equal("ApiKeyRevoked", log.Action);
+    }
+
+    [Fact]
+    public async Task AuditFailure_DoesNotBreakApiKeyCreation()
+    {
+        var service = CreateService(new InMemoryRepository<ApiKey>(), BuildTenantRepo(TenantStatus.Active), new ThrowingAuditLogService());
+
+        var created = await service.CreateAsync("tenant-1", new CreateApiKeyRequestDto { Name = "Primary" });
+
+        Assert.Equal("Primary", created.ApiKey.Name);
     }
 
     [Fact]
@@ -140,16 +181,18 @@ public sealed class ApiKeyServiceTests
         Assert.Equal("tenant_inactive", result.FailureReason);
     }
 
-    private static ApiKeyService CreateService(InMemoryRepository<ApiKey> apiKeyRepo, InMemoryRepository<Tenant> tenantRepo)
+    private static ApiKeyService CreateService(InMemoryRepository<ApiKey> apiKeyRepo, InMemoryRepository<Tenant> tenantRepo, IAuditLogService? auditLogService = null)
     {
         return new ApiKeyService(
             apiKeyRepo,
             tenantRepo,
+            auditLogService ?? new RecordingAuditLogService(),
             new FixedGuidGenerator(),
             new FixedDateTimeProvider(),
             new FixedApiKeyGenerator(),
             new FixedApiKeyHasher(),
-            new CreateApiKeyRequestDtoValidator());
+            new CreateApiKeyRequestDtoValidator(),
+            NullLogger<ApiKeyService>.Instance);
     }
 
     private static InMemoryRepository<Tenant> BuildTenantRepo(TenantStatus status)
@@ -165,6 +208,32 @@ public sealed class ApiKeyServiceTests
         }).GetAwaiter().GetResult();
 
         return repo;
+    }
+
+    private sealed class RecordingAuditLogService : IAuditLogService
+    {
+        public List<AuditLog> Logged { get; } = [];
+
+        public Task LogAsync(AuditLog auditLog, CancellationToken cancellationToken = default)
+        {
+            Logged.Add(auditLog);
+            return Task.CompletedTask;
+        }
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>.Create([], 1, 50, 0));
+
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
+    }
+
+    private sealed class ThrowingAuditLogService : IAuditLogService
+    {
+        public Task LogAsync(AuditLog auditLog, CancellationToken cancellationToken = default) => throw new InvalidOperationException("audit fail");
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class FixedGuidGenerator : IGuidGenerator
@@ -211,7 +280,6 @@ public sealed class ApiKeyServiceTests
             return Task.FromResult<IReadOnlyList<T>>(_items.Where(compiled).ToList());
         }
 
-        
         public Task<(IReadOnlyList<T> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, MongoDB.Driver.SortDefinition<T> sort, int skip, int limit, CancellationToken cancellationToken = default)
         {
             var compiled = predicate.Compile();
@@ -219,7 +287,8 @@ public sealed class ApiKeyServiceTests
             var paged = filtered.Skip(skip).Take(limit).ToList();
             return Task.FromResult<(IReadOnlyList<T>, long)>((paged, filtered.LongCount()));
         }
-public Task<T?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+
+        public Task<T?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
         {
             var compiled = predicate.Compile();
             return Task.FromResult(_items.FirstOrDefault(compiled));

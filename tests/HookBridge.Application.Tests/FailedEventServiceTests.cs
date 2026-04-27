@@ -1,6 +1,7 @@
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using HookBridge.Application.Services;
 using HookBridge.Domain.Entities;
@@ -114,6 +115,7 @@ public sealed class FailedEventServiceTests
         Assert.NotNull(updated);
         Assert.Equal("RetryRequested", updated.Status);
         Assert.Equal(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc), updated.UpdatedAt);
+        Assert.Equal("FailedEventManualRetryRequested", Assert.Single(fixture.Audit.Logged).Action);
     }
 
     [Fact]
@@ -161,10 +163,11 @@ public sealed class FailedEventServiceTests
         public InMemoryFailedEventRepository Repository { get; } = new();
 
         public FakeKafkaProducer KafkaProducer { get; } = new();
+        public RecordingAuditLogService Audit { get; } = new();
 
         private readonly FakeDateTimeProvider _dateTimeProvider = new(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc));
 
-        public FailedEventService Service => new(Repository, KafkaProducer, _dateTimeProvider, NullLogger<FailedEventService>.Instance);
+        public FailedEventService Service => new(Repository, KafkaProducer, Audit, _dateTimeProvider, NullLogger<FailedEventService>.Instance);
 
         public void Seed()
         {
@@ -219,6 +222,22 @@ public sealed class FailedEventServiceTests
                 });
             }
         }
+    }
+
+    private sealed class RecordingAuditLogService : IAuditLogService
+    {
+        public List<AuditLog> Logged { get; } = [];
+        public Task LogAsync(AuditLog auditLog, CancellationToken cancellationToken = default)
+        {
+            Logged.Add(auditLog);
+            return Task.CompletedTask;
+        }
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>.Create([], 1, 50, 0));
+
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
     }
 
     private sealed class InMemoryFailedEventRepository : IFailedEventRepository

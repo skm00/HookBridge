@@ -16,6 +16,7 @@ namespace HookBridge.Infrastructure.Services.Billing;
 
 public sealed class BillingService(
     IMongoRepository<Tenant> tenantRepository,
+    IAuditLogService auditLogService,
     IValidator<CreateCheckoutSessionRequestDto> checkoutValidator,
     IOptions<StripeSettings> stripeOptions,
     IStripeGateway stripeGateway,
@@ -73,6 +74,22 @@ public sealed class BillingService(
                 },
             },
         }, cancellationToken);
+        await TryAuditAsync(
+            new AuditLog
+            {
+                TenantId = tenant.Id,
+                Action = "BillingCheckoutSessionCreated",
+                ResourceType = "Billing",
+                ResourceId = session.Id,
+                Description = $"Stripe checkout session created for plan '{request.Plan}'.",
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["plan"] = request.Plan.ToString(),
+                    ["stripeCustomerId"] = tenant.StripeCustomerId,
+                    ["sessionId"] = session.Id,
+                },
+            },
+            cancellationToken);
 
         return new CheckoutSessionResponseDto
         {
@@ -153,6 +170,7 @@ public sealed class BillingService(
         ApplyPlan(tenant, plan, "Active");
 
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
+        await TryAuditAsync(BuildWebhookAuditLog(tenant, "BillingPlanStatusUpdatedFromStripeWebhook", stripeEvent.Type), cancellationToken);
     }
 
     private async Task HandleSubscriptionUpdatedAsync(Event stripeEvent, CancellationToken cancellationToken)
@@ -176,6 +194,7 @@ public sealed class BillingService(
         SetPeriodDates(tenant, subscription);
 
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
+        await TryAuditAsync(BuildWebhookAuditLog(tenant, "BillingPlanStatusUpdatedFromStripeWebhook", stripeEvent.Type), cancellationToken);
     }
 
     private async Task HandleSubscriptionDeletedAsync(Event stripeEvent, CancellationToken cancellationToken)
@@ -197,6 +216,7 @@ public sealed class BillingService(
         tenant.CurrentPeriodEnd = null;
 
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
+        await TryAuditAsync(BuildWebhookAuditLog(tenant, "BillingPlanStatusUpdatedFromStripeWebhook", stripeEvent.Type), cancellationToken);
     }
 
     private async Task HandleInvoicePaymentFailedAsync(Event stripeEvent, CancellationToken cancellationToken)
@@ -214,6 +234,7 @@ public sealed class BillingService(
 
         tenant.BillingStatus = "PaymentFailed";
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
+        await TryAuditAsync(BuildWebhookAuditLog(tenant, "BillingPlanStatusUpdatedFromStripeWebhook", stripeEvent.Type), cancellationToken);
     }
 
     private async Task<Tenant?> FindTenantAsync(string? tenantId, string? stripeCustomerId, CancellationToken cancellationToken)
@@ -315,5 +336,35 @@ public sealed class BillingService(
             int unixSeconds => DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime,
             _ => null,
         };
+    }
+
+    private static AuditLog BuildWebhookAuditLog(Tenant tenant, string action, string eventType)
+        => new()
+        {
+            TenantId = tenant.Id,
+            Action = action,
+            ResourceType = nameof(Tenant),
+            ResourceId = tenant.Id,
+            Description = $"Tenant billing updated from Stripe webhook '{eventType}'.",
+            Metadata = new Dictionary<string, object?>
+            {
+                ["eventType"] = eventType,
+                ["plan"] = tenant.Plan.ToString(),
+                ["billingStatus"] = tenant.BillingStatus,
+                ["stripeCustomerId"] = tenant.StripeCustomerId,
+                ["stripeSubscriptionId"] = tenant.StripeSubscriptionId,
+            },
+        };
+
+    private async Task TryAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await auditLogService.LogAsync(auditLog, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Audit logging failed for action {Action}.", auditLog.Action);
+        }
     }
 }

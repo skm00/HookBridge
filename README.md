@@ -866,3 +866,24 @@ RateLimit__AdminApiWindowSeconds=60
 ```
 
 Set `RateLimit__Enabled=false` to disable limiter enforcement without removing policy wiring.
+
+## Audit Logging
+
+HookBridge records audit logs for high-impact admin operations. Audit entries are tenant-scoped and include actor context from JWT + request context (user id/email/role, IP address, user-agent).
+
+### Audited actions
+- Tenant created / updated / disabled
+- API key created / revoked
+- Subscription created / updated / deleted / enabled / disabled
+- Failed event manual retry requested
+- Billing checkout session created
+- Billing plan/status updates triggered by Stripe webhooks
+
+### Audit log API
+- `GET /api/v1/admin/audit-logs`
+- `GET /api/v1/admin/audit-logs/{id}`
+
+Both endpoints require JWT and `AdminOrOwner` policy, and are enforced to the caller tenant scope.
+
+### Sensitive data handling
+Audit metadata is sanitized before persistence. HookBridge does **not** store plain secrets (including API key values, passwords, OAuth client secrets, HMAC secrets, Authorization headers, Stripe secrets, or JWT tokens) in audit logs.

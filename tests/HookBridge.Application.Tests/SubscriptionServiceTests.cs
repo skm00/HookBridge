@@ -4,6 +4,7 @@ using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Services;
 using HookBridge.Application.Validation.Subscriptions;
 using HookBridge.Domain.Entities;
@@ -41,6 +42,49 @@ public sealed class SubscriptionServiceTests
         Assert.Equal("subscription-1", result.Id);
         Assert.True(result.IsActive);
         Assert.Equal("order.created", result.EventType);
+    }
+
+    [Fact]
+    public async Task CreateSubscription_WritesAuditLog()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var audit = new RecordingAuditLogService();
+        var service = CreateService(subscriptionRepo, tenantRepo, auditLogService: audit);
+
+        await service.CreateAsync(BuildValidRequest());
+
+        Assert.Equal("SubscriptionCreated", Assert.Single(audit.Logged).Action);
+    }
+
+    [Fact]
+    public async Task UpdateSubscription_WritesAuditLog()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var audit = new RecordingAuditLogService();
+        var service = CreateService(subscriptionRepo, tenantRepo, auditLogService: audit);
+        var created = await service.CreateAsync(BuildValidRequest());
+        audit.Logged.Clear();
+
+        await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto { EventType = "order.updated" });
+
+        Assert.Equal("SubscriptionUpdated", Assert.Single(audit.Logged).Action);
+    }
+
+    [Fact]
+    public async Task DeleteSubscription_WritesAuditLog()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var audit = new RecordingAuditLogService();
+        var service = CreateService(subscriptionRepo, tenantRepo, auditLogService: audit);
+        var created = await service.CreateAsync(BuildValidRequest());
+        audit.Logged.Clear();
+
+        await service.DeleteAsync(created.Id);
+
+        Assert.Equal("SubscriptionDeleted", Assert.Single(audit.Logged).Action);
     }
 
     [Fact]
@@ -618,17 +662,34 @@ public sealed class SubscriptionServiceTests
         InMemoryRepository<Tenant> tenantRepo,
         CreateSubscriptionRequestDtoValidator? createValidator = null,
         UpdateSubscriptionRequestDtoValidator? updateValidator = null,
-        ISecretEncryptionService? encryptionService = null)
+        ISecretEncryptionService? encryptionService = null,
+        IAuditLogService? auditLogService = null)
     {
         return new SubscriptionService(
             subscriptionRepo,
             tenantRepo,
+            auditLogService ?? new RecordingAuditLogService(),
             new FixedGuidGenerator(),
             new FixedDateTimeProvider(),
             createValidator ?? new CreateSubscriptionRequestDtoValidator(),
             updateValidator ?? new UpdateSubscriptionRequestDtoValidator(),
             encryptionService ?? new FakeSecretEncryptionService(),
             NullLogger<SubscriptionService>.Instance);
+    }
+
+    private sealed class RecordingAuditLogService : IAuditLogService
+    {
+        public List<AuditLog> Logged { get; } = [];
+        public Task LogAsync(AuditLog auditLog, CancellationToken cancellationToken = default)
+        {
+            Logged.Add(auditLog);
+            return Task.CompletedTask;
+        }
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>.Create([], 1, 50, 0));
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
     }
 
     private static InMemoryRepository<Tenant> BuildTenantRepo(TenantStatus status)
