@@ -1,10 +1,11 @@
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.DTOs.Events;
 
 namespace HookBridge.Application.Interfaces.Services;
 
 public interface IIncomingEventQueryService
 {
-    Task<IReadOnlyList<IncomingEventResponseDto>> SearchAsync(
+    Task<PagedResponseDto<IncomingEventResponseDto>> SearchAsync(
         IncomingEventSearchRequestDto request,
         CancellationToken cancellationToken = default);
 

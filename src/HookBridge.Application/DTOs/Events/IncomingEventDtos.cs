@@ -1,3 +1,5 @@
+using HookBridge.Application.DTOs.Common;
+
 namespace HookBridge.Application.DTOs.Events;
 
 public sealed class IncomingEventResponseDto
@@ -23,7 +25,7 @@ public sealed class IncomingEventResponseDto
     public object Payload { get; set; } = new { };
 }
 
-public sealed class IncomingEventSearchRequestDto
+public sealed class IncomingEventSearchRequestDto : PagedRequestDto
 {
     public string? TenantId { get; set; }
 

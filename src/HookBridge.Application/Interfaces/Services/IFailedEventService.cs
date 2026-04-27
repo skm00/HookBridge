@@ -1,3 +1,4 @@
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Domain.Entities;
 
@@ -7,7 +8,7 @@ public interface IFailedEventService
 {
     Task CreateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<FailedEventResponseDto>> SearchAsync(
+    Task<PagedResponseDto<FailedEventResponseDto>> SearchAsync(
         FailedEventSearchRequestDto request,
         CancellationToken cancellationToken = default);
 

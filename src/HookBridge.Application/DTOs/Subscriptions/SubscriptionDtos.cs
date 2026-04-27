@@ -1,3 +1,5 @@
+using HookBridge.Application.DTOs.Common;
+
 namespace HookBridge.Application.DTOs.Subscriptions;
 
 public sealed class CreateSubscriptionRequestDto
@@ -59,7 +61,7 @@ public sealed class SubscriptionResponseDto
     public DateTime? UpdatedAt { get; set; }
 }
 
-public sealed class SubscriptionSearchRequestDto
+public sealed class SubscriptionSearchRequestDto : PagedRequestDto
 {
     public string? TenantId { get; set; }
 

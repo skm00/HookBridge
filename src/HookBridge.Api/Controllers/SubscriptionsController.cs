@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
@@ -54,12 +55,16 @@ public sealed class SubscriptionsController(
 
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(IReadOnlyList<SubscriptionResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<SubscriptionResponseDto>>> SearchAsync(
+    [ProducesResponseType(typeof(PagedResponseDto<SubscriptionResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponseDto<SubscriptionResponseDto>>> SearchAsync(
         [FromQuery] string? tenantId,
         [FromQuery] string? eventType,
         [FromQuery] string? targetUrl,
         [FromQuery] bool? isActive,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = "desc",
         CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
@@ -71,6 +76,10 @@ public sealed class SubscriptionsController(
                 EventType = eventType,
                 TargetUrl = targetUrl,
                 IsActive = isActive,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                SortBy = sortBy,
+                SortDirection = sortDirection,
             },
             cancellationToken);
 

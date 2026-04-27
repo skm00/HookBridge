@@ -17,7 +17,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1" });
 
-        Assert.All(result, x => Assert.Equal("tenant-1", x.TenantId));
+        Assert.All(result.Items, x => Assert.Equal("tenant-1", x.TenantId));
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1", EventId = "evt-2" });
 
-        var item = Assert.Single(result);
+        var item = Assert.Single(result.Items);
         Assert.Equal("evt-2", item.EventId);
     }
 
@@ -42,7 +42,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1", EventType = "invoice.paid" });
 
-        var item = Assert.Single(result);
+        var item = Assert.Single(result.Items);
         Assert.Equal("invoice.paid", item.EventType);
     }
 
@@ -55,7 +55,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1", Status = "Failed" });
 
-        var item = Assert.Single(result);
+        var item = Assert.Single(result.Items);
         Assert.Equal("Failed", item.Status);
     }
 
@@ -73,7 +73,7 @@ public sealed class IncomingEventQueryServiceTests
             ToDate = new DateTime(2026, 4, 27, 10, 20, 0, DateTimeKind.Utc),
         });
 
-        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result.Items.Count);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1", CorrelationId = "corr-2" });
 
-        var item = Assert.Single(result);
+        var item = Assert.Single(result.Items);
         Assert.Equal("corr-2", item.CorrelationId);
     }
 
@@ -98,7 +98,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1" });
 
-        Assert.True(result.Zip(result.Skip(1)).All(x => x.First.ReceivedAt >= x.Second.ReceivedAt));
+        Assert.True(result.Items.Zip(result.Items.Skip(1)).All(x => x.First.ReceivedAt >= x.Second.ReceivedAt));
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1" });
 
-        Assert.Equal(500, result.Count);
+        Assert.Equal(500, result.PageSize);
     }
 
     [Fact]
@@ -224,6 +224,15 @@ public sealed class IncomingEventQueryServiceTests
         {
             var compiled = predicate.Compile();
             return Task.FromResult(_items.FirstOrDefault(compiled));
+        }
+
+
+        public Task<(IReadOnlyList<T> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, MongoDB.Driver.SortDefinition<T> sort, int skip, int limit, CancellationToken cancellationToken = default)
+        {
+            var compiled = predicate.Compile();
+            var filtered = _items.Where(compiled).ToList();
+            var paged = filtered.Skip(skip).Take(limit).ToList();
+            return Task.FromResult<(IReadOnlyList<T>, long)>((paged, filtered.LongCount()));
         }
 
         public Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)

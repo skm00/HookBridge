@@ -14,8 +14,11 @@ public sealed class FailedEventRepository(IMongoDatabase database) : IFailedEven
         return _collection.InsertOneAsync(failedEvent, cancellationToken: cancellationToken);
     }
 
-    public async Task<IReadOnlyList<FailedEvent>> SearchAsync(
+    public async Task<(IReadOnlyList<FailedEvent> Items, long TotalCount)> SearchAsync(
         FailedEventSearchRequestDto request,
+        SortDefinition<FailedEvent> sort,
+        int skip,
+        int limit,
         CancellationToken cancellationToken = default)
     {
         var filters = new List<FilterDefinition<FailedEvent>>();
@@ -59,11 +62,16 @@ public sealed class FailedEventRepository(IMongoDatabase database) : IFailedEven
             ? Builders<FailedEvent>.Filter.Empty
             : Builders<FailedEvent>.Filter.And(filters);
 
-        return await _collection
+        var countTask = _collection.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+        var itemsTask = _collection
             .Find(filter)
-            .SortByDescending(x => x.FailedAt)
-            .Limit(500)
+            .Sort(sort)
+            .Skip(skip)
+            .Limit(limit)
             .ToListAsync(cancellationToken);
+
+        await Task.WhenAll(countTask, itemsTask);
+        return (itemsTask.Result, countTask.Result);
     }
 
     public Task<FailedEvent?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

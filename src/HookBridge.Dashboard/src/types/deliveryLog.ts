@@ -1,3 +1,5 @@
+import type { PagedRequest } from './paging';
+
 export type DeliveryAttemptStatus = 'Pending' | 'Success' | 'Failed';
 
 export type DeliveryAttemptResponse = {
@@ -19,7 +21,7 @@ export type DeliveryAttemptResponse = {
   updatedAt: string | null;
 };
 
-export type DeliveryAttemptSearchRequest = {
+export type DeliveryAttemptSearchRequest = PagedRequest & {
   eventId?: string;
   subscriptionId?: string;
   eventType?: string;

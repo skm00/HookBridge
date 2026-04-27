@@ -138,6 +138,14 @@ public sealed class TenantServiceTests
             return Task.FromResult<IReadOnlyList<Tenant>>(_items.Where(compiled).ToList());
         }
 
+        public Task<(IReadOnlyList<Tenant> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, MongoDB.Driver.SortDefinition<Tenant> sort, int skip, int limit, CancellationToken cancellationToken = default)
+        {
+            var compiled = predicate.Compile();
+            var filtered = _items.Where(compiled).ToList();
+            var paged = filtered.Skip(skip).Take(limit).ToList();
+            return Task.FromResult<(IReadOnlyList<Tenant>, long)>((paged, filtered.LongCount()));
+        }
+
         public Task<Tenant?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, CancellationToken cancellationToken = default)
         {
             var compiled = predicate.Compile();

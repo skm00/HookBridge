@@ -246,8 +246,8 @@ public sealed class SubscriptionServiceTests
 
         var results = await service.SearchAsync(new SubscriptionSearchRequestDto { TenantId = "tenant-1" });
 
-        Assert.Single(results);
-        Assert.Equal("tenant-1", results[0].TenantId);
+        Assert.Single(results.Items);
+        Assert.Equal("tenant-1", results.Items[0].TenantId);
     }
 
     [Fact]
@@ -266,8 +266,8 @@ public sealed class SubscriptionServiceTests
 
         var results = await service.SearchAsync(new SubscriptionSearchRequestDto { EventType = "order.cancelled" });
 
-        Assert.Single(results);
-        Assert.Equal("order.cancelled", results[0].EventType);
+        Assert.Single(results.Items);
+        Assert.Equal("order.cancelled", results.Items[0].EventType);
     }
 
     [Fact]
@@ -709,6 +709,14 @@ public sealed class SubscriptionServiceTests
         {
             var compiled = predicate.Compile();
             return Task.FromResult(_items.FirstOrDefault(compiled));
+        }
+
+        public Task<(IReadOnlyList<T> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, MongoDB.Driver.SortDefinition<T> sort, int skip, int limit, CancellationToken cancellationToken = default)
+        {
+            var compiled = predicate.Compile();
+            var filtered = _items.Where(compiled).ToList();
+            var paged = filtered.Skip(skip).Take(limit).ToList();
+            return Task.FromResult<(IReadOnlyList<T>, long)>((paged, filtered.LongCount()));
         }
 
         public Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)

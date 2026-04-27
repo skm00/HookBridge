@@ -2,6 +2,7 @@ using Asp.Versioning;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
@@ -24,8 +25,8 @@ public sealed class IncomingEventsController(
 {
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(IReadOnlyList<IncomingEventResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<IncomingEventResponseDto>>> SearchAsync(
+    [ProducesResponseType(typeof(PagedResponseDto<IncomingEventResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponseDto<IncomingEventResponseDto>>> SearchAsync(
         [FromQuery] string? tenantId,
         [FromQuery] string? eventId,
         [FromQuery] string? eventType,
@@ -33,6 +34,10 @@ public sealed class IncomingEventsController(
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
         [FromQuery] string? correlationId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = "desc",
         CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
@@ -55,6 +60,10 @@ public sealed class IncomingEventsController(
             FromDate = fromDate,
             ToDate = toDate,
             CorrelationId = correlationId,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            SortBy = sortBy,
+            SortDirection = sortDirection,
         };
 
         var result = await incomingEventQueryService.SearchAsync(request, cancellationToken);

@@ -16,7 +16,7 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto { TenantId = "tenant-1" });
 
-        Assert.All(result, x => Assert.Equal("tenant-1", x.TenantId));
+        Assert.All(result.Items, x => Assert.Equal("tenant-1", x.TenantId));
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto { EventId = "evt-1" });
 
-        Assert.All(result, x => Assert.Equal("evt-1", x.EventId));
+        Assert.All(result.Items, x => Assert.Equal("evt-1", x.EventId));
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto { SubscriptionId = "sub-1" });
 
-        Assert.All(result, x => Assert.Equal("sub-1", x.SubscriptionId));
+        Assert.All(result.Items, x => Assert.Equal("sub-1", x.SubscriptionId));
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto { Status = DeliveryStatus.Failed });
 
-        Assert.All(result, x => Assert.Equal(DeliveryStatus.Failed, x.Status));
+        Assert.All(result.Items, x => Assert.Equal(DeliveryStatus.Failed, x.Status));
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto { HttpStatusCode = 500 });
 
-        Assert.All(result, x => Assert.Equal(500, x.HttpStatusCode));
+        Assert.All(result.Items, x => Assert.Equal(500, x.HttpStatusCode));
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public sealed class DeliveryAttemptServiceTests
         var to = new DateTime(2026, 4, 27, 10, 20, 0, DateTimeKind.Utc);
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto { FromDate = from, ToDate = to });
 
-        Assert.All(result, x => Assert.InRange(x.AttemptedAt, from, to));
+        Assert.All(result.Items, x => Assert.InRange(x.AttemptedAt, from, to));
     }
 
     [Fact]
@@ -78,8 +78,8 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto { TargetUrl = "EXAMPLE.com/orders" });
 
-        Assert.NotEmpty(result);
-        Assert.All(result, x => Assert.Contains("example.com/orders", x.TargetUrl, StringComparison.OrdinalIgnoreCase));
+        Assert.NotEmpty(result.Items);
+        Assert.All(result.Items, x => Assert.Contains("example.com/orders", x.TargetUrl, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -89,8 +89,8 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto());
 
-        var ordered = result.OrderByDescending(x => x.AttemptedAt).Select(x => x.Id).ToArray();
-        Assert.Equal(ordered, result.Select(x => x.Id).ToArray());
+        var ordered = result.Items.OrderByDescending(x => x.AttemptedAt).Select(x => x.Id).ToArray();
+        Assert.Equal(ordered, result.Items.Select(x => x.Id).ToArray());
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto());
 
-        Assert.Equal(500, result.Count);
+        Assert.Equal(500, result.PageSize);
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public sealed class DeliveryAttemptServiceTests
     {
         private readonly IReadOnlyList<DeliveryAttempt> _items = seed;
 
-        public Task<IReadOnlyList<DeliveryAttempt>> SearchAsync(DeliveryAttemptSearchRequestDto request, CancellationToken cancellationToken = default)
+        public Task<(IReadOnlyList<DeliveryAttempt> Items, long TotalCount)> SearchAsync(DeliveryAttemptSearchRequestDto request, MongoDB.Driver.SortDefinition<DeliveryAttempt> sort, int skip, int limit, CancellationToken cancellationToken = default)
         {
             IEnumerable<DeliveryAttempt> query = _items;
 
@@ -231,12 +231,10 @@ public sealed class DeliveryAttemptServiceTests
                 query = query.Where(x => x.TargetUrl.Contains(request.TargetUrl, StringComparison.OrdinalIgnoreCase));
             }
 
-            var result = query
-                .OrderByDescending(x => x.AttemptedAt)
-                .Take(500)
-                .ToList();
+            var list = query.ToList();
+            var result = list.Skip(skip).Take(limit).ToList();
 
-            return Task.FromResult<IReadOnlyList<DeliveryAttempt>>(result);
+            return Task.FromResult<(IReadOnlyList<DeliveryAttempt>, long)>((result, list.LongCount()));
         }
 
         public Task<DeliveryAttempt?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

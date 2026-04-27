@@ -1,3 +1,5 @@
+import type { PagedRequest } from './paging';
+
 export type IncomingEventStatus = 'Accepted' | 'Delivered' | 'Failed' | 'PartiallyFailed' | 'NoSubscriptions';
 
 export type IncomingEventResponse = {
@@ -13,7 +15,7 @@ export type IncomingEventResponse = {
   payload: unknown;
 };
 
-export type IncomingEventSearchRequest = {
+export type IncomingEventSearchRequest = PagedRequest & {
   eventId?: string;
   eventType?: string;
   status?: IncomingEventStatus | '';

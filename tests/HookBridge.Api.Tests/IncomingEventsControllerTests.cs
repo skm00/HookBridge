@@ -15,11 +15,11 @@ public sealed class IncomingEventsControllerTests
         var service = new FakeIncomingEventQueryService();
         var controller = new IncomingEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<IncomingEventsController>.Instance);
 
-        var result = await controller.SearchAsync("tenant-1", null, null, null, null, null, null, CancellationToken.None);
+        var result = await controller.SearchAsync("tenant-1", null, null, null, null, null, null, 1, 50, null, "desc", CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = Assert.IsAssignableFrom<IReadOnlyList<IncomingEventResponseDto>>(ok.Value);
-        Assert.Single(payload);
+        var payload = Assert.IsType<HookBridge.Application.DTOs.Common.PagedResponseDto<IncomingEventResponseDto>>(ok.Value);
+        Assert.Single(payload.Items);
     }
 
     [Fact]
@@ -62,8 +62,8 @@ public sealed class IncomingEventsControllerTests
             },
         ];
 
-        public Task<IReadOnlyList<IncomingEventResponseDto>> SearchAsync(IncomingEventSearchRequestDto request, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<IncomingEventResponseDto>>(_items.Where(x => x.TenantId == request.TenantId).ToList());
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<IncomingEventResponseDto>> SearchAsync(IncomingEventSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<IncomingEventResponseDto>.Create(_items.Where(x => x.TenantId == request.TenantId).ToList(), request.NormalizedPageNumber, request.NormalizedPageSize, _items.LongCount(x => x.TenantId == request.TenantId)));
 
         public Task<IncomingEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult(_items.FirstOrDefault(x => x.Id == id));

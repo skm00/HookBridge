@@ -1,4 +1,5 @@
 using FluentValidation;
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
@@ -7,6 +8,7 @@ using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
 
 namespace HookBridge.Application.Services;
 
@@ -86,15 +88,22 @@ public sealed class SubscriptionService(
         return Map(subscription);
     }
 
-    public async Task<IReadOnlyList<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<PagedResponseDto<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default)
     {
-        var allSubscriptions = await subscriptionRepository.FindAsync(_ => true, cancellationToken);
-        var subscriptions = allSubscriptions
-            .Where(subscription => string.IsNullOrWhiteSpace(request.TenantId) || subscription.TenantId == request.TenantId)
-            .Where(subscription => string.IsNullOrWhiteSpace(request.EventType) || subscription.EventType == request.EventType)
-            .Where(subscription => string.IsNullOrWhiteSpace(request.TargetUrl) || subscription.TargetUrl.Contains(request.TargetUrl, StringComparison.OrdinalIgnoreCase))
-            .Where(subscription => !request.IsActive.HasValue || subscription.IsActive == request.IsActive.Value)
-            .ToList();
+        var pageNumber = request.NormalizedPageNumber;
+        var pageSize = request.NormalizedPageSize;
+        var descending = request.NormalizedSortDirection == "desc";
+
+        var subscriptions = await subscriptionRepository.QueryAsync(
+            subscription =>
+                (string.IsNullOrWhiteSpace(request.TenantId) || subscription.TenantId == request.TenantId)
+                && (string.IsNullOrWhiteSpace(request.EventType) || subscription.EventType == request.EventType)
+                && (string.IsNullOrWhiteSpace(request.TargetUrl) || subscription.TargetUrl.Contains(request.TargetUrl))
+                && (!request.IsActive.HasValue || subscription.IsActive == request.IsActive.Value),
+            GetSortDefinition(request.SortBy, descending),
+            request.Skip,
+            pageSize,
+            cancellationToken);
 
         logger.LogInformation(
             "Subscription search executed for TenantId={TenantId}, EventType={EventType}, TargetUrl={TargetUrl}, IsActive={IsActive}, Count={Count}",
@@ -102,9 +111,22 @@ public sealed class SubscriptionService(
             request.EventType,
             request.TargetUrl,
             request.IsActive,
-            subscriptions.Count);
+            subscriptions.TotalCount);
 
-        return subscriptions.Select(Map).ToList();
+        return PagedResponseDto<SubscriptionResponseDto>.Create(subscriptions.Items.Select(Map).ToList(), pageNumber, pageSize, subscriptions.TotalCount);
+    }
+
+    private static SortDefinition<Subscription> GetSortDefinition(string? sortBy, bool descending)
+    {
+        var sortBuilder = Builders<Subscription>.Sort;
+        return (sortBy ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "createdat" => descending ? sortBuilder.Descending(x => x.CreatedAt) : sortBuilder.Ascending(x => x.CreatedAt),
+            "eventtype" => descending ? sortBuilder.Descending(x => x.EventType) : sortBuilder.Ascending(x => x.EventType),
+            "targeturl" => descending ? sortBuilder.Descending(x => x.TargetUrl) : sortBuilder.Ascending(x => x.TargetUrl),
+            "isactive" => descending ? sortBuilder.Descending(x => x.IsActive) : sortBuilder.Ascending(x => x.IsActive),
+            _ => sortBuilder.Descending(x => x.CreatedAt),
+        };
     }
 
     public async Task<SubscriptionResponseDto?> UpdateAsync(string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default)

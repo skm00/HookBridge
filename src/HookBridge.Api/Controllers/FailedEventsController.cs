@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
@@ -24,8 +25,8 @@ public sealed class FailedEventsController(
 {
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(IReadOnlyList<FailedEventResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<FailedEventResponseDto>>> SearchAsync(
+    [ProducesResponseType(typeof(PagedResponseDto<FailedEventResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponseDto<FailedEventResponseDto>>> SearchAsync(
         [FromQuery] string? tenantId,
         [FromQuery] string? eventId,
         [FromQuery] string? subscriptionId,
@@ -33,6 +34,10 @@ public sealed class FailedEventsController(
         [FromQuery] string? status,
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = "desc",
         CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
@@ -55,6 +60,10 @@ public sealed class FailedEventsController(
             Status = status,
             FromDate = fromDate,
             ToDate = toDate,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            SortBy = sortBy,
+            SortDirection = sortDirection,
         };
 
         var result = await failedEventService.SearchAsync(request, cancellationToken);
