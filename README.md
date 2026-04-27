@@ -149,6 +149,35 @@ Current usage endpoint:
 curl http://localhost:5000/api/v1/admin/tenants/{tenantId}/usage/current
 ```
 
+## Stripe Billing Setup (Foundation)
+
+Add Stripe settings under `Stripe` in `src/HookBridge.Api/appsettings.Development.json`:
+- `SecretKey`
+- `WebhookSecret`
+- `StarterPriceId`
+- `ProPriceId`
+- `EnterprisePriceId`
+- `SuccessUrl`
+- `CancelUrl`
+
+Billing plan limits used by billing webhook updates:
+- **Free**: 1,000 events/month
+- **Starter**: 50,000 events/month
+- **Pro**: 500,000 events/month
+- **Enterprise**: 2,147,483,647 events/month (`int.MaxValue`)
+
+Configure Stripe prices:
+1. Create recurring Stripe prices in your Stripe dashboard for Starter/Pro/Enterprise.
+2. Copy each price id (for example `price_...`) into the matching HookBridge setting.
+3. Keep secrets in configuration providers (environment variables, secrets manager, etc.), never in source code.
+
+Test Stripe webhooks locally:
+```bash
+stripe listen --forward-to localhost:5000/api/v1/billing/stripe/webhook
+```
+
+Use the returned webhook signing secret as `Stripe:WebhookSecret`, then trigger a sample checkout/subscription event from Stripe CLI.
+
 ## Worker Consumption Flow
 
 `HookBridge.Worker` runs `WebhookEventConsumerWorker`, which:

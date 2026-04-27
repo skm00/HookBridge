@@ -1,0 +1,298 @@
+using FluentValidation;
+using HookBridge.Application.DTOs.Billing;
+using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
+using HookBridge.Domain.Configuration;
+using HookBridge.Domain.Entities;
+using HookBridge.Domain.Enums;
+using HookBridge.Infrastructure.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Stripe;
+using Stripe.Checkout;
+using StripeSubscription = Stripe.Subscription;
+
+namespace HookBridge.Infrastructure.Services.Billing;
+
+public sealed class BillingService(
+    IMongoRepository<Tenant> tenantRepository,
+    IValidator<CreateCheckoutSessionRequestDto> checkoutValidator,
+    IOptions<StripeSettings> stripeOptions,
+    IStripeGateway stripeGateway,
+    ILogger<BillingService> logger) : IBillingService
+{
+    private readonly StripeSettings stripeSettings = stripeOptions.Value;
+
+    public async Task<CheckoutSessionResponseDto> CreateCheckoutSessionAsync(
+        string tenantId,
+        CreateCheckoutSessionRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        await checkoutValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var tenant = await tenantRepository.GetByIdAsync(tenantId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Tenant '{tenantId}' was not found.");
+
+        StripeConfiguration.ApiKey = stripeSettings.SecretKey;
+
+        var priceId = MapPriceId(request.Plan);
+
+        if (string.IsNullOrWhiteSpace(tenant.StripeCustomerId))
+        {
+            var customer = await stripeGateway.CreateCustomerAsync(new CustomerCreateOptions
+            {
+                Name = tenant.Name,
+                Email = tenant.ContactEmail,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["tenantId"] = tenant.Id,
+                },
+            }, cancellationToken);
+
+            tenant.StripeCustomerId = customer.Id;
+            await tenantRepository.UpdateAsync(tenant, cancellationToken);
+        }
+
+        var session = await stripeGateway.CreateCheckoutSessionAsync(new SessionCreateOptions
+        {
+            Customer = tenant.StripeCustomerId,
+            Mode = "subscription",
+            SuccessUrl = stripeSettings.SuccessUrl,
+            CancelUrl = stripeSettings.CancelUrl,
+            Metadata = new Dictionary<string, string>
+            {
+                ["tenantId"] = tenant.Id,
+                ["plan"] = request.Plan.ToString(),
+            },
+            LineItems = new List<SessionLineItemOptions>
+            {
+                new()
+                {
+                    Price = priceId,
+                    Quantity = 1,
+                },
+            },
+        }, cancellationToken);
+
+        return new CheckoutSessionResponseDto
+        {
+            SessionId = session.Id,
+            CheckoutUrl = session.Url ?? string.Empty,
+        };
+    }
+
+    public async Task<BillingStatusResponseDto?> GetBillingStatusAsync(
+        string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var tenant = await tenantRepository.GetByIdAsync(tenantId, cancellationToken);
+        if (tenant is null)
+        {
+            return null;
+        }
+
+        return new BillingStatusResponseDto
+        {
+            TenantId = tenant.Id,
+            Plan = tenant.Plan,
+            MonthlyEventLimit = tenant.MonthlyEventLimit,
+            BillingStatus = tenant.BillingStatus,
+            StripeCustomerId = tenant.StripeCustomerId,
+            StripeSubscriptionId = tenant.StripeSubscriptionId,
+            CurrentPeriodStart = tenant.CurrentPeriodStart,
+            CurrentPeriodEnd = tenant.CurrentPeriodEnd,
+        };
+    }
+
+    public async Task HandleStripeWebhookAsync(
+        string jsonPayload,
+        string stripeSignature,
+        CancellationToken cancellationToken = default)
+    {
+        StripeConfiguration.ApiKey = stripeSettings.SecretKey;
+
+        var stripeEvent = stripeGateway.ConstructWebhookEvent(jsonPayload, stripeSignature, stripeSettings.WebhookSecret);
+
+        switch (stripeEvent.Type)
+        {
+            case Events.CheckoutSessionCompleted:
+                await HandleCheckoutSessionCompletedAsync(stripeEvent, cancellationToken);
+                break;
+            case Events.CustomerSubscriptionUpdated:
+                await HandleSubscriptionUpdatedAsync(stripeEvent, cancellationToken);
+                break;
+            case Events.CustomerSubscriptionDeleted:
+                await HandleSubscriptionDeletedAsync(stripeEvent, cancellationToken);
+                break;
+            case Events.InvoicePaymentFailed:
+                await HandleInvoicePaymentFailedAsync(stripeEvent, cancellationToken);
+                break;
+            default:
+                logger.LogDebug("Unhandled Stripe event type: {EventType}", stripeEvent.Type);
+                break;
+        }
+    }
+
+    private async Task HandleCheckoutSessionCompletedAsync(Event stripeEvent, CancellationToken cancellationToken)
+    {
+        if (stripeEvent.Data.Object is not Session session)
+        {
+            return;
+        }
+
+        var tenant = await FindTenantAsync(session.Metadata?.GetValueOrDefault("tenantId"), session.CustomerId, cancellationToken);
+        if (tenant is null)
+        {
+            return;
+        }
+
+        tenant.StripeCustomerId = session.CustomerId ?? tenant.StripeCustomerId;
+        tenant.StripeSubscriptionId = session.SubscriptionId ?? tenant.StripeSubscriptionId;
+
+        var plan = ParsePlan(session.Metadata?.GetValueOrDefault("plan")) ?? tenant.Plan;
+        ApplyPlan(tenant, plan, "Active");
+
+        await tenantRepository.UpdateAsync(tenant, cancellationToken);
+    }
+
+    private async Task HandleSubscriptionUpdatedAsync(Event stripeEvent, CancellationToken cancellationToken)
+    {
+        if (stripeEvent.Data.Object is not StripeSubscription subscription)
+        {
+            return;
+        }
+
+        var tenant = await FindTenantAsync(null, subscription.CustomerId, cancellationToken);
+        if (tenant is null)
+        {
+            return;
+        }
+
+        tenant.StripeCustomerId = subscription.CustomerId ?? tenant.StripeCustomerId;
+        tenant.StripeSubscriptionId = subscription.Id;
+
+        var plan = MapPlanFromPriceId(subscription.Items.Data.FirstOrDefault()?.Price?.Id) ?? tenant.Plan;
+        ApplyPlan(tenant, plan, MapSubscriptionStatus(subscription.Status));
+        SetPeriodDates(tenant, subscription.CurrentPeriodStart, subscription.CurrentPeriodEnd);
+
+        await tenantRepository.UpdateAsync(tenant, cancellationToken);
+    }
+
+    private async Task HandleSubscriptionDeletedAsync(Event stripeEvent, CancellationToken cancellationToken)
+    {
+        if (stripeEvent.Data.Object is not StripeSubscription subscription)
+        {
+            return;
+        }
+
+        var tenant = await FindTenantAsync(null, subscription.CustomerId, cancellationToken);
+        if (tenant is null)
+        {
+            return;
+        }
+
+        tenant.StripeSubscriptionId = null;
+        ApplyPlan(tenant, BillingPlan.Free, "Canceled");
+        tenant.CurrentPeriodStart = null;
+        tenant.CurrentPeriodEnd = null;
+
+        await tenantRepository.UpdateAsync(tenant, cancellationToken);
+    }
+
+    private async Task HandleInvoicePaymentFailedAsync(Event stripeEvent, CancellationToken cancellationToken)
+    {
+        if (stripeEvent.Data.Object is not Invoice invoice)
+        {
+            return;
+        }
+
+        var tenant = await FindTenantAsync(null, invoice.CustomerId, cancellationToken);
+        if (tenant is null)
+        {
+            return;
+        }
+
+        tenant.BillingStatus = "PaymentFailed";
+        await tenantRepository.UpdateAsync(tenant, cancellationToken);
+    }
+
+    private async Task<Tenant?> FindTenantAsync(string? tenantId, string? stripeCustomerId, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(tenantId))
+        {
+            var byId = await tenantRepository.GetByIdAsync(tenantId, cancellationToken);
+            if (byId is not null)
+            {
+                return byId;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(stripeCustomerId))
+        {
+            return null;
+        }
+
+        return await tenantRepository.FirstOrDefaultAsync(x => x.StripeCustomerId == stripeCustomerId, cancellationToken);
+    }
+
+    private void ApplyPlan(Tenant tenant, BillingPlan plan, string billingStatus)
+    {
+        tenant.Plan = plan;
+        tenant.BillingStatus = billingStatus;
+        tenant.MonthlyEventLimit = BillingPlanLimits.GetMonthlyLimit(plan);
+    }
+
+    private static BillingPlan? ParsePlan(string? plan)
+    {
+        if (Enum.TryParse<BillingPlan>(plan, true, out var parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
+
+    private BillingPlan? MapPlanFromPriceId(string? priceId)
+    {
+        if (string.Equals(priceId, stripeSettings.StarterPriceId, StringComparison.Ordinal))
+        {
+            return BillingPlan.Starter;
+        }
+
+        if (string.Equals(priceId, stripeSettings.ProPriceId, StringComparison.Ordinal))
+        {
+            return BillingPlan.Pro;
+        }
+
+        if (string.Equals(priceId, stripeSettings.EnterprisePriceId, StringComparison.Ordinal))
+        {
+            return BillingPlan.Enterprise;
+        }
+
+        return null;
+    }
+
+    private string MapPriceId(BillingPlan plan) => plan switch
+    {
+        BillingPlan.Starter => stripeSettings.StarterPriceId,
+        BillingPlan.Pro => stripeSettings.ProPriceId,
+        BillingPlan.Enterprise => stripeSettings.EnterprisePriceId,
+        _ => throw new ValidationException("Free plan cannot create a Stripe checkout session."),
+    };
+
+    private static string MapSubscriptionStatus(string? status) => status switch
+    {
+        "active" => "Active",
+        "past_due" => "PastDue",
+        "unpaid" => "Unpaid",
+        "trialing" => "Trialing",
+        "canceled" => "Canceled",
+        _ => "Active",
+    };
+
+    private static void SetPeriodDates(Tenant tenant, DateTime? periodStart, DateTime? periodEnd)
+    {
+        tenant.CurrentPeriodStart = periodStart;
+        tenant.CurrentPeriodEnd = periodEnd;
+    }
+}

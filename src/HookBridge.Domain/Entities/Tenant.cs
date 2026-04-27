@@ -19,6 +19,31 @@ public sealed class Tenant : BaseEntity
     public int MonthlyEventLimit { get; set; } = BillingPlanLimits.Free;
 
     /// <summary>
+    /// Gets or sets the Stripe customer identifier for this tenant.
+    /// </summary>
+    public string? StripeCustomerId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Stripe subscription identifier for this tenant.
+    /// </summary>
+    public string? StripeSubscriptionId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the billing status for this tenant.
+    /// </summary>
+    public string BillingStatus { get; set; } = "Free";
+
+    /// <summary>
+    /// Gets or sets the start of the current billing period.
+    /// </summary>
+    public DateTime? CurrentPeriodStart { get; set; }
+
+    /// <summary>
+    /// Gets or sets the end of the current billing period.
+    /// </summary>
+    public DateTime? CurrentPeriodEnd { get; set; }
+
+    /// <summary>
     /// Gets or sets the tenant display name.
     /// </summary>
     public string Name { get; set; } = string.Empty;
