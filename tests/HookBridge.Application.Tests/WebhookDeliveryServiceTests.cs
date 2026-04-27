@@ -474,6 +474,9 @@ public sealed class WebhookDeliveryServiceTests
 
         public Task<FailedEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult<FailedEventResponseDto?>(null);
+
+        public Task<bool> RetryAsync(string failedEventId, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
     }
 
     private sealed record PublishedMessage(string Topic, string Key, object Message);

@@ -45,6 +45,40 @@ public sealed class FailedEventsControllerTests
         Assert.IsType<NotFoundResult>(result.Result);
     }
 
+    [Fact]
+    public async Task RetryAsync_ReturnsAccepted_WhenRetryRequested()
+    {
+        var service = new FakeFailedEventService();
+        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+
+        var result = await controller.RetryAsync("failed-1", CancellationToken.None);
+
+        Assert.IsType<AcceptedResult>(result);
+    }
+
+    [Fact]
+    public async Task RetryAsync_ReturnsNotFound_WhenMissing()
+    {
+        var service = new FakeFailedEventService();
+        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+
+        var result = await controller.RetryAsync("missing", CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task RetryAsync_ReturnsBadRequest_WhenNotRetryable()
+    {
+        var service = new FakeFailedEventService();
+        service.SetStatus("failed-1", "RetryRequested");
+        var controller = new FailedEventsController(service, NullLogger<FailedEventsController>.Instance);
+
+        var result = await controller.RetryAsync("failed-1", CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
     private sealed class FakeFailedEventService : IFailedEventService
     {
         private readonly List<FailedEventResponseDto> _items =
@@ -81,6 +115,24 @@ public sealed class FailedEventsControllerTests
         public Task<FailedEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
+        }
+
+        public Task<bool> RetryAsync(string failedEventId, CancellationToken cancellationToken = default)
+        {
+            var item = _items.FirstOrDefault(x => x.Id == failedEventId);
+            if (item is null || !string.Equals(item.Status, "DLQ", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(false);
+            }
+
+            item.Status = "RetryRequested";
+            return Task.FromResult(true);
+        }
+
+        public void SetStatus(string id, string status)
+        {
+            var item = _items.First(x => x.Id == id);
+            item.Status = status;
         }
     }
 }

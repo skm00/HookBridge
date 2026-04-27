@@ -70,4 +70,12 @@ public sealed class FailedEventRepository(IMongoDatabase database) : IFailedEven
     {
         return _collection.Find(x => x.Id == id).FirstOrDefaultAsync(cancellationToken);
     }
+
+    public Task UpdateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default)
+    {
+        return _collection.ReplaceOneAsync(
+            x => x.Id == failedEvent.Id,
+            failedEvent,
+            cancellationToken: cancellationToken);
+    }
 }

@@ -58,4 +58,30 @@ public sealed class FailedEventsController(
 
         return Ok(result);
     }
+
+    [HttpPost("{id}/retry")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RetryAsync(string id, CancellationToken cancellationToken)
+    {
+        var failedEvent = await failedEventService.GetByIdAsync(id, cancellationToken);
+        if (failedEvent is null)
+        {
+            return NotFound();
+        }
+
+        if (!string.Equals(failedEvent.Status, "DLQ", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Failed event is not retryable." });
+        }
+
+        var retryRequested = await failedEventService.RetryAsync(id, cancellationToken);
+        if (!retryRequested)
+        {
+            return BadRequest(new { message = "Failed event is not retryable." });
+        }
+
+        return Accepted();
+    }
 }

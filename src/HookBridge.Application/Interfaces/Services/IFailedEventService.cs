@@ -14,4 +14,8 @@ public interface IFailedEventService
     Task<FailedEventResponseDto?> GetByIdAsync(
         string id,
         CancellationToken cancellationToken = default);
+
+    Task<bool> RetryAsync(
+        string failedEventId,
+        CancellationToken cancellationToken = default);
 }
