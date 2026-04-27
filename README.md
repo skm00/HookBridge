@@ -110,6 +110,17 @@ The `/overview` dashboard route now integrates with `GET /api/v1/admin/dashboard
 - Loading and non-401 error states with a refresh action.
 - Formatted date range, locale-formatted numbers, and a success-rate badge with 2 decimal precision.
 
+
+
+## Delivery Logs Dashboard Page
+
+The `/delivery-logs` dashboard route now integrates with admin delivery-attempt APIs and includes:
+- Delivery log listing backed by `GET /api/v1/admin/delivery-logs`.
+- Filters for event id, subscription id, event type, status, HTTP status code, date range, and target URL.
+- Loading/error/empty states with refresh and clear-filters actions.
+- Delivery status badges (Success, Failed, Pending), formatted timestamps, and duration display in milliseconds.
+- "View Details" modal backed by `GET /api/v1/admin/delivery-logs/{id}` showing full attempt payload fields (tenant, event, subscription, status, response body, error message, and correlation data).
+
 ## Admin API Tenant Security
 
 - Admin JWTs include a `tenantId` claim and admin endpoints resolve the current tenant from the JWT on every request.

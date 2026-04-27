@@ -1,11 +1,418 @@
-import PagePlaceholder from './PagePlaceholder';
+import axios from 'axios';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { deliveryLogsApi } from '../api/deliveryLogsApi';
+import type {
+  DeliveryAttemptResponse,
+  DeliveryAttemptSearchRequest,
+  DeliveryAttemptStatus
+} from '../types/deliveryLog';
+
+type FilterState = {
+  eventId: string;
+  subscriptionId: string;
+  eventType: string;
+  status: '' | DeliveryAttemptStatus;
+  httpStatusCode: string;
+  fromDate: string;
+  toDate: string;
+  targetUrl: string;
+};
+
+const defaultFilters: FilterState = {
+  eventId: '',
+  subscriptionId: '',
+  eventType: '',
+  status: '',
+  httpStatusCode: '',
+  fromDate: '',
+  toDate: '',
+  targetUrl: ''
+};
+
+const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit'
+});
+
+const getApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (axios.isAxiosError(error)) {
+    const apiMessage = error.response?.data?.message;
+
+    if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+      return apiMessage;
+    }
+  }
+
+  return fallback;
+};
+
+const normalizeStatus = (status: DeliveryAttemptResponse['status']): DeliveryAttemptStatus | 'Unknown' => {
+  if (typeof status === 'number') {
+    if (status === 0) {
+      return 'Pending';
+    }
+
+    if (status === 1) {
+      return 'Success';
+    }
+
+    if (status === 2) {
+      return 'Failed';
+    }
+
+    return 'Unknown';
+  }
+
+  if (status === 'Pending' || status === 'Success' || status === 'Failed') {
+    return status;
+  }
+
+  return 'Unknown';
+};
+
+const formatDateTime = (value: string): string => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return dateTimeFormatter.format(date);
+};
+
+const formatDuration = (value: number): string => `${value} ms`;
+
+const truncateText = (value: string | null | undefined, maxLength: number): string => {
+  if (!value) {
+    return '-';
+  }
+
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}…`;
+};
+
+const getStatusBadgeClassName = (status: DeliveryAttemptStatus | 'Unknown'): string => {
+  if (status === 'Success') {
+    return 'bg-emerald-100 text-emerald-700';
+  }
+
+  if (status === 'Failed') {
+    return 'bg-rose-100 text-rose-700';
+  }
+
+  if (status === 'Pending') {
+    return 'bg-amber-100 text-amber-700';
+  }
+
+  return 'bg-slate-100 text-slate-600';
+};
 
 const DeliveryLogsPage = (): JSX.Element => {
+  const [logs, setLogs] = useState<DeliveryAttemptResponse[]>([]);
+  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [detailErrorMessage, setDetailErrorMessage] = useState('');
+  const [selectedLog, setSelectedLog] = useState<DeliveryAttemptResponse | null>(null);
+
+  const requestFilters = useMemo<DeliveryAttemptSearchRequest>(() => {
+    const mappedFilters: DeliveryAttemptSearchRequest = {};
+
+    if (filters.eventId.trim()) {
+      mappedFilters.eventId = filters.eventId.trim();
+    }
+
+    if (filters.subscriptionId.trim()) {
+      mappedFilters.subscriptionId = filters.subscriptionId.trim();
+    }
+
+    if (filters.eventType.trim()) {
+      mappedFilters.eventType = filters.eventType.trim();
+    }
+
+    if (filters.status) {
+      mappedFilters.status = filters.status;
+    }
+
+    if (filters.httpStatusCode.trim()) {
+      const parsed = Number(filters.httpStatusCode);
+
+      if (Number.isInteger(parsed)) {
+        mappedFilters.httpStatusCode = parsed;
+      }
+    }
+
+    if (filters.fromDate) {
+      mappedFilters.fromDate = new Date(filters.fromDate).toISOString();
+    }
+
+    if (filters.toDate) {
+      mappedFilters.toDate = new Date(filters.toDate).toISOString();
+    }
+
+    if (filters.targetUrl.trim()) {
+      mappedFilters.targetUrl = filters.targetUrl.trim();
+    }
+
+    return mappedFilters;
+  }, [filters]);
+
+  const loadDeliveryLogs = useCallback(async (activeFilters: DeliveryAttemptSearchRequest): Promise<void> => {
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      const response = await deliveryLogsApi.searchDeliveryLogs(activeFilters);
+      setLogs(response);
+    } catch (error) {
+      setLogs([]);
+      setErrorMessage(getApiErrorMessage(error, 'Unable to load delivery logs.'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDeliveryLogs(requestFilters);
+  }, [loadDeliveryLogs, requestFilters]);
+
+  const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]): void => {
+    setFilters((previous) => ({
+      ...previous,
+      [key]: value
+    }));
+  };
+
+  const handleClearFilters = (): void => {
+    setFilters(defaultFilters);
+  };
+
+  const handleRefresh = (): void => {
+    void loadDeliveryLogs(requestFilters);
+  };
+
+  const handleViewDetails = async (id: string): Promise<void> => {
+    setIsDetailLoading(true);
+    setDetailErrorMessage('');
+
+    try {
+      const detail = await deliveryLogsApi.getDeliveryLogById(id);
+      setSelectedLog(detail);
+    } catch (error) {
+      setDetailErrorMessage(getApiErrorMessage(error, 'Unable to load delivery logs.'));
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  const closeDetails = (): void => {
+    setSelectedLog(null);
+    setDetailErrorMessage('');
+  };
+
   return (
-    <PagePlaceholder
-      title="DeliveryLogs"
-      description="DeliveryLogs dashboard features will be added in subsequent iterations."
-    />
+    <section className="space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Delivery Logs</h1>
+          <p className="text-sm text-slate-600">Search and inspect webhook delivery attempts.</p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Clear filters
+          </button>
+        </div>
+      </header>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <input
+            value={filters.eventId}
+            onChange={(event) => handleFilterChange('eventId', event.target.value)}
+            placeholder="Event ID"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            value={filters.subscriptionId}
+            onChange={(event) => handleFilterChange('subscriptionId', event.target.value)}
+            placeholder="Subscription ID"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            value={filters.eventType}
+            onChange={(event) => handleFilterChange('eventType', event.target.value)}
+            placeholder="Event type"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <select
+            value={filters.status}
+            onChange={(event) => handleFilterChange('status', event.target.value as FilterState['status'])}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">All statuses</option>
+            <option value="Success">Success</option>
+            <option value="Failed">Failed</option>
+            <option value="Pending">Pending</option>
+          </select>
+          <input
+            value={filters.httpStatusCode}
+            onChange={(event) => handleFilterChange('httpStatusCode', event.target.value)}
+            placeholder="HTTP status code"
+            inputMode="numeric"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            type="datetime-local"
+            value={filters.fromDate}
+            onChange={(event) => handleFilterChange('fromDate', event.target.value)}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            type="datetime-local"
+            value={filters.toDate}
+            onChange={(event) => handleFilterChange('toDate', event.target.value)}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            value={filters.targetUrl}
+            onChange={(event) => handleFilterChange('targetUrl', event.target.value)}
+            placeholder="Target URL"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      {errorMessage && <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div>}
+
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="min-w-[1500px] divide-y divide-slate-200 text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+            <tr>
+              <th className="px-4 py-3">AttemptedAt</th>
+              <th className="px-4 py-3">EventId</th>
+              <th className="px-4 py-3">EventType</th>
+              <th className="px-4 py-3">SubscriptionId</th>
+              <th className="px-4 py-3">TargetUrl</th>
+              <th className="px-4 py-3">AttemptNumber</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">HttpStatusCode</th>
+              <th className="px-4 py-3">DurationMs</th>
+              <th className="px-4 py-3">CorrelationId</th>
+              <th className="px-4 py-3">ResponseBody</th>
+              <th className="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {isLoading && (
+              <tr>
+                <td colSpan={12} className="px-4 py-10 text-center text-slate-500">
+                  Loading delivery logs...
+                </td>
+              </tr>
+            )}
+
+            {!isLoading && logs.length === 0 && (
+              <tr>
+                <td colSpan={12} className="px-4 py-10 text-center text-slate-500">
+                  No delivery logs found.
+                </td>
+              </tr>
+            )}
+
+            {!isLoading && logs.map((log) => {
+              const normalizedStatus = normalizeStatus(log.status);
+
+              return (
+                <tr key={log.id} className="align-top text-slate-700">
+                  <td className="px-4 py-3">{formatDateTime(log.attemptedAt)}</td>
+                  <td className="px-4 py-3">{log.eventId || '-'}</td>
+                  <td className="px-4 py-3">{log.eventType || '-'}</td>
+                  <td className="px-4 py-3">{log.subscriptionId || '-'}</td>
+                  <td className="px-4 py-3" title={log.targetUrl}>{truncateText(log.targetUrl, 40)}</td>
+                  <td className="px-4 py-3">{log.attemptNumber}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeClassName(normalizedStatus)}`}>
+                      {normalizedStatus}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{log.httpStatusCode ?? '-'}</td>
+                  <td className="px-4 py-3">{formatDuration(log.durationMs)}</td>
+                  <td className="px-4 py-3">{log.correlationId || '-'}</td>
+                  <td className="max-w-xs px-4 py-3" title={log.responseBody ?? ''}>{truncateText(log.responseBody, 48)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleViewDetails(log.id);
+                      }}
+                      className="rounded-md border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100"
+                    >
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {(selectedLog || detailErrorMessage || isDetailLoading) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h2 className="text-lg font-semibold text-slate-900">Delivery Attempt Details</h2>
+              <button type="button" onClick={closeDetails} className="text-slate-500 hover:text-slate-800">
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5 text-sm text-slate-700">
+              {isDetailLoading && <p>Loading details...</p>}
+              {detailErrorMessage && <p className="rounded-md bg-rose-50 px-3 py-2 text-rose-700">{detailErrorMessage}</p>}
+
+              {!isDetailLoading && selectedLog && (
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  <div><dt className="font-semibold text-slate-900">TenantId</dt><dd>{selectedLog.tenantId || '-'}</dd></div>
+                  <div><dt className="font-semibold text-slate-900">EventId</dt><dd>{selectedLog.eventId || '-'}</dd></div>
+                  <div><dt className="font-semibold text-slate-900">SubscriptionId</dt><dd>{selectedLog.subscriptionId || '-'}</dd></div>
+                  <div><dt className="font-semibold text-slate-900">EventType</dt><dd>{selectedLog.eventType || '-'}</dd></div>
+                  <div className="sm:col-span-2"><dt className="font-semibold text-slate-900">TargetUrl</dt><dd className="break-all">{selectedLog.targetUrl || '-'}</dd></div>
+                  <div><dt className="font-semibold text-slate-900">AttemptNumber</dt><dd>{selectedLog.attemptNumber}</dd></div>
+                  <div><dt className="font-semibold text-slate-900">Status</dt><dd>{normalizeStatus(selectedLog.status)}</dd></div>
+                  <div><dt className="font-semibold text-slate-900">HttpStatusCode</dt><dd>{selectedLog.httpStatusCode ?? '-'}</dd></div>
+                  <div><dt className="font-semibold text-slate-900">DurationMs</dt><dd>{formatDuration(selectedLog.durationMs)}</dd></div>
+                  <div><dt className="font-semibold text-slate-900">AttemptedAt</dt><dd>{formatDateTime(selectedLog.attemptedAt)}</dd></div>
+                  <div className="sm:col-span-2"><dt className="font-semibold text-slate-900">CorrelationId</dt><dd>{selectedLog.correlationId || '-'}</dd></div>
+                  <div className="sm:col-span-2"><dt className="font-semibold text-slate-900">ResponseBody</dt><dd className="whitespace-pre-wrap break-all">{selectedLog.responseBody || '-'}</dd></div>
+                  <div className="sm:col-span-2"><dt className="font-semibold text-slate-900">ErrorMessage</dt><dd className="whitespace-pre-wrap break-all">{selectedLog.errorMessage || '-'}</dd></div>
+                </dl>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 };
 
