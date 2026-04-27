@@ -34,6 +34,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IWebhookDeliveryService, WebhookDeliveryService>();
         services.AddScoped<IUsageService, UsageService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IRetryPolicyService, RetryPolicyService>();
         services.AddScoped<IValidator<RegisterAdminRequestDto>, RegisterAdminRequestDtoValidator>();
         services.AddScoped<IValidator<LoginRequestDto>, LoginRequestDtoValidator>();

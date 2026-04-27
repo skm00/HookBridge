@@ -2,6 +2,7 @@ using FluentValidation;
 using HookBridge.Application.DTOs.Billing;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
+using HookBridge.Domain.Constants;
 using HookBridge.Application.Validation.Billing;
 using HookBridge.Domain.Configuration;
 using HookBridge.Domain.Entities;
@@ -169,16 +170,20 @@ public sealed class BillingServiceTests
             },
         };
 
-        var service = CreateService(tenantRepo, stripe);
+        var notifications = new RecordingNotificationService();
+        var service = CreateService(tenantRepo, stripe, notifications);
 
         await service.HandleStripeWebhookAsync("{}", "signature");
 
         var tenant = await tenantRepo.GetByIdAsync("tenant-1");
         Assert.NotNull(tenant);
         Assert.Equal("PaymentFailed", tenant!.BillingStatus);
+        var notification = Assert.Single(notifications.Created);
+        Assert.Equal(NotificationTypes.BillingPaymentFailed, notification.Type);
+        Assert.Equal(NotificationSeverities.Critical, notification.Severity);
     }
 
-    private static InfrastructureBillingService CreateService(InMemoryTenantRepository tenantRepository, FakeStripeGateway stripe)
+    private static InfrastructureBillingService CreateService(InMemoryTenantRepository tenantRepository, FakeStripeGateway stripe, INotificationService? notificationService = null)
         => new(
             tenantRepository,
             new NoopAuditLogService(),
@@ -194,6 +199,7 @@ public sealed class BillingServiceTests
                 CancelUrl = "http://localhost:3000/billing/cancel",
             }),
             stripe,
+            notificationService ?? new RecordingNotificationService(),
             NullLogger<InfrastructureBillingService>.Instance);
 
     private sealed class NoopAuditLogService : IAuditLogService
@@ -205,6 +211,30 @@ public sealed class BillingServiceTests
 
         public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
+    }
+
+
+    private sealed class RecordingNotificationService : INotificationService
+    {
+        public List<Notification> Created { get; } = [];
+
+        public Task CreateAsync(Notification notification, CancellationToken cancellationToken = default)
+        {
+            Created.Add(notification);
+            return Task.CompletedTask;
+        }
+
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.Notifications.NotificationResponseDto>> SearchAsync(HookBridge.Application.DTOs.Notifications.NotificationSearchRequestDto request, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<HookBridge.Application.DTOs.Notifications.NotificationResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<bool> MarkAsReadAsync(string id, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<int> GetUnreadCountAsync(string tenantId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
     private sealed class InMemoryTenantRepository(Tenant tenant) : IMongoRepository<Tenant>

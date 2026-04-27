@@ -17,6 +17,7 @@ public sealed class AuthorizationAttributesTests
     [InlineData(typeof(IncomingEventsController))]
     [InlineData(typeof(BillingController))]
     [InlineData(typeof(DashboardController))]
+    [InlineData(typeof(NotificationsController))]
     public void AdminEndpoints_RequireAuthorization(Type controllerType)
     {
         var authorize = Attribute.GetCustomAttribute(controllerType, typeof(AuthorizeAttribute));
@@ -38,6 +39,7 @@ public sealed class AuthorizationAttributesTests
         AssertMethodPolicy<ApiKeysController>(nameof(ApiKeysController.RevokeAsync), AuthorizationPolicies.OwnerOnly);
         AssertMethodPolicy<FailedEventsController>(nameof(FailedEventsController.RetryAsync), AuthorizationPolicies.AdminOrOwner);
         AssertMethodPolicy<DashboardController>(nameof(DashboardController.GetOverviewAsync), AuthorizationPolicies.ViewerOrAbove);
+        AssertMethodPolicy<NotificationsController>(nameof(NotificationsController.SearchAsync), AuthorizationPolicies.ViewerOrAbove);
         AssertMethodPolicy<IncomingEventsController>(nameof(IncomingEventsController.SearchAsync), AuthorizationPolicies.DeveloperOrAbove);
     }
 
