@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
@@ -11,9 +12,10 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
 [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
-[Route("api/v1/admin/subscriptions")]
+[Route("api/v{version:apiVersion}/admin/subscriptions")]
 public sealed class SubscriptionsController(
     ISubscriptionService subscriptionService,
     ICurrentUserContext currentUserContext,

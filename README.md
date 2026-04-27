@@ -9,6 +9,14 @@ Initial production-style SaaS solution scaffold for a multi-tenant webhook deliv
 - Kafka (planned)
 - React dashboard (planned)
 
+## API Versioning
+
+HookBridge APIs are versioned using URL segments for long-term compatibility.
+
+- Current stable version: `v1`
+- Route format: `/api/v{version}/...` (for example, `/api/v1/events/{tenantId}` and `/api/v1/admin/subscriptions`)
+- Future versions will follow the same pattern, such as `/api/v2/...`
+
 ## Configuration Validation
 
 HookBridge validates critical configuration sections at startup and fails fast with actionable errors (for example, `Jwt:Secret must be at least 32 characters long.`).

@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using HookBridge.Application.DTOs.Auth;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -6,8 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [AllowAnonymous]
-[Route("api/v1/auth")]
+[Route("api/v{version:apiVersion}/auth")]
 public sealed class AuthController(IAuthService authService) : ControllerBase
 {
     [HttpPost("register")]

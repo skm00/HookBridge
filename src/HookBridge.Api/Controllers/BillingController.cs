@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using HookBridge.Application.DTOs.Billing;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
@@ -11,12 +12,13 @@ using Stripe;
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
 public sealed class BillingController(
     IBillingService billingService,
     TenantAccessValidator tenantAccessValidator) : ControllerBase
 {
-    [HttpPost("api/v1/admin/tenants/{tenantId}/billing/checkout")]
+    [HttpPost("api/v{version:apiVersion}/admin/tenants/{tenantId}/billing/checkout")]
     [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
     [Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
     [ProducesResponseType(typeof(CheckoutSessionResponseDto), StatusCodes.Status200OK)]
@@ -32,7 +34,7 @@ public sealed class BillingController(
         return Ok(checkout);
     }
 
-    [HttpGet("api/v1/admin/tenants/{tenantId}/billing/status")]
+    [HttpGet("api/v{version:apiVersion}/admin/tenants/{tenantId}/billing/status")]
     [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(BillingStatusResponseDto), StatusCodes.Status200OK)]
@@ -50,7 +52,7 @@ public sealed class BillingController(
     }
 
     [AllowAnonymous]
-    [HttpPost("api/v1/billing/stripe/webhook")]
+    [HttpPost("api/v{version:apiVersion}/billing/stripe/webhook")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> HandleStripeWebhookAsync(CancellationToken cancellationToken)

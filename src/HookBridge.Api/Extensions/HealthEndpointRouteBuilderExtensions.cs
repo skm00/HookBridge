@@ -13,7 +13,7 @@ public static class HealthEndpointRouteBuilderExtensions
     {
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-        app.MapGet("/api/v1/health/mongodb", async (IMongoDatabase database, CancellationToken cancellationToken) =>
+        app.MapGet("/api/v{version:apiVersion}/health/mongodb", async (IMongoDatabase database, CancellationToken cancellationToken) =>
         {
             try
             {
@@ -37,7 +37,7 @@ public static class HealthEndpointRouteBuilderExtensions
             }
         });
 
-        app.MapGet("/api/v1/health/kafka", async (IKafkaAdminService kafkaAdminService, CancellationToken cancellationToken) =>
+        app.MapGet("/api/v{version:apiVersion}/health/kafka", async (IKafkaAdminService kafkaAdminService, CancellationToken cancellationToken) =>
         {
             try
             {
@@ -71,7 +71,7 @@ public static class HealthEndpointRouteBuilderExtensions
             }
         });
 
-        app.MapGet("/api/v1/health/apm", (IOptions<ElasticApmSettings> apmOptions) =>
+        app.MapGet("/api/v{version:apiVersion}/health/apm", (IOptions<ElasticApmSettings> apmOptions) =>
         {
             var enabled = apmOptions.Value.Enabled;
 
@@ -83,7 +83,7 @@ public static class HealthEndpointRouteBuilderExtensions
             });
         });
 
-        app.MapGet("/api/v1/health/elasticsearch", async (IElasticsearchHealthService elasticsearchHealthService, CancellationToken cancellationToken) =>
+        app.MapGet("/api/v{version:apiVersion}/health/elasticsearch", async (IElasticsearchHealthService elasticsearchHealthService, CancellationToken cancellationToken) =>
         {
             var response = await elasticsearchHealthService.CheckHealthAsync(cancellationToken);
 

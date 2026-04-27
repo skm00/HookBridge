@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
@@ -10,9 +11,10 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
 [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
-[Route("api/v1/admin/tenants/{tenantId}/api-keys")]
+[Route("api/v{version:apiVersion}/admin/tenants/{tenantId}/api-keys")]
 public sealed class ApiKeysController(
     IApiKeyService apiKeyService,
     TenantAccessValidator tenantAccessValidator) : ControllerBase

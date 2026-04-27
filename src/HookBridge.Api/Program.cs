@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Text;
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.Extensions;
 using HookBridge.Api.Health;
@@ -13,8 +15,9 @@ using Elastic.Apm.NetCoreAll;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,15 +26,22 @@ builder.Host.UseSerilog((context, _, loggerConfiguration) =>
     loggerConfiguration.ConfigureHookBridgeEcsLogging(context.Configuration, "hookbridge-api"));
 
 builder.Services.AddControllers();
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+}).AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'V";
+    options.SubstituteApiVersionInUrl = true;
+});
+
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddTransient<IConfigureOptions<Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions>, ConfigureSwaggerOptions>();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "HookBridge API",
-        Version = "v1",
-    });
-
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -125,8 +135,16 @@ if (elasticApmSettings.Enabled)
 
 if (app.Environment.IsDevelopment())
 {
+    var apiVersionDescriptionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        foreach (var description in apiVersionDescriptionProvider.ApiVersionDescriptions)
+        {
+            options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"HookBridge API {description.GroupName}");
+        }
+    });
 }
 
 app.UseAuthentication();
@@ -137,3 +155,18 @@ app.MapControllers();
 app.MapHookBridgeHealthEndpoints();
 
 app.Run();
+
+internal sealed class ConfigureSwaggerOptions(IApiVersionDescriptionProvider provider) : IConfigureOptions<Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions>
+{
+    public void Configure(Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions options)
+    {
+        foreach (var description in provider.ApiVersionDescriptions)
+        {
+            options.SwaggerDoc(description.GroupName, new OpenApiInfo
+            {
+                Title = $"HookBridge API {description.GroupName}",
+                Version = description.GroupName,
+            });
+        }
+    }
+}
