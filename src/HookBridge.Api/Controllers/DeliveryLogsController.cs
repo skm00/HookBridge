@@ -1,5 +1,7 @@
 using HookBridge.Application.DTOs.DeliveryAttempts;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Security;
+using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +14,8 @@ namespace HookBridge.Api.Controllers;
 [Route("api/v1/admin/delivery-logs")]
 public sealed class DeliveryLogsController(
     IDeliveryAttemptService deliveryAttemptService,
+    ICurrentUserContext currentUserContext,
+    TenantAccessValidator tenantAccessValidator,
     ILogger<DeliveryLogsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -29,6 +33,9 @@ public sealed class DeliveryLogsController(
         [FromQuery] string? targetUrl,
         CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
+        tenantId = currentUserContext.TenantId;
+
         logger.LogInformation(
             "Searching delivery logs. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, Status: {Status}",
             tenantId,
@@ -65,6 +72,7 @@ public sealed class DeliveryLogsController(
             return NotFound();
         }
 
+        tenantAccessValidator.EnsureTenantAccess(result.TenantId);
         return Ok(result);
     }
 }

@@ -1,5 +1,7 @@
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Security;
+using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +13,8 @@ namespace HookBridge.Api.Controllers;
 [Route("api/v1/admin/failed-events")]
 public sealed class FailedEventsController(
     IFailedEventService failedEventService,
+    ICurrentUserContext currentUserContext,
+    TenantAccessValidator tenantAccessValidator,
     ILogger<FailedEventsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -26,6 +30,9 @@ public sealed class FailedEventsController(
         [FromQuery] DateTime? toDate,
         CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
+        tenantId = currentUserContext.TenantId;
+
         logger.LogInformation(
             "Searching failed events. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, EventType: {EventType}, Status: {Status}",
             tenantId,
@@ -61,6 +68,7 @@ public sealed class FailedEventsController(
             return NotFound();
         }
 
+        tenantAccessValidator.EnsureTenantAccess(result.TenantId);
         return Ok(result);
     }
 
@@ -76,6 +84,8 @@ public sealed class FailedEventsController(
         {
             return NotFound();
         }
+
+        tenantAccessValidator.EnsureTenantAccess(failedEvent.TenantId);
 
         if (!string.Equals(failedEvent.Status, "DLQ", StringComparison.OrdinalIgnoreCase))
         {

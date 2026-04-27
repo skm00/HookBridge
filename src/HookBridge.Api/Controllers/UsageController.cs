@@ -1,5 +1,6 @@
 using HookBridge.Application.DTOs.Usage;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Entities;
@@ -13,7 +14,8 @@ namespace HookBridge.Api.Controllers;
 [Route("api/v1/admin/tenants/{tenantId}/usage")]
 public sealed class UsageController(
     IUsageService usageService,
-    IMongoRepository<Tenant> tenantRepository) : ControllerBase
+    IMongoRepository<Tenant> tenantRepository,
+    TenantAccessValidator tenantAccessValidator) : ControllerBase
 {
     [HttpGet("current")]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
@@ -21,6 +23,7 @@ public sealed class UsageController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CurrentUsageResponseDto>> GetCurrentAsync(string tenantId, CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(tenantId);
         var tenant = await tenantRepository.GetByIdAsync(tenantId, cancellationToken);
         if (tenant is null)
         {

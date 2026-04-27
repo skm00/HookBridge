@@ -15,7 +15,8 @@ public sealed class UsageControllerTests
     {
         var controller = new UsageController(
             new FakeUsageService(),
-            new FakeTenantRepository());
+            new FakeTenantRepository(),
+            TenantIsolationTestHelpers.CreateValidator());
 
         var result = await controller.GetCurrentAsync("tenant-1", CancellationToken.None);
 

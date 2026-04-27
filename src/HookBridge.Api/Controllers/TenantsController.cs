@@ -1,5 +1,7 @@
 using HookBridge.Application.DTOs.Tenants;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Security;
+using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +11,10 @@ namespace HookBridge.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/admin/tenants")]
-public sealed class TenantsController(ITenantService tenantService) : ControllerBase
+public sealed class TenantsController(
+    ITenantService tenantService,
+    ICurrentUserContext currentUserContext,
+    TenantAccessValidator tenantAccessValidator) : ControllerBase
 {
     /// <summary>
     /// Creates a new tenant.
@@ -44,8 +49,15 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
     [ProducesResponseType(typeof(IReadOnlyList<TenantResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<TenantResponseDto>>> GetAllAsync(CancellationToken cancellationToken)
     {
-        var tenants = await tenantService.GetAllAsync(cancellationToken);
-        return Ok(tenants);
+        tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
+
+        var tenant = await tenantService.GetByIdAsync(currentUserContext.TenantId!, cancellationToken);
+        if (tenant is null)
+        {
+            return Ok(Array.Empty<TenantResponseDto>());
+        }
+
+        return Ok(new[] { tenant });
     }
 
     /// <summary>
@@ -62,6 +74,7 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TenantResponseDto>> GetByIdAsync(string id, CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(id);
         var tenant = await tenantService.GetByIdAsync(id, cancellationToken);
         if (tenant is null)
         {
@@ -91,6 +104,7 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
         [FromBody] UpdateTenantRequestDto request,
         CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(id);
         var updated = await tenantService.UpdateAsync(id, request, cancellationToken);
         if (updated is null)
         {
@@ -113,6 +127,7 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DisableAsync(string id, CancellationToken cancellationToken)
     {
+        tenantAccessValidator.EnsureTenantAccess(id);
         var disabled = await tenantService.DisableAsync(id, cancellationToken);
         if (!disabled)
         {

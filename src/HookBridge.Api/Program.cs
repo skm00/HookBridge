@@ -2,7 +2,9 @@ using System.Reflection;
 using System.Text;
 using HookBridge.Api.Middleware;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Security;
 using HookBridge.Application.DependencyInjection;
+using HookBridge.Application.Interfaces;
 using HookBridge.Application.Messaging;
 using HookBridge.Domain.Enums;
 using HookBridge.Infrastructure.Configuration;
@@ -61,6 +63,9 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddScoped<TenantAccessValidator>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
     ?? throw new InvalidOperationException("JWT settings are missing.");
