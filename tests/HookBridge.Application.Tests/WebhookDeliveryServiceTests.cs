@@ -372,6 +372,21 @@ public sealed class WebhookDeliveryServiceTests
         Assert.Contains(fixture.Logger.Records, x => x.Level == LogLevel.Information && x.Message.Contains("subscription is inactive"));
     }
 
+
+    [Fact]
+    public async Task DeliveryService_DecryptsSecretsBeforeSending()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200, DurationMs = 20 });
+
+        await fixture.Service.ProcessEventAsync(fixture.Message);
+
+        var sent = fixture.DeliveryClient.Requests.Single();
+        Assert.Equal("secret", sent.Authentication!.ApiKeyHeader!.HeaderValue);
+    }
+
     private sealed class Fixture
     {
         public InMemoryRepository<IncomingEvent> IncomingEvents { get; } = new();
@@ -382,6 +397,7 @@ public sealed class WebhookDeliveryServiceTests
         public FakeFailedEventService FailedEventService { get; } = new();
         public FakeUsageService UsageService { get; } = new();
         public ListLogger<WebhookDeliveryService> Logger { get; } = new();
+        public FakeSecretEncryptionService EncryptionService { get; } = new();
         public WebhookEventMessage Message { get; } = new()
         {
             TenantId = "tenant-1",
@@ -410,6 +426,7 @@ public sealed class WebhookDeliveryServiceTests
             new RetryPolicyService(),
             FailedEventService,
             UsageService,
+            EncryptionService,
             Logger);
 
         public void SeedIncomingEvent()
@@ -457,7 +474,7 @@ public sealed class WebhookDeliveryServiceTests
                     ApiKeyHeader = new ApiKeyHeaderConfig
                     {
                         HeaderName = "x-api-key",
-                        HeaderValue = "secret",
+                        HeaderValue = EncryptionService.Encrypt("secret"),
                     },
                 },
                 CreatedAt = new DateTime(2026, 4, 27, 9, 0, 0, DateTimeKind.Utc),
@@ -550,6 +567,26 @@ public sealed class WebhookDeliveryServiceTests
             Requests.Add(request);
             return Task.FromResult(Results.Count > 0 ? Results.Dequeue() : new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200, DurationMs = 1 });
         }
+    }
+
+
+    private sealed class FakeSecretEncryptionService : ISecretEncryptionService
+    {
+        private const string Prefix = "enc:v1:fake:";
+
+        public string Encrypt(string plainText)
+            => IsEncrypted(plainText)
+                ? plainText
+                : Prefix + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(plainText));
+
+        public string Decrypt(string cipherText)
+            => IsEncrypted(cipherText)
+                ? System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(cipherText[Prefix.Length..]))
+                : cipherText;
+
+        public bool IsEncrypted(string value)
+            => !string.IsNullOrWhiteSpace(value)
+               && value.StartsWith(Prefix, StringComparison.Ordinal);
     }
 
     private sealed class InMemoryRepository<T> : IMongoRepository<T>

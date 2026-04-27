@@ -110,6 +110,15 @@ public static class InfrastructureServiceRegistration
             "Security",
             _ => []);
 
+        services.AddValidatedOptions<EncryptionSettings>(
+            configuration,
+            "Encryption",
+            settings =>
+            [
+                isProduction ? Required(settings.MasterKey, "MasterKey") : null,
+                isProduction ? MinLength(settings.MasterKey, "MasterKey", 32) : null,
+            ]);
+
         services.PostConfigure<SecuritySettings>(settings =>
         {
             if (string.IsNullOrWhiteSpace(configuration["Security:AllowPrivateNetworkTargetUrls"]))
@@ -136,6 +145,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IApiKeyHasher, ApiKeyHasher>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
+        services.AddSingleton<ISecretEncryptionService, SecretEncryptionService>();
         services.AddSingleton<ITracingService, ElasticApmTracingService>();
         services.AddSingleton<IKafkaProducer, KafkaProducer>();
         services.AddSingleton<IKafkaConsumer, KafkaConsumer>();

@@ -472,6 +472,133 @@ public sealed class SubscriptionServiceTests
         Assert.Equal("********", updated.Authentication!.ApiKeyHeader!.HeaderValue);
     }
 
+
+    [Fact]
+    public async Task CreateSubscription_StoresEncryptedBasicPassword()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var encryption = new FakeSecretEncryptionService();
+        var service = CreateService(subscriptionRepo, tenantRepo, encryptionService: encryption);
+
+        var request = BuildValidRequest();
+        request.Authentication = new AuthenticationDto
+        {
+            Type = "Basic",
+            Basic = new BasicAuthDto { Username = "user", Password = "plain-password" },
+        };
+
+        var created = await service.CreateAsync(request);
+        var stored = await subscriptionRepo.GetByIdAsync(created.Id);
+
+        Assert.True(encryption.IsEncrypted(stored!.Authentication!.Basic!.Password));
+    }
+
+    [Fact]
+    public async Task CreateSubscription_StoresEncryptedOAuthClientSecret()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var encryption = new FakeSecretEncryptionService();
+        var service = CreateService(subscriptionRepo, tenantRepo, encryptionService: encryption);
+
+        var request = BuildValidRequest();
+        request.Authentication = new AuthenticationDto
+        {
+            Type = "OAuth2ClientCredentials",
+            OAuth2 = new OAuth2ClientCredentialsDto
+            {
+                TokenUrl = "https://auth.example.com/token",
+                ClientId = "cid",
+                ClientSecret = "oauth-secret",
+            },
+        };
+
+        var created = await service.CreateAsync(request);
+        var stored = await subscriptionRepo.GetByIdAsync(created.Id);
+
+        Assert.True(encryption.IsEncrypted(stored!.Authentication!.OAuth2!.ClientSecret));
+    }
+
+    [Fact]
+    public async Task CreateSubscription_StoresEncryptedApiKeyHeaderValue()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var encryption = new FakeSecretEncryptionService();
+        var service = CreateService(subscriptionRepo, tenantRepo, encryptionService: encryption);
+
+        var request = BuildValidRequest();
+        request.Authentication = new AuthenticationDto
+        {
+            Type = "ApiKeyHeader",
+            ApiKeyHeader = new ApiKeyHeaderDto { HeaderName = "x-api-key", HeaderValue = "api-secret" },
+        };
+
+        var created = await service.CreateAsync(request);
+        var stored = await subscriptionRepo.GetByIdAsync(created.Id);
+
+        Assert.True(encryption.IsEncrypted(stored!.Authentication!.ApiKeyHeader!.HeaderValue));
+    }
+
+    [Fact]
+    public async Task CreateSubscription_StoresEncryptedHmacSecret()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var encryption = new FakeSecretEncryptionService();
+        var service = CreateService(subscriptionRepo, tenantRepo, encryptionService: encryption);
+
+        var request = BuildValidRequest();
+        request.Authentication = new AuthenticationDto
+        {
+            Type = "HmacSignature",
+            HmacSignature = new HmacSignatureDto { Secret = "hmac-secret", HeaderName = "x-sign", Algorithm = "HMACSHA256" },
+        };
+
+        var created = await service.CreateAsync(request);
+        var stored = await subscriptionRepo.GetByIdAsync(created.Id);
+
+        Assert.True(encryption.IsEncrypted(stored!.Authentication!.HmacSignature!.Secret));
+    }
+
+    [Fact]
+    public async Task UpdateSubscription_MaskedSecret_KeepsExistingEncryptedValue()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var subscriptionRepo = new InMemoryRepository<Subscription>();
+        var encryption = new FakeSecretEncryptionService();
+        var service = CreateService(subscriptionRepo, tenantRepo, encryptionService: encryption);
+
+        var created = await service.CreateAsync(new CreateSubscriptionRequestDto
+        {
+            TenantId = "tenant-1",
+            EventType = "order.created",
+            TargetUrl = "https://example.com/hooks",
+            RetryPolicy = new RetryPolicyDto { MaxAttempts = 3, InitialDelaySeconds = 30, BackoffType = "Exponential" },
+            TimeoutSeconds = 30,
+            Authentication = new AuthenticationDto
+            {
+                Type = "Basic",
+                Basic = new BasicAuthDto { Username = "user", Password = "first-secret" },
+            },
+        });
+
+        var before = (await subscriptionRepo.GetByIdAsync(created.Id))!.Authentication!.Basic!.Password;
+
+        await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        {
+            Authentication = new AuthenticationDto
+            {
+                Type = "Basic",
+                Basic = new BasicAuthDto { Username = "user", Password = "********" },
+            },
+        });
+
+        var after = (await subscriptionRepo.GetByIdAsync(created.Id))!.Authentication!.Basic!.Password;
+        Assert.Equal(before, after);
+    }
+
     private static CreateSubscriptionRequestDto BuildValidRequest() => new()
     {
         TenantId = "tenant-1",
@@ -490,7 +617,8 @@ public sealed class SubscriptionServiceTests
         InMemoryRepository<Subscription> subscriptionRepo,
         InMemoryRepository<Tenant> tenantRepo,
         CreateSubscriptionRequestDtoValidator? createValidator = null,
-        UpdateSubscriptionRequestDtoValidator? updateValidator = null)
+        UpdateSubscriptionRequestDtoValidator? updateValidator = null,
+        ISecretEncryptionService? encryptionService = null)
     {
         return new SubscriptionService(
             subscriptionRepo,
@@ -499,6 +627,7 @@ public sealed class SubscriptionServiceTests
             new FixedDateTimeProvider(),
             createValidator ?? new CreateSubscriptionRequestDtoValidator(),
             updateValidator ?? new UpdateSubscriptionRequestDtoValidator(),
+            encryptionService ?? new FakeSecretEncryptionService(),
             NullLogger<SubscriptionService>.Instance);
     }
 
@@ -531,6 +660,26 @@ public sealed class SubscriptionServiceTests
     private sealed class FixedDateTimeProvider : IDateTimeProvider
     {
         public DateTime UtcNow => new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+
+    private sealed class FakeSecretEncryptionService : ISecretEncryptionService
+    {
+        private const string Prefix = "enc:v1:fake:";
+
+        public string Encrypt(string plainText)
+            => IsEncrypted(plainText)
+                ? plainText
+                : Prefix + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(plainText));
+
+        public string Decrypt(string cipherText)
+            => IsEncrypted(cipherText)
+                ? System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(cipherText[Prefix.Length..]))
+                : cipherText;
+
+        public bool IsEncrypted(string value)
+            => !string.IsNullOrWhiteSpace(value)
+               && value.StartsWith(Prefix, StringComparison.Ordinal);
     }
 
     private sealed class TestHostEnvironment(string environmentName) : IHostEnvironment

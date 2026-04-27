@@ -105,6 +105,7 @@ public class OptionsValidationExtensionsTests
                 ["ElasticApm:Enabled"] = "true",
                 ["ElasticApm:ServiceName"] = "hookbridge-worker",
                 ["ElasticApm:Environment"] = "Production",
+                ["Encryption:MasterKey"] = "12345678901234567890123456789012",
             },
             Environments.Production);
 
@@ -112,6 +113,70 @@ public class OptionsValidationExtensionsTests
             serviceProvider.GetRequiredService<IOptions<ElasticApmSettings>>().Value);
 
         Assert.Contains("ElasticApm:ServerUrl is required.", exception.Failures);
+    }
+
+
+    [Fact]
+    public void EncryptionMasterKey_RequiredInProduction()
+    {
+        using var serviceProvider = BuildServiceProvider(
+            new Dictionary<string, string?>
+            {
+                ["MongoDb:ConnectionString"] = "mongodb://localhost:27017",
+                ["MongoDb:DatabaseName"] = "hookbridge",
+                ["Kafka:BootstrapServers"] = "localhost:9092",
+                ["Kafka:MessageTimeoutMs"] = "10000",
+                ["Jwt:Issuer"] = "issuer",
+                ["Jwt:Audience"] = "audience",
+                ["Jwt:Secret"] = "12345678901234567890123456789012",
+                ["Jwt:ExpiryMinutes"] = "60",
+                ["Stripe:SecretKey"] = "sk_live_test",
+                ["Stripe:WebhookSecret"] = "whsec_test",
+                ["Stripe:StarterPriceId"] = "price_starter",
+                ["Stripe:ProPriceId"] = "price_pro",
+                ["Stripe:SuccessUrl"] = "https://hookbridge.app/success",
+                ["Stripe:CancelUrl"] = "https://hookbridge.app/cancel",
+                ["Elastic:ServiceName"] = "hookbridge-worker",
+                ["Elastic:Environment"] = "Production",
+            },
+            Environments.Production);
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            serviceProvider.GetRequiredService<IOptions<EncryptionSettings>>().Value);
+
+        Assert.Contains("Encryption:MasterKey is required.", exception.Failures);
+    }
+
+    [Fact]
+    public void EncryptionMasterKey_MinLength32InProduction()
+    {
+        using var serviceProvider = BuildServiceProvider(
+            new Dictionary<string, string?>
+            {
+                ["MongoDb:ConnectionString"] = "mongodb://localhost:27017",
+                ["MongoDb:DatabaseName"] = "hookbridge",
+                ["Kafka:BootstrapServers"] = "localhost:9092",
+                ["Kafka:MessageTimeoutMs"] = "10000",
+                ["Jwt:Issuer"] = "issuer",
+                ["Jwt:Audience"] = "audience",
+                ["Jwt:Secret"] = "12345678901234567890123456789012",
+                ["Jwt:ExpiryMinutes"] = "60",
+                ["Stripe:SecretKey"] = "sk_live_test",
+                ["Stripe:WebhookSecret"] = "whsec_test",
+                ["Stripe:StarterPriceId"] = "price_starter",
+                ["Stripe:ProPriceId"] = "price_pro",
+                ["Stripe:SuccessUrl"] = "https://hookbridge.app/success",
+                ["Stripe:CancelUrl"] = "https://hookbridge.app/cancel",
+                ["Elastic:ServiceName"] = "hookbridge-worker",
+                ["Elastic:Environment"] = "Production",
+                ["Encryption:MasterKey"] = "short-master-key",
+            },
+            Environments.Production);
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            serviceProvider.GetRequiredService<IOptions<EncryptionSettings>>().Value);
+
+        Assert.Contains("Encryption:MasterKey must be at least 32 characters long.", exception.Failures);
     }
 
     [Fact]
@@ -143,6 +208,7 @@ public class OptionsValidationExtensionsTests
                 ["ElasticApm:ServerUrl"] = "http://localhost:8200",
                 ["ElasticApm:ServiceName"] = "hookbridge-worker",
                 ["ElasticApm:Environment"] = "Production",
+                ["Encryption:MasterKey"] = "12345678901234567890123456789012",
             },
             Environments.Production,
             requireKafkaConsumerGroupId: true);
@@ -153,6 +219,7 @@ public class OptionsValidationExtensionsTests
         _ = serviceProvider.GetRequiredService<IOptions<StripeSettings>>().Value;
         _ = serviceProvider.GetRequiredService<IOptions<ElasticSettings>>().Value;
         _ = serviceProvider.GetRequiredService<IOptions<ElasticApmSettings>>().Value;
+        _ = serviceProvider.GetRequiredService<IOptions<EncryptionSettings>>().Value;
     }
 
     private static ServiceProvider BuildServiceProvider(
