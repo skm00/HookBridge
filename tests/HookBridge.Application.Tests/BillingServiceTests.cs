@@ -73,7 +73,7 @@ public sealed class BillingServiceTests
         {
             WebhookEvent = new Event
             {
-                Type = Events.CheckoutSessionCompleted,
+                Type = "checkout.session.completed",
                 Data = new EventData
                 {
                     Object = new Session
@@ -119,7 +119,7 @@ public sealed class BillingServiceTests
         {
             WebhookEvent = new Event
             {
-                Type = Events.CustomerSubscriptionDeleted,
+                Type = "customer.subscription.deleted",
                 Data = new EventData
                 {
                     Object = new StripeSubscription
@@ -156,7 +156,7 @@ public sealed class BillingServiceTests
         {
             WebhookEvent = new Event
             {
-                Type = Events.InvoicePaymentFailed,
+                Type = "invoice.payment_failed",
                 Data = new EventData
                 {
                     Object = new Invoice

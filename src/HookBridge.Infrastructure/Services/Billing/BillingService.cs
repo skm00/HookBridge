@@ -115,16 +115,16 @@ public sealed class BillingService(
 
         switch (stripeEvent.Type)
         {
-            case Events.CheckoutSessionCompleted:
+            case "checkout.session.completed":
                 await HandleCheckoutSessionCompletedAsync(stripeEvent, cancellationToken);
                 break;
-            case Events.CustomerSubscriptionUpdated:
+            case "customer.subscription.updated":
                 await HandleSubscriptionUpdatedAsync(stripeEvent, cancellationToken);
                 break;
-            case Events.CustomerSubscriptionDeleted:
+            case "customer.subscription.deleted":
                 await HandleSubscriptionDeletedAsync(stripeEvent, cancellationToken);
                 break;
-            case Events.InvoicePaymentFailed:
+            case "invoice.payment_failed":
                 await HandleInvoicePaymentFailedAsync(stripeEvent, cancellationToken);
                 break;
             default:
@@ -173,7 +173,7 @@ public sealed class BillingService(
 
         var plan = MapPlanFromPriceId(subscription.Items.Data.FirstOrDefault()?.Price?.Id) ?? tenant.Plan;
         ApplyPlan(tenant, plan, MapSubscriptionStatus(subscription.Status));
-        SetPeriodDates(tenant, subscription.CurrentPeriodStart, subscription.CurrentPeriodEnd);
+        SetPeriodDates(tenant, subscription);
 
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
     }
@@ -290,9 +290,30 @@ public sealed class BillingService(
         _ => "Active",
     };
 
-    private static void SetPeriodDates(Tenant tenant, DateTime? periodStart, DateTime? periodEnd)
+    private static void SetPeriodDates(Tenant tenant, StripeSubscription subscription)
     {
-        tenant.CurrentPeriodStart = periodStart;
-        tenant.CurrentPeriodEnd = periodEnd;
+        tenant.CurrentPeriodStart = ReadStripeDateTime(subscription, "CurrentPeriodStart")
+            ?? ReadStripeDateTime(subscription.Items.Data.FirstOrDefault(), "CurrentPeriodStart");
+        tenant.CurrentPeriodEnd = ReadStripeDateTime(subscription, "CurrentPeriodEnd")
+            ?? ReadStripeDateTime(subscription.Items.Data.FirstOrDefault(), "CurrentPeriodEnd");
+    }
+
+    private static DateTime? ReadStripeDateTime(object? instance, string propertyName)
+    {
+        if (instance is null)
+        {
+            return null;
+        }
+
+        var value = instance.GetType().GetProperty(propertyName)?.GetValue(instance);
+        return value switch
+        {
+            null => null,
+            DateTime dateTime => dateTime,
+            DateTimeOffset dateTimeOffset => dateTimeOffset.UtcDateTime,
+            long unixSeconds => DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime,
+            int unixSeconds => DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime,
+            _ => null,
+        };
     }
 }
