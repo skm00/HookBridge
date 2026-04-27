@@ -5,9 +5,11 @@ using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
+using HookBridge.Application.Messaging;
 using HookBridge.Application.Services;
 using HookBridge.Application.Validation.Events;
 using HookBridge.Domain.Entities;
+using HookBridge.Shared.Constants;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HookBridge.Application.Tests;
@@ -18,7 +20,8 @@ public sealed class EventIngestionServiceTests
     public async Task IngestEvent_Success()
     {
         var repository = new InMemoryRepository<IncomingEvent>();
-        var service = CreateService(repository, new FakeApiKeyService(valid: true));
+        var kafkaProducer = new FakeKafkaProducer();
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer);
 
         var response = await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-1"), "corr-1");
 
@@ -31,7 +34,7 @@ public sealed class EventIngestionServiceTests
     public async Task InvalidApiKey_ThrowsUnauthorized()
     {
         var repository = new InMemoryRepository<IncomingEvent>();
-        var service = CreateService(repository, new FakeApiKeyService(valid: false));
+        var service = CreateService(repository, new FakeApiKeyService(valid: false), new FakeKafkaProducer());
 
         await Assert.ThrowsAsync<UnauthorizedException>(() =>
             service.IngestAsync("tenant-1", "bad-key", BuildRequest("evt-1"), null));
@@ -53,7 +56,8 @@ public sealed class EventIngestionServiceTests
             CreatedAt = DateTime.UtcNow,
         });
 
-        var service = CreateService(repository, new FakeApiKeyService(valid: true));
+        var kafkaProducer = new FakeKafkaProducer();
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer);
         var response = await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-1"), "corr-1");
 
         Assert.Equal("accepted", response.Status);
@@ -61,13 +65,14 @@ public sealed class EventIngestionServiceTests
 
         var stored = await repository.FindAsync(x => x.TenantId == "tenant-1" && x.EventId == "evt-1");
         Assert.Single(stored);
+        Assert.False(kafkaProducer.WasCalled);
     }
 
     [Fact]
     public async Task EventStored_WithAcceptedStatus()
     {
         var repository = new InMemoryRepository<IncomingEvent>();
-        var service = CreateService(repository, new FakeApiKeyService(valid: true));
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), new FakeKafkaProducer());
 
         await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-2"), null);
 
@@ -80,12 +85,58 @@ public sealed class EventIngestionServiceTests
     public async Task CorrelationIdStored_IfProvided()
     {
         var repository = new InMemoryRepository<IncomingEvent>();
-        var service = CreateService(repository, new FakeApiKeyService(valid: true));
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), new FakeKafkaProducer());
 
         await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-3"), "corr-123");
 
         var stored = (await repository.FindAsync(x => x.EventId == "evt-3")).Single();
         Assert.Equal("corr-123", stored.CorrelationId);
+    }
+
+    [Fact]
+    public async Task IngestEvent_CallsKafkaProducer()
+    {
+        var repository = new InMemoryRepository<IncomingEvent>();
+        var kafkaProducer = new FakeKafkaProducer();
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer);
+
+        await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-4"), "corr-777");
+
+        Assert.True(kafkaProducer.WasCalled);
+        Assert.Equal(KafkaTopics.WebhookEvents, kafkaProducer.Topic);
+        Assert.Equal("tenant-1", kafkaProducer.Key);
+    }
+
+    [Fact]
+    public async Task IngestEvent_ReturnsAcceptedWhenKafkaPublishFails()
+    {
+        var repository = new InMemoryRepository<IncomingEvent>();
+        var kafkaProducer = new FakeKafkaProducer(shouldThrow: true);
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer);
+
+        var response = await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-5"), "corr-888");
+
+        Assert.Equal("accepted", response.Status);
+        Assert.Equal("Event accepted but publishing is delayed.", response.Message);
+        var stored = (await repository.FindAsync(x => x.EventId == "evt-5")).SingleOrDefault();
+        Assert.NotNull(stored);
+    }
+
+    [Fact]
+    public async Task IngestEvent_PublishesWebhookEventMessageWithCorrectValues()
+    {
+        var repository = new InMemoryRepository<IncomingEvent>();
+        var kafkaProducer = new FakeKafkaProducer();
+        var service = CreateService(repository, new FakeApiKeyService(valid: true), kafkaProducer);
+
+        await service.IngestAsync("tenant-1", "hb_live_key", BuildRequest("evt-6"), "corr-999");
+
+        var message = Assert.IsType<WebhookEventMessage>(kafkaProducer.Message);
+        Assert.Equal("evt-6", message.EventId);
+        Assert.Equal("tenant-1", message.TenantId);
+        Assert.Equal("order.created", message.EventType);
+        Assert.Equal(new DateTime(2026, 4, 27, 10, 30, 0, DateTimeKind.Utc), message.ReceivedAt);
+        Assert.Equal("corr-999", message.CorrelationId);
     }
 
     [Fact]
@@ -106,7 +157,8 @@ public sealed class EventIngestionServiceTests
 
     private static EventIngestionService CreateService(
         InMemoryRepository<IncomingEvent> repository,
-        IApiKeyService apiKeyService)
+        IApiKeyService apiKeyService,
+        IKafkaProducer kafkaProducer)
     {
         return new EventIngestionService(
             repository,
@@ -114,6 +166,7 @@ public sealed class EventIngestionServiceTests
             new FixedGuidGenerator(),
             new FixedDateTimeProvider(),
             new EventIngestionRequestDtoValidator(),
+            kafkaProducer,
             NullLogger<EventIngestionService>.Instance);
     }
 
@@ -124,6 +177,32 @@ public sealed class EventIngestionServiceTests
         Timestamp = new DateTime(2026, 4, 27, 10, 0, 0, DateTimeKind.Utc),
         Data = new { orderId = "1001", amount = 250 },
     };
+
+    private sealed class FakeKafkaProducer(bool shouldThrow = false) : IKafkaProducer
+    {
+        public bool WasCalled { get; private set; }
+
+        public string? Topic { get; private set; }
+
+        public string? Key { get; private set; }
+
+        public object? Message { get; private set; }
+
+        public Task ProduceAsync<T>(string topic, string key, T message, CancellationToken cancellationToken = default)
+        {
+            WasCalled = true;
+            Topic = topic;
+            Key = key;
+            Message = message;
+
+            if (shouldThrow)
+            {
+                throw new InvalidOperationException("Kafka unavailable");
+            }
+
+            return Task.CompletedTask;
+        }
+    }
 
     private sealed class FakeApiKeyService(bool valid) : IApiKeyService
     {

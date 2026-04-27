@@ -117,6 +117,15 @@ curl -X POST http://localhost:5000/api/v1/events/{tenantId} \
   }'
 ```
 
+## Event Ingestion Flow
+
+When a customer calls the ingestion endpoint, HookBridge now follows this sequence:
+1. Validate tenant API key and event payload.
+2. Store the incoming event in MongoDB first.
+3. Publish a `WebhookEventMessage` to Kafka topic `webhook-events` using the tenant id as key.
+
+If Kafka publish fails after the event is stored, the API still returns `202 Accepted` with message `Event accepted but publishing is delayed.` so customer ingestion is not rejected.
+
 ## Subscription Management API (Admin)
 
 ### Create subscription

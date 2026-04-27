@@ -4,7 +4,9 @@ using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
+using HookBridge.Application.Messaging;
 using HookBridge.Domain.Entities;
+using HookBridge.Shared.Constants;
 using Microsoft.Extensions.Logging;
 
 namespace HookBridge.Application.Services;
@@ -15,6 +17,7 @@ public sealed class EventIngestionService(
     IGuidGenerator guidGenerator,
     IDateTimeProvider dateTimeProvider,
     IValidator<EventIngestionRequestDto> validator,
+    IKafkaProducer kafkaProducer,
     ILogger<EventIngestionService> logger) : IEventIngestionService
 {
     public async Task<EventIngestionResponseDto> IngestAsync(
@@ -78,18 +81,48 @@ public sealed class EventIngestionService(
 
         await incomingEventRepository.AddAsync(incomingEvent, cancellationToken);
 
-        logger.LogInformation(
-            "Event accepted for tenant {TenantId}. EventId: {EventId}. EventType: {EventType}. CorrelationId: {CorrelationId}",
-            tenantId,
-            request.EventId,
-            request.EventType,
-            correlationId);
-
-        return new EventIngestionResponseDto
+        try
         {
-            Status = "accepted",
-            EventId = request.EventId,
-            Message = "Event accepted for delivery.",
-        };
+            var message = new WebhookEventMessage
+            {
+                EventId = incomingEvent.EventId,
+                TenantId = incomingEvent.TenantId,
+                EventType = incomingEvent.EventType,
+                ReceivedAt = incomingEvent.ReceivedAt,
+                CorrelationId = incomingEvent.CorrelationId,
+            };
+
+            await kafkaProducer.ProduceAsync(KafkaTopics.WebhookEvents, incomingEvent.TenantId, message, cancellationToken);
+
+            logger.LogInformation(
+                "Event accepted and queued for tenant {TenantId}. EventId: {EventId}. EventType: {EventType}. CorrelationId: {CorrelationId}",
+                tenantId,
+                request.EventId,
+                request.EventType,
+                correlationId);
+
+            return new EventIngestionResponseDto
+            {
+                Status = "accepted",
+                EventId = request.EventId,
+                Message = "Event accepted for delivery.",
+            };
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Event accepted but Kafka publishing failed for tenant {TenantId}. EventId: {EventId}. CorrelationId: {CorrelationId}",
+                tenantId,
+                request.EventId,
+                correlationId);
+
+            return new EventIngestionResponseDto
+            {
+                Status = "accepted",
+                EventId = request.EventId,
+                Message = "Event accepted but publishing is delayed.",
+            };
+        }
     }
 }
