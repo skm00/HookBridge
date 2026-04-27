@@ -1,11 +1,13 @@
 using HookBridge.Application.DTOs.DeliveryAttempts;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/admin/delivery-logs")]
 public sealed class DeliveryLogsController(
     IDeliveryAttemptService deliveryAttemptService,

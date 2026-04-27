@@ -1,10 +1,12 @@
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Application.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/admin/failed-events")]
 public sealed class FailedEventsController(
     IFailedEventService failedEventService,

@@ -1,10 +1,12 @@
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/admin/subscriptions")]
 public sealed class SubscriptionsController(ISubscriptionService subscriptionService) : ControllerBase
 {

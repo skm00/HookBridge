@@ -19,6 +19,26 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
 
         await tenants.Indexes.CreateOneAsync(slugIndex, cancellationToken: cancellationToken);
 
+        var adminUsers = database.GetCollection<AdminUser>(nameof(AdminUser));
+
+        var adminTenantIndex = new CreateIndexModel<AdminUser>(
+            Builders<AdminUser>.IndexKeys.Ascending(x => x.TenantId),
+            new CreateIndexOptions { Name = "ix_adminuser_tenantid" });
+
+        var adminEmailIndex = new CreateIndexModel<AdminUser>(
+            Builders<AdminUser>.IndexKeys.Ascending(x => x.Email),
+            new CreateIndexOptions { Name = "ix_adminuser_email" });
+
+        var adminTenantEmailUniqueIndex = new CreateIndexModel<AdminUser>(
+            Builders<AdminUser>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Ascending(x => x.Email),
+            new CreateIndexOptions { Unique = true, Name = "ux_adminuser_tenantid_email" });
+
+        await adminUsers.Indexes.CreateManyAsync(
+            [adminTenantIndex, adminEmailIndex, adminTenantEmailUniqueIndex],
+            cancellationToken);
+
         var apiKeys = database.GetCollection<ApiKey>(nameof(ApiKey));
 
         var hashUniqueIndex = new CreateIndexModel<ApiKey>(
