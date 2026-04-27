@@ -20,6 +20,7 @@ public sealed class WebhookDeliveryService(
     IKafkaProducer kafkaProducer,
     IRetryPolicyService retryPolicyService,
     IFailedEventService failedEventService,
+    IUsageService usageService,
     ILogger<WebhookDeliveryService> logger) : IWebhookDeliveryService
 {
     public async Task ProcessEventAsync(WebhookEventMessage message, CancellationToken cancellationToken = default)
@@ -73,6 +74,7 @@ public sealed class WebhookDeliveryService(
             if (result.IsSuccess)
             {
                 succeeded++;
+                await usageService.IncrementEventsDeliveredAsync(incomingEvent.TenantId, cancellationToken);
             }
 
             var attempt = CreateDeliveryAttempt(incomingEvent, subscription, result, currentAttemptNumber, message.CorrelationId, now);
@@ -169,6 +171,7 @@ public sealed class WebhookDeliveryService(
 
         if (result.IsSuccess)
         {
+            await usageService.IncrementEventsDeliveredAsync(incomingEvent.TenantId, cancellationToken);
             logger.LogInformation(
                 "Retry delivery succeeded. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, CorrelationId: {CorrelationId}",
                 message.TenantId,
@@ -292,6 +295,8 @@ public sealed class WebhookDeliveryService(
         string? correlationId,
         CancellationToken cancellationToken)
     {
+        await usageService.IncrementEventsFailedAsync(incomingEvent.TenantId, cancellationToken);
+
         var failedAt = dateTimeProvider.UtcNow;
         var failedEvent = new FailedEvent
         {

@@ -76,6 +76,20 @@ public sealed class GlobalExceptionMiddleware(RequestDelegate next)
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
+        catch (TooManyRequestsException tooManyRequestsException)
+        {
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                message = tooManyRequestsException.Message,
+                traceId = context.TraceIdentifier,
+                statusCode = StatusCodes.Status429TooManyRequests,
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        }
         catch (Exception)
         {
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;

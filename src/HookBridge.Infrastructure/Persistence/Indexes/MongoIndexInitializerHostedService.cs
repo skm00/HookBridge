@@ -176,6 +176,29 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             ],
             cancellationToken);
 
+        var usageMetrics = database.GetCollection<UsageMetric>(nameof(UsageMetric));
+
+        var usageUniqueTenantYearMonth = new CreateIndexModel<UsageMetric>(
+            Builders<UsageMetric>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Ascending(x => x.Year)
+                .Ascending(x => x.Month),
+            new CreateIndexOptions { Unique = true, Name = "ux_usagemetric_tenantid_year_month" });
+
+        var usageTenantIndex = new CreateIndexModel<UsageMetric>(
+            Builders<UsageMetric>.IndexKeys.Ascending(x => x.TenantId),
+            new CreateIndexOptions { Name = "ix_usagemetric_tenantid" });
+
+        var usageYearMonthIndex = new CreateIndexModel<UsageMetric>(
+            Builders<UsageMetric>.IndexKeys
+                .Ascending(x => x.Year)
+                .Ascending(x => x.Month),
+            new CreateIndexOptions { Name = "ix_usagemetric_year_month" });
+
+        await usageMetrics.Indexes.CreateManyAsync(
+            [usageUniqueTenantYearMonth, usageTenantIndex, usageYearMonthIndex],
+            cancellationToken);
+
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

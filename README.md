@@ -121,10 +121,33 @@ curl -X POST http://localhost:5000/api/v1/events/{tenantId} \
 
 When a customer calls the ingestion endpoint, HookBridge now follows this sequence:
 1. Validate tenant API key and event payload.
-2. Store the incoming event in MongoDB first.
-3. Publish a `WebhookEventMessage` to Kafka topic `webhook-events` using the tenant id as key.
+2. If the event is not a duplicate, evaluate the tenant monthly usage limit.
+3. Store the incoming event in MongoDB first.
+4. Increment tenant monthly `EventsReceived` usage counter.
+5. Publish a `WebhookEventMessage` to Kafka topic `webhook-events` using the tenant id as key.
 
 If Kafka publish fails after the event is stored, the API still returns `202 Accepted` with message `Event accepted but publishing is delayed.` so customer ingestion is not rejected.
+
+If usage exceeds the tenant plan limit, ingestion returns `429 Too Many Requests` with message:
+`Monthly event limit exceeded for the current billing plan.`
+
+## Usage Tracking and Plan Limits
+
+HookBridge tracks monthly usage counters in UTC per tenant:
+- `EventsReceived`
+- `EventsDelivered`
+- `EventsFailed`
+
+Plan defaults:
+- **Free**: 1,000 events/month
+- **Starter**: 50,000 events/month
+- **Pro**: 500,000 events/month
+- **Enterprise**: unlimited
+
+Current usage endpoint:
+```bash
+curl http://localhost:5000/api/v1/admin/tenants/{tenantId}/usage/current
+```
 
 ## Worker Consumption Flow
 

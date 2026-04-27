@@ -30,6 +30,7 @@ public sealed class WebhookDeliveryServiceTests
         Assert.Equal(DeliveryStatus.Success, attempt.Status);
         Assert.Equal(1, attempt.AttemptNumber);
         Assert.Equal("sub-1", attempt.SubscriptionId);
+        Assert.Equal(1, fixture.UsageService.DeliveredIncrements);
     }
 
     [Fact]
@@ -218,6 +219,7 @@ public sealed class WebhookDeliveryServiceTests
         Assert.Equal("sub-1", failedEvent.SubscriptionId);
         Assert.Equal("DLQ", failedEvent.Status);
         Assert.Equal(2, failedEvent.FinalAttemptNumber);
+        Assert.Equal(1, fixture.UsageService.FailedIncrements);
     }
 
     [Fact]
@@ -353,6 +355,7 @@ public sealed class WebhookDeliveryServiceTests
         public FakeWebhookDeliveryClient DeliveryClient { get; } = new();
         public FakeKafkaProducer KafkaProducer { get; } = new();
         public FakeFailedEventService FailedEventService { get; } = new();
+        public FakeUsageService UsageService { get; } = new();
         public ListLogger<WebhookDeliveryService> Logger { get; } = new();
         public WebhookEventMessage Message { get; } = new()
         {
@@ -381,6 +384,7 @@ public sealed class WebhookDeliveryServiceTests
             KafkaProducer,
             new RetryPolicyService(),
             FailedEventService,
+            UsageService,
             Logger);
 
         public void SeedIncomingEvent()
@@ -477,6 +481,31 @@ public sealed class WebhookDeliveryServiceTests
 
         public Task<bool> RetryAsync(string failedEventId, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
+    }
+
+    private sealed class FakeUsageService : IUsageService
+    {
+        public int DeliveredIncrements { get; private set; }
+        public int FailedIncrements { get; private set; }
+
+        public Task<UsageMetric> GetCurrentMonthUsageAsync(string tenantId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new UsageMetric { TenantId = tenantId, Year = 2026, Month = 4, LastUpdatedAt = DateTime.UtcNow });
+
+        public Task IncrementEventsReceivedAsync(string tenantId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task IncrementEventsDeliveredAsync(string tenantId, CancellationToken cancellationToken = default)
+        {
+            DeliveredIncrements++;
+            return Task.CompletedTask;
+        }
+
+        public Task IncrementEventsFailedAsync(string tenantId, CancellationToken cancellationToken = default)
+        {
+            FailedIncrements++;
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> CanAcceptEventAsync(string tenantId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 
     private sealed record PublishedMessage(string Topic, string Key, object Message);
