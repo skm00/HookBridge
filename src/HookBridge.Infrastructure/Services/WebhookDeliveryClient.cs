@@ -11,11 +11,16 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
 {
     private const string JsonContentType = "application/json";
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IWebhookAuthenticationHandler _webhookAuthenticationHandler;
     private readonly ILogger<WebhookDeliveryClient> _logger;
 
-    public WebhookDeliveryClient(IHttpClientFactory httpClientFactory, ILogger<WebhookDeliveryClient> logger)
+    public WebhookDeliveryClient(
+        IHttpClientFactory httpClientFactory,
+        IWebhookAuthenticationHandler webhookAuthenticationHandler,
+        ILogger<WebhookDeliveryClient> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _webhookAuthenticationHandler = webhookAuthenticationHandler;
         _logger = logger;
     }
 
@@ -68,6 +73,8 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
 
                 message.Headers.TryAddWithoutValidation(header.Name, header.Value);
             }
+
+            await _webhookAuthenticationHandler.ApplyAsync(message, request, timeoutCts.Token);
 
             var client = _httpClientFactory.CreateClient();
             using var response = await client.SendAsync(message, timeoutCts.Token);
