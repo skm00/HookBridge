@@ -8,6 +8,7 @@ using HookBridge.Application.Services;
 using HookBridge.Application.Validation.Tenants;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
+using Xunit;
 
 namespace HookBridge.Application.Tests;
 

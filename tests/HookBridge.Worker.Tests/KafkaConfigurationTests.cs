@@ -1,6 +1,7 @@
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Shared.Constants;
 using Microsoft.Extensions.Configuration;
+using Xunit;
 
 namespace HookBridge.Worker.Tests;
 

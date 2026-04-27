@@ -1,5 +1,6 @@
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.Services;
+using Xunit;
 
 namespace HookBridge.Application.Tests;
 

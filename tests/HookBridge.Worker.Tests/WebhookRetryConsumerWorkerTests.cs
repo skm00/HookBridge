@@ -1,6 +1,7 @@
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using Moq;
+using Xunit;
 
 namespace HookBridge.Worker.Tests;
 

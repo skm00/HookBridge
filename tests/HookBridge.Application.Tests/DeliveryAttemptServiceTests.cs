@@ -3,6 +3,7 @@ using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Services;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
+using Xunit;
 
 namespace HookBridge.Application.Tests;
 

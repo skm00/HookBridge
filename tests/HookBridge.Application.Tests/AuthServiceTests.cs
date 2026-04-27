@@ -10,6 +10,7 @@ using HookBridge.Domain.Enums;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Services.Auth;
 using Microsoft.Extensions.Options;
+using Xunit;
 
 namespace HookBridge.Application.Tests;
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HookBridge.Application.Messaging;
+using Xunit;
 
 namespace HookBridge.Application.Tests;
 

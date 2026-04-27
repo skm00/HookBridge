@@ -4,6 +4,7 @@ using HookBridge.Application.Services;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
 
 namespace HookBridge.Application.Tests;
 

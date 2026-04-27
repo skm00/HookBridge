@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace HookBridge.Worker.Tests;
 
 public class UnitTest1

@@ -3,6 +3,7 @@ using HookBridge.Application.Messaging;
 using HookBridge.Infrastructure.Configuration;
 using Microsoft.Extensions.Options;
 using Moq;
+using Xunit;
 
 namespace HookBridge.Worker.Tests;
 

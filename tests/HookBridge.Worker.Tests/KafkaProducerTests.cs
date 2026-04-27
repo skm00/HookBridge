@@ -2,6 +2,7 @@ using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Services.Messaging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Xunit;
 
 namespace HookBridge.Worker.Tests;
 

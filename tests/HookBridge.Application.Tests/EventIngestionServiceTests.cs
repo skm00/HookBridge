@@ -11,6 +11,7 @@ using HookBridge.Application.Validation.Events;
 using HookBridge.Domain.Entities;
 using HookBridge.Shared.Constants;
 using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
 
 namespace HookBridge.Application.Tests;
 
