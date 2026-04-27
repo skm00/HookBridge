@@ -49,6 +49,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IApiKeyHasher, ApiKeyHasher>();
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddSingleton<IKafkaProducer, KafkaProducer>();
+        services.AddSingleton<IKafkaConsumer, KafkaConsumer>();
         services.AddSingleton<IKafkaAdminService, KafkaAdminServicePlaceholder>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();

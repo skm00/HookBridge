@@ -126,6 +126,36 @@ When a customer calls the ingestion endpoint, HookBridge now follows this sequen
 
 If Kafka publish fails after the event is stored, the API still returns `202 Accepted` with message `Event accepted but publishing is delayed.` so customer ingestion is not rejected.
 
+## Worker Consumption Flow
+
+`HookBridge.Worker` runs `WebhookEventConsumerWorker`, which:
+- Subscribes to Kafka topic `webhook-events` with `Kafka:ConsumerGroupId`.
+- Deserializes each message into `WebhookEventMessage`.
+- Logs the received message metadata (`TenantId`, `EventId`, `EventType`, `CorrelationId`).
+- Does **not** deliver webhooks yet (delivery/retry/DLQ are intentionally not implemented in this stage).
+
+## Running API and Worker Locally
+
+From the repository root:
+
+1. Start infrastructure dependencies (MongoDB + Kafka):
+```bash
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+2. Run API:
+```bash
+dotnet run --project src/HookBridge.Api
+```
+
+3. Run Worker in another terminal:
+```bash
+dotnet run --project src/HookBridge.Worker
+```
+
+4. Publish an event through the API ingestion endpoint; the worker will consume and log the event from `webhook-events`.
+
+
 ## Subscription Management API (Admin)
 
 ### Create subscription
