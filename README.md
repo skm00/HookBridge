@@ -141,9 +141,12 @@ Delivery flow:
 4. Worker sends webhook POST requests to each subscription target URL.
 5. Worker stores a `DeliveryAttempt` for every first-attempt delivery result.
 6. If a first attempt fails and retry attempts remain in the subscription retry policy, worker publishes a `WebhookRetryMessage` to `webhook-retry` with the scheduled `nextRetryAt` time.
-7. Worker updates `IncomingEvent` status.
+7. `WebhookRetryConsumerWorker` consumes `webhook-retry` with consumer group `hookbridge-worker-retry`.
+8. Retry worker waits until `nextRetryAt` when needed, then retries delivery for the specific subscription.
+9. Worker stores retry `DeliveryAttempt` records and, when retry policy still allows, reschedules by publishing a new `WebhookRetryMessage` to `webhook-retry`.
+10. Worker updates `IncomingEvent` status for first-attempt processing.
 
-Current scope includes first-attempt delivery plus retry scheduling only. Retry consumption/execution and DLQ handling will be implemented later.
+Current scope includes first-attempt delivery plus retry scheduling and retry execution. DLQ handling will be implemented later.
 
 ## Outbound Webhook Delivery Request Format
 

@@ -201,6 +201,83 @@ public sealed class WebhookDeliveryServiceTests
         Assert.Equal(DeliveryStatus.Failed, attempt.Status);
     }
 
+    [Fact]
+    public async Task ProcessRetryAsync_Success_StoresDeliveryAttempt()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 3, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200, ResponseBody = "ok", DurationMs = 21 });
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        var attempt = (await fixture.Attempts.GetAllAsync()).Single();
+        Assert.Equal(2, attempt.AttemptNumber);
+        Assert.Equal(DeliveryStatus.Success, attempt.Status);
+        Assert.Equal("corr-1", attempt.CorrelationId);
+        Assert.Empty(fixture.KafkaProducer.Published);
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_Failure_ReschedulesRetry()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", maxAttempts: 4, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom", DurationMs = 44 });
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        var attempt = (await fixture.Attempts.GetAllAsync()).Single();
+        Assert.Equal(2, attempt.AttemptNumber);
+        Assert.Equal(DeliveryStatus.Failed, attempt.Status);
+
+        var published = Assert.Single(fixture.KafkaProducer.Published);
+        Assert.Equal("webhook-retry", published.Topic);
+        var retryMessage = Assert.IsType<WebhookRetryMessage>(published.Message);
+        Assert.Equal(3, retryMessage.AttemptNumber);
+        Assert.Equal(new DateTime(2026, 4, 27, 11, 0, 30, DateTimeKind.Utc), retryMessage.NextRetryAt);
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_MissingIncomingEvent_Stops()
+    {
+        var fixture = new Fixture();
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        Assert.Empty(await fixture.Attempts.GetAllAsync());
+        Assert.Empty(fixture.KafkaProducer.Published);
+        Assert.Contains(fixture.Logger.Records, x => x.Level == LogLevel.Warning && x.Message.Contains("incoming event was not found"));
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_MissingSubscription_Stops()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        Assert.Empty(await fixture.Attempts.GetAllAsync());
+        Assert.Empty(fixture.KafkaProducer.Published);
+        Assert.Contains(fixture.Logger.Records, x => x.Level == LogLevel.Warning && x.Message.Contains("subscription was not found"));
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_InactiveSubscription_Stops()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", isActive: false);
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        Assert.Empty(await fixture.Attempts.GetAllAsync());
+        Assert.Empty(fixture.KafkaProducer.Published);
+        Assert.Contains(fixture.Logger.Records, x => x.Level == LogLevel.Information && x.Message.Contains("subscription is inactive"));
+    }
+
     private sealed class Fixture
     {
         public InMemoryRepository<IncomingEvent> IncomingEvents { get; } = new();
@@ -216,6 +293,15 @@ public sealed class WebhookDeliveryServiceTests
             EventType = "order.created",
             CorrelationId = "corr-1",
             ReceivedAt = new DateTime(2026, 4, 27, 10, 0, 0, DateTimeKind.Utc),
+        };
+        public WebhookRetryMessage RetryMessage { get; } = new()
+        {
+            TenantId = "tenant-1",
+            EventId = "evt-1",
+            SubscriptionId = "sub-1",
+            AttemptNumber = 2,
+            NextRetryAt = new DateTime(2026, 4, 27, 11, 0, 0, DateTimeKind.Utc),
+            CorrelationId = "corr-1",
         };
 
         public WebhookDeliveryService Service => new(
@@ -249,7 +335,8 @@ public sealed class WebhookDeliveryServiceTests
             int timeoutSeconds = 30,
             int maxAttempts = 3,
             int initialDelaySeconds = 30,
-            string backoffType = "Exponential")
+            string backoffType = "Exponential",
+            bool isActive = true)
         {
             Subscriptions.AddAsync(new Subscription
             {
@@ -257,7 +344,7 @@ public sealed class WebhookDeliveryServiceTests
                 TenantId = "tenant-1",
                 EventType = "order.created",
                 TargetUrl = url,
-                IsActive = true,
+                IsActive = isActive,
                 TimeoutSeconds = timeoutSeconds,
                 RetryPolicy = new RetryPolicy
                 {
