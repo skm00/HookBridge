@@ -8,7 +8,7 @@ using Serilog;
 
 var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(args);
 
-builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment, requireKafkaConsumerGroupId: true);
 builder.Services.AddApplicationServices();
 builder.Services.AddHostedService<WebhookEventConsumerWorker>();
 builder.Services.AddHostedService<WebhookRetryConsumerWorker>();

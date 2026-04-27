@@ -67,15 +67,15 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddApplicationServices();
-builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<TenantAccessValidator>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
 
-var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
-    ?? throw new InvalidOperationException("JWT settings are missing.");
+var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
+var jwtSecret = string.IsNullOrWhiteSpace(jwtSettings.Secret) ? new string('x', 32) : jwtSettings.Secret;
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -88,7 +88,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ValidIssuer = jwtSettings.Issuer,
             ValidAudience = jwtSettings.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
             ClockSkew = TimeSpan.Zero,
             RoleClaimType = "role",
         };

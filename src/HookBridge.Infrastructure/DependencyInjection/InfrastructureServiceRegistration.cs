@@ -13,6 +13,7 @@ using HookBridge.Infrastructure.Services.Auth;
 using HookBridge.Infrastructure.Services.Messaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -28,15 +29,80 @@ public static class InfrastructureServiceRegistration
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configuration">The application configuration.</param>
+    /// <param name="environment">The host environment.</param>
+    /// <param name="requireKafkaConsumerGroupId">Whether Kafka ConsumerGroupId is required for startup.</param>
     /// <returns>The updated service collection.</returns>
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructureServices(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment,
+        bool requireKafkaConsumerGroupId = false)
     {
-        services.Configure<MongoDbSettings>(configuration.GetSection("MongoDb"));
-        services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
-        services.Configure<StripeSettings>(configuration.GetSection("Stripe"));
-        services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
-        services.Configure<ElasticSettings>(configuration.GetSection("Elastic"));
-        services.Configure<ElasticApmSettings>(configuration.GetSection("ElasticApm"));
+        var isProduction = environment.IsProduction();
+
+        services.AddValidatedOptions<MongoDbSettings>(
+            configuration,
+            "MongoDb",
+            settings =>
+            [
+                Required(settings.ConnectionString, "ConnectionString"),
+                Required(settings.DatabaseName, "DatabaseName"),
+            ]);
+
+        services.AddValidatedOptions<KafkaSettings>(
+            configuration,
+            "Kafka",
+            settings =>
+            [
+                Required(settings.BootstrapServers, "BootstrapServers"),
+                requireKafkaConsumerGroupId ? Required(settings.ConsumerGroupId, "ConsumerGroupId") : null,
+                Positive(settings.MessageTimeoutMs, "MessageTimeoutMs"),
+            ]);
+
+        services.AddValidatedOptions<JwtSettings>(
+            configuration,
+            "Jwt",
+            settings =>
+            [
+                Required(settings.Issuer, "Issuer"),
+                Required(settings.Audience, "Audience"),
+                Required(settings.Secret, "Secret"),
+                MinLength(settings.Secret, "Secret", 32),
+                Positive(settings.ExpiryMinutes, "ExpiryMinutes"),
+            ]);
+
+        services.AddValidatedOptions<StripeSettings>(
+            configuration,
+            "Stripe",
+            settings =>
+            [
+                isProduction ? Required(settings.SecretKey, "SecretKey") : null,
+                isProduction ? Required(settings.WebhookSecret, "WebhookSecret") : null,
+                isProduction ? Required(settings.StarterPriceId, "StarterPriceId") : null,
+                isProduction ? Required(settings.ProPriceId, "ProPriceId") : null,
+                Required(settings.SuccessUrl, "SuccessUrl"),
+                Required(settings.CancelUrl, "CancelUrl"),
+            ]);
+
+        services.AddValidatedOptions<ElasticSettings>(
+            configuration,
+            "Elastic",
+            settings =>
+            [
+                settings.EnableElasticsearchSink ? Required(settings.ElasticsearchUrl, "ElasticsearchUrl") : null,
+                Required(settings.ServiceName, "ServiceName"),
+                Required(settings.Environment, "Environment"),
+            ]);
+
+        services.AddValidatedOptions<ElasticApmSettings>(
+            configuration,
+            "ElasticApm",
+            settings =>
+            [
+                settings.Enabled ? Required(settings.ServerUrl, "ServerUrl") : null,
+                settings.Enabled ? Required(settings.ServiceName, "ServiceName") : null,
+                settings.Enabled ? Required(settings.Environment, "Environment") : null,
+            ]);
 
         services.AddSingleton<IMongoClient>(serviceProvider =>
         {
@@ -75,4 +141,21 @@ public static class InfrastructureServiceRegistration
 
         return services;
     }
+
+    private static string? Required(string? value, string fieldName)
+        => string.IsNullOrWhiteSpace(value)
+            ? $"{fieldName} is required."
+            : null;
+
+    private static string? Positive(int value, string fieldName)
+        => value <= 0
+            ? $"{fieldName} must be greater than 0."
+            : null;
+
+    private static string? MinLength(string? value, string fieldName, int minLength)
+        => string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Length < minLength
+                ? $"{fieldName} must be at least {minLength} characters long."
+                : null;
 }
