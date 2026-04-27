@@ -115,7 +115,7 @@ const OverviewPage = (): JSX.Element => {
   }
 
   if (!overview) {
-    return null;
+    return <></>;
   }
 
   return (

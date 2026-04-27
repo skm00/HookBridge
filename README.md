@@ -121,6 +121,16 @@ The `/delivery-logs` dashboard route now integrates with admin delivery-attempt 
 - Delivery status badges (Success, Failed, Pending), formatted timestamps, and duration display in milliseconds.
 - "View Details" modal backed by `GET /api/v1/admin/delivery-logs/{id}` showing full attempt payload fields (tenant, event, subscription, status, response body, error message, and correlation data).
 
+## Failed Events / DLQ Dashboard Page
+
+The `/failed-events` dashboard route now integrates with admin failed-event APIs and includes:
+- Failed event listing backed by `GET /api/v1/admin/failed-events`.
+- Filters for event id, subscription id, event type, status, and failed-at date range.
+- Loading/error/empty states with refresh and clear-filters actions.
+- Failed-event status badges (DLQ and RetryRequested) and truncation for long target URL, reason, and last error message values in the table.
+- "View Details" modal backed by `GET /api/v1/admin/failed-events/{id}` showing complete failed-event fields (tenant, event, subscription, target URL, reason, retry metadata, and correlation id).
+- Manual retry action backed by `POST /api/v1/admin/failed-events/{id}/retry` for DLQ records with confirmation and success/error feedback.
+
 ## Admin API Tenant Security
 
 - Admin JWTs include a `tenantId` claim and admin endpoints resolve the current tenant from the JWT on every request.
