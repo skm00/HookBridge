@@ -84,3 +84,22 @@ curl http://localhost:5000/api/v1/admin/tenants/{tenantId}/api-keys
 ```bash
 curl -X DELETE http://localhost:5000/api/v1/admin/tenants/{tenantId}/api-keys/{keyId}
 ```
+
+## Event Ingestion API
+
+### Ingest event
+```bash
+curl -X POST http://localhost:5000/api/v1/events/{tenantId} \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: <plain-api-key>" \
+  -H "x-correlation-id: test-correlation-001" \
+  -d '{
+    "eventType": "order.created",
+    "eventId": "evt_123",
+    "timestamp": "2026-04-27T10:00:00Z",
+    "data": {
+      "orderId": "1001",
+      "amount": 250
+    }
+  }'
+```

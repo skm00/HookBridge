@@ -62,6 +62,20 @@ public sealed class GlobalExceptionMiddleware(RequestDelegate next)
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
+        catch (UnauthorizedException unauthorizedException)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                message = unauthorizedException.Message,
+                traceId = context.TraceIdentifier,
+                statusCode = StatusCodes.Status401Unauthorized,
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        }
         catch (Exception)
         {
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
