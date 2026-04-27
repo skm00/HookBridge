@@ -11,6 +11,8 @@ using HookBridge.Application.Validation.Events;
 using HookBridge.Application.Validation.Tenants;
 using HookBridge.Application.Validation.Subscriptions;
 using HookBridge.Application.Validation.Billing;
+using HookBridge.Application.DTOs.Auth;
+using HookBridge.Application.Validation.Auth;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HookBridge.Application.DependencyInjection;
@@ -31,6 +33,8 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IWebhookDeliveryService, WebhookDeliveryService>();
         services.AddScoped<IUsageService, UsageService>();
         services.AddScoped<IRetryPolicyService, RetryPolicyService>();
+        services.AddScoped<IValidator<RegisterAdminRequestDto>, RegisterAdminRequestDtoValidator>();
+        services.AddScoped<IValidator<LoginRequestDto>, LoginRequestDtoValidator>();
         services.AddScoped<IValidator<CreateTenantRequestDto>, CreateTenantRequestDtoValidator>();
         services.AddScoped<IValidator<UpdateTenantRequestDto>, UpdateTenantRequestDtoValidator>();
         services.AddScoped<IValidator<CreateApiKeyRequestDto>, CreateApiKeyRequestDtoValidator>();

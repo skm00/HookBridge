@@ -9,5 +9,6 @@
     <ProjectReference Include="..\HookBridge.Infrastructure\HookBridge.Infrastructure.csproj" />
     <ProjectReference Include="..\HookBridge.Shared\HookBridge.Shared.csproj" />
       <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
   </ItemGroup>
 </Project>

@@ -2,11 +2,13 @@ using HookBridge.Application.DTOs.Usage;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/admin/tenants/{tenantId}/usage")]
 public sealed class UsageController(
     IUsageService usageService,

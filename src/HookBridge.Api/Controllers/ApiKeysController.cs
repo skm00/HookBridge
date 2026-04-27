@@ -1,10 +1,12 @@
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Application.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/admin/tenants/{tenantId}/api-keys")]
 public sealed class ApiKeysController(IApiKeyService apiKeyService) : ControllerBase
 {

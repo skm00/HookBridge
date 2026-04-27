@@ -39,6 +39,39 @@ Kafka topics currently reserved by HookBridge:
 - `webhook-retry`
 - `webhook-dlq`
 
+## Admin Authentication (JWT)
+
+Admin/dashboard APIs now require JWT Bearer authentication.
+
+Configure `Jwt` in `src/HookBridge.Api/appsettings.Development.json`:
+- `Issuer`
+- `Audience`
+- `Secret`
+- `ExpiryMinutes`
+
+### Register admin
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/register   -H "Content-Type: application/json"   -d '{
+    "tenantId": "<tenantId>",
+    "email": "admin@acme.com",
+    "password": "Password123!",
+    "fullName": "Acme Admin"
+  }'
+```
+
+### Login admin
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/login   -H "Content-Type: application/json"   -d '{
+    "email": "admin@acme.com",
+    "password": "Password123!"
+  }'
+```
+
+### Call protected admin endpoint with Bearer token
+```bash
+curl http://localhost:5000/api/v1/admin/tenants   -H "Authorization: Bearer <jwt-token>"
+```
+
 ## Tenant Management API (Admin)
 
 ### Create tenant

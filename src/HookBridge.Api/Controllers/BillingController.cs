@@ -1,11 +1,13 @@
 using HookBridge.Application.DTOs.Billing;
 using HookBridge.Application.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Stripe;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[Authorize]
 public sealed class BillingController(IBillingService billingService) : ControllerBase
 {
     [HttpPost("api/v1/admin/tenants/{tenantId}/billing/checkout")]
@@ -35,6 +37,7 @@ public sealed class BillingController(IBillingService billingService) : Controll
         return Ok(status);
     }
 
+    [AllowAnonymous]
     [HttpPost("api/v1/billing/stripe/webhook")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
