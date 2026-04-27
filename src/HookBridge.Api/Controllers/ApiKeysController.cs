@@ -1,4 +1,5 @@
 using HookBridge.Application.DTOs.ApiKeys;
+using HookBridge.Api.Authorization;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace HookBridge.Api.Controllers;
 public sealed class ApiKeysController(IApiKeyService apiKeyService) : ControllerBase
 {
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(typeof(CreateApiKeyResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -25,6 +27,7 @@ public sealed class ApiKeysController(IApiKeyService apiKeyService) : Controller
     }
 
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(IReadOnlyList<ApiKeyResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<ApiKeyResponseDto>>> GetByTenantAsync(string tenantId, CancellationToken cancellationToken)
@@ -34,6 +37,7 @@ public sealed class ApiKeysController(IApiKeyService apiKeyService) : Controller
     }
 
     [HttpDelete("{keyId}")]
+    [Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken)

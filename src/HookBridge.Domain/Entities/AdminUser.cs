@@ -1,3 +1,4 @@
+using HookBridge.Domain.Enums;
 namespace HookBridge.Domain.Entities;
 
 /// <summary>
@@ -16,4 +17,6 @@ public sealed class AdminUser : BaseEntity
     public bool IsActive { get; set; }
 
     public DateTime? LastLoginAt { get; set; }
+
+    public AdminRole Role { get; set; } = AdminRole.Viewer;
 }

@@ -1,4 +1,5 @@
 using HookBridge.Application.DTOs.Tenants;
+using HookBridge.Api.Authorization;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,7 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
     /// <response code="400">Validation error in request payload.</response>
     /// <response code="409">A tenant with the same slug already exists.</response>
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(typeof(TenantResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -38,6 +40,7 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
     /// <returns>A list of tenants.</returns>
     /// <response code="200">Returned the list of tenants.</response>
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(IReadOnlyList<TenantResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<TenantResponseDto>>> GetAllAsync(CancellationToken cancellationToken)
     {
@@ -54,6 +57,7 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
     /// <response code="200">Tenant found.</response>
     /// <response code="404">Tenant not found.</response>
     [HttpGet("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(TenantResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TenantResponseDto>> GetByIdAsync(string id, CancellationToken cancellationToken)
@@ -78,6 +82,7 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
     /// <response code="400">Validation error in request payload.</response>
     /// <response code="404">Tenant not found.</response>
     [HttpPut("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(typeof(TenantResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -103,6 +108,7 @@ public sealed class TenantsController(ITenantService tenantService) : Controller
     /// <response code="204">Tenant disabled successfully.</response>
     /// <response code="404">Tenant not found.</response>
     [HttpDelete("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DisableAsync(string id, CancellationToken cancellationToken)

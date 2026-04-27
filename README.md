@@ -42,6 +42,7 @@ Kafka topics currently reserved by HookBridge:
 ## Admin Authentication (JWT)
 
 Admin/dashboard APIs now require JWT Bearer authentication.
+Admin JWT tokens include role-based authorization via a `role` claim.
 
 Configure `Jwt` in `src/HookBridge.Api/appsettings.Development.json`:
 - `Issuer`
@@ -49,15 +50,27 @@ Configure `Jwt` in `src/HookBridge.Api/appsettings.Development.json`:
 - `Secret`
 - `ExpiryMinutes`
 
+### Admin roles
+
+| Role | Permissions |
+|---|---|
+| Owner | Full access, including billing and API key revoke actions. |
+| Admin | Manage tenants, subscriptions, and API keys (except owner-only actions). |
+| Developer | Read logs and debug integrations (delivery logs, failed events, usage, and read APIs). |
+| Viewer | Read-only access. |
+
 ### Register admin
 ```bash
 curl -X POST http://localhost:5000/api/v1/auth/register   -H "Content-Type: application/json"   -d '{
     "tenantId": "<tenantId>",
     "email": "admin@acme.com",
     "password": "Password123!",
-    "fullName": "Acme Admin"
+    "fullName": "Acme Admin",
+    "role": 3
   }'
 ```
+
+> Note: role assignment during registration is currently enabled for development/demo.
 
 ### Login admin
 ```bash
@@ -71,6 +84,8 @@ curl -X POST http://localhost:5000/api/v1/auth/login   -H "Content-Type: applica
 ```bash
 curl http://localhost:5000/api/v1/admin/tenants   -H "Authorization: Bearer <jwt-token>"
 ```
+
+Event ingestion remains API-key based (`x-api-key`) and is intentionally not JWT-based.
 
 ## Tenant Management API (Admin)
 

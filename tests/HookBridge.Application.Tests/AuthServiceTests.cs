@@ -34,6 +34,7 @@ public sealed class AuthServiceTests
 
         Assert.False(string.IsNullOrWhiteSpace(result.Token));
         Assert.Equal("tenant-1", result.User.TenantId);
+        Assert.Equal(AdminRole.Viewer, result.User.Role);
     }
 
     [Fact]
@@ -167,6 +168,71 @@ public sealed class AuthServiceTests
         var tenantIdClaim = token.Claims.FirstOrDefault(x => x.Type == "tenantId");
 
         Assert.Equal("tenant-1", tenantIdClaim?.Value);
+    }
+
+    [Fact]
+    public async Task Jwt_ContainsRoleClaim()
+    {
+        var tenantRepo = new InMemoryRepository<Tenant>();
+        var adminRepo = new InMemoryRepository<AdminUser>();
+        await tenantRepo.AddAsync(new Tenant { Id = "tenant-1", Name = "Acme", Slug = "acme", Status = TenantStatus.Active, CreatedAt = DateTime.UtcNow });
+
+        var service = BuildService(adminRepo, tenantRepo);
+        var result = await service.RegisterAsync(new RegisterAdminRequestDto
+        {
+            TenantId = "tenant-1",
+            Email = "owner@acme.com",
+            Password = "Password123!",
+            FullName = "Owner User",
+            Role = AdminRole.Owner,
+        });
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
+        var roleClaim = token.Claims.FirstOrDefault(x => x.Type == "role");
+
+        Assert.Equal(AdminRole.Owner.ToString(), roleClaim?.Value);
+    }
+
+    [Fact]
+    public async Task RegisterAdmin_DefaultRole_IsViewer()
+    {
+        var tenantRepo = new InMemoryRepository<Tenant>();
+        var adminRepo = new InMemoryRepository<AdminUser>();
+        await tenantRepo.AddAsync(new Tenant { Id = "tenant-1", Name = "Acme", Slug = "acme", Status = TenantStatus.Active, CreatedAt = DateTime.UtcNow });
+
+        var service = BuildService(adminRepo, tenantRepo);
+        var result = await service.RegisterAsync(new RegisterAdminRequestDto
+        {
+            TenantId = "tenant-1",
+            Email = "viewer@acme.com",
+            Password = "Password123!",
+            FullName = "Viewer User",
+        });
+
+        Assert.Equal(AdminRole.Viewer, result.User.Role);
+    }
+
+    [Fact]
+    public async Task RegisterAdmin_WithRole_StoresProvidedRole()
+    {
+        var tenantRepo = new InMemoryRepository<Tenant>();
+        var adminRepo = new InMemoryRepository<AdminUser>();
+        await tenantRepo.AddAsync(new Tenant { Id = "tenant-1", Name = "Acme", Slug = "acme", Status = TenantStatus.Active, CreatedAt = DateTime.UtcNow });
+
+        var service = BuildService(adminRepo, tenantRepo);
+        var result = await service.RegisterAsync(new RegisterAdminRequestDto
+        {
+            TenantId = "tenant-1",
+            Email = "admin@acme.com",
+            Password = "Password123!",
+            FullName = "Admin User",
+            Role = AdminRole.Admin,
+        });
+
+        var saved = await adminRepo.GetByIdAsync("fixed-guid");
+        Assert.NotNull(saved);
+        Assert.Equal(AdminRole.Admin, saved.Role);
+        Assert.Equal(AdminRole.Admin, result.User.Role);
     }
 
     private static AuthService BuildService(InMemoryRepository<AdminUser> adminRepo, InMemoryRepository<Tenant> tenantRepo)

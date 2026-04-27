@@ -1,4 +1,5 @@
 using HookBridge.Application.DTOs.DeliveryAttempts;
+using HookBridge.Api.Authorization;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -14,6 +15,7 @@ public sealed class DeliveryLogsController(
     ILogger<DeliveryLogsController> logger) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(IReadOnlyList<DeliveryAttemptResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DeliveryAttemptResponseDto>>> SearchAsync(
         [FromQuery] string? tenantId,
@@ -52,6 +54,7 @@ public sealed class DeliveryLogsController(
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(DeliveryAttemptResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DeliveryAttemptResponseDto>> GetByIdAsync(string id, CancellationToken cancellationToken)

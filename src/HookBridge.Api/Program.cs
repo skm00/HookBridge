@@ -1,8 +1,10 @@
 using System.Reflection;
 using System.Text;
 using HookBridge.Api.Middleware;
+using HookBridge.Api.Authorization;
 using HookBridge.Application.DependencyInjection;
 using HookBridge.Application.Messaging;
+using HookBridge.Domain.Enums;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -76,10 +78,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
             ClockSkew = TimeSpan.Zero,
+            RoleClaimType = "role",
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.OwnerOnly, policy =>
+        policy.RequireRole(AdminRole.Owner.ToString()));
+
+    options.AddPolicy(AuthorizationPolicies.AdminOrOwner, policy =>
+        policy.RequireRole(AdminRole.Owner.ToString(), AdminRole.Admin.ToString()));
+
+    options.AddPolicy(AuthorizationPolicies.DeveloperOrAbove, policy =>
+        policy.RequireRole(AdminRole.Owner.ToString(), AdminRole.Admin.ToString(), AdminRole.Developer.ToString()));
+
+    options.AddPolicy(AuthorizationPolicies.ViewerOrAbove, policy =>
+        policy.RequireRole(AdminRole.Owner.ToString(), AdminRole.Admin.ToString(), AdminRole.Developer.ToString(), AdminRole.Viewer.ToString()));
+});
 
 var app = builder.Build();
 
