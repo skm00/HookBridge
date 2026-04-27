@@ -122,6 +122,15 @@ The `/api-keys` dashboard route now integrates with tenant API-key admin endpoin
 - Loading, error, empty states, manual refresh, status badges (Active/Revoked), and masked key prefix display.
 - Tenant context derived from the authenticated admin JWT tenant claim.
 
+## Incoming Events Dashboard Page
+
+The `/events` dashboard route now integrates with admin incoming-event APIs and includes:
+- Incoming event listing backed by `GET /api/v1/admin/events`.
+- Filters for event id, event type, status, received-at date range, and correlation id.
+- Loading/error/empty states with refresh and clear-filters actions.
+- Incoming-event status badges (Accepted, Delivered, Failed, PartiallyFailed, NoSubscriptions) and truncation for long values in the table.
+- "View Details" modal backed by `GET /api/v1/admin/events/{id}` showing complete event fields (tenant, event metadata, source/received timestamps, correlation data, and full JSON payload).
+
 ## Delivery Logs Dashboard Page
 
 The `/delivery-logs` dashboard route now integrates with admin delivery-attempt APIs and includes:
