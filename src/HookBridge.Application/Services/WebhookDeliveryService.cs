@@ -21,6 +21,7 @@ public sealed class WebhookDeliveryService(
     IRetryPolicyService retryPolicyService,
     IFailedEventService failedEventService,
     IUsageService usageService,
+    ISecretEncryptionService secretEncryptionService,
     ILogger<WebhookDeliveryService> logger,
     ITracingService? tracingService = null) : IWebhookDeliveryService
 {
@@ -83,7 +84,7 @@ public sealed class WebhookDeliveryService(
 
         foreach (var subscription in subscriptions)
         {
-            var request = BuildRequest(subscription, incomingEvent, message.CorrelationId);
+            var request = BuildRequest(subscription, incomingEvent, message.CorrelationId, secretEncryptionService);
             var result = await (tracingService?.CaptureSpanAsync(
                 "Send webhook",
                 "external.http",
@@ -196,7 +197,7 @@ public sealed class WebhookDeliveryService(
             return;
         }
 
-        var request = BuildRequest(subscription, incomingEvent, message.CorrelationId);
+        var request = BuildRequest(subscription, incomingEvent, message.CorrelationId, secretEncryptionService);
         var result = await (tracingService?.CaptureSpanAsync(
             "Send webhook",
             "external.http",
@@ -451,7 +452,7 @@ public sealed class WebhookDeliveryService(
         }
     }
 
-    private static WebhookDeliveryRequest BuildRequest(Subscription subscription, IncomingEvent incomingEvent, string? correlationId)
+    private static WebhookDeliveryRequest BuildRequest(Subscription subscription, IncomingEvent incomingEvent, string? correlationId, ISecretEncryptionService secretEncryptionService)
     {
         return new WebhookDeliveryRequest
         {
@@ -471,23 +472,23 @@ public sealed class WebhookDeliveryService(
                 Basic = subscription.Authentication.Basic is null ? null : new BasicAuthDto
                 {
                     Username = subscription.Authentication.Basic.Username,
-                    Password = subscription.Authentication.Basic.Password,
+                    Password = secretEncryptionService.Decrypt(subscription.Authentication.Basic.Password),
                 },
                 OAuth2 = subscription.Authentication.OAuth2 is null ? null : new OAuth2ClientCredentialsDto
                 {
                     TokenUrl = subscription.Authentication.OAuth2.TokenUrl,
                     ClientId = subscription.Authentication.OAuth2.ClientId,
-                    ClientSecret = subscription.Authentication.OAuth2.ClientSecret,
+                    ClientSecret = secretEncryptionService.Decrypt(subscription.Authentication.OAuth2.ClientSecret),
                     Scope = subscription.Authentication.OAuth2.Scope,
                 },
                 ApiKeyHeader = subscription.Authentication.ApiKeyHeader is null ? null : new ApiKeyHeaderDto
                 {
                     HeaderName = subscription.Authentication.ApiKeyHeader.HeaderName,
-                    HeaderValue = subscription.Authentication.ApiKeyHeader.HeaderValue,
+                    HeaderValue = secretEncryptionService.Decrypt(subscription.Authentication.ApiKeyHeader.HeaderValue),
                 },
                 HmacSignature = subscription.Authentication.HmacSignature is null ? null : new HmacSignatureDto
                 {
-                    Secret = subscription.Authentication.HmacSignature.Secret,
+                    Secret = secretEncryptionService.Decrypt(subscription.Authentication.HmacSignature.Secret),
                     HeaderName = subscription.Authentication.HmacSignature.HeaderName,
                     Algorithm = subscription.Authentication.HmacSignature.Algorithm,
                 },

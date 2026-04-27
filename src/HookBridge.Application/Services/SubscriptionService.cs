@@ -17,6 +17,7 @@ public sealed class SubscriptionService(
     IDateTimeProvider dateTimeProvider,
     IValidator<CreateSubscriptionRequestDto> createValidator,
     IValidator<UpdateSubscriptionRequestDto> updateValidator,
+    ISecretEncryptionService secretEncryptionService,
     ILogger<SubscriptionService> logger) : ISubscriptionService
 {
     private const string DefaultBackoffType = "Exponential";
@@ -46,7 +47,7 @@ public sealed class SubscriptionService(
             EventType = request.EventType,
             TargetUrl = request.TargetUrl,
             Headers = request.Headers.Select(Map).ToList(),
-            Authentication = request.Authentication is null ? null : Map(request.Authentication),
+            Authentication = request.Authentication is null ? null : MapAndEncrypt(request.Authentication, null, secretEncryptionService),
             RetryPolicy = Map(request.RetryPolicy!),
             TimeoutSeconds = request.TimeoutSeconds!.Value,
             IsActive = true,
@@ -133,7 +134,7 @@ public sealed class SubscriptionService(
 
         if (request.Authentication is not null)
         {
-            subscription.Authentication = Map(request.Authentication);
+            subscription.Authentication = MapAndEncrypt(request.Authentication, subscription.Authentication, secretEncryptionService);
         }
 
         if (request.RetryPolicy is not null)
@@ -279,33 +280,69 @@ public sealed class SubscriptionService(
         BackoffType = policy.BackoffType,
     };
 
-    private static AuthenticationConfig Map(AuthenticationDto dto) => new()
+    private static AuthenticationConfig MapAndEncrypt(
+        AuthenticationDto dto,
+        AuthenticationConfig? existingConfig,
+        ISecretEncryptionService secretEncryptionService)
     {
-        Type = dto.Type,
-        Basic = dto.Basic is null ? null : new BasicAuthConfig
+        var sameTypeAsExisting = existingConfig is not null
+            && dto.Type.Equals(existingConfig.Type, StringComparison.Ordinal);
+
+        return new AuthenticationConfig
         {
-            Username = dto.Basic.Username,
-            Password = dto.Basic.Password,
-        },
-        OAuth2 = dto.OAuth2 is null ? null : new OAuth2ClientCredentialsConfig
+            Type = dto.Type,
+            Basic = dto.Basic is null ? null : new BasicAuthConfig
+            {
+                Username = dto.Basic.Username,
+                Password = EncryptOrPreserveMasked(
+                    dto.Basic.Password,
+                    sameTypeAsExisting ? existingConfig?.Basic?.Password : null,
+                    secretEncryptionService),
+            },
+            OAuth2 = dto.OAuth2 is null ? null : new OAuth2ClientCredentialsConfig
+            {
+                TokenUrl = dto.OAuth2.TokenUrl,
+                ClientId = dto.OAuth2.ClientId,
+                ClientSecret = EncryptOrPreserveMasked(
+                    dto.OAuth2.ClientSecret,
+                    sameTypeAsExisting ? existingConfig?.OAuth2?.ClientSecret : null,
+                    secretEncryptionService),
+                Scope = dto.OAuth2.Scope,
+            },
+            ApiKeyHeader = dto.ApiKeyHeader is null ? null : new ApiKeyHeaderConfig
+            {
+                HeaderName = dto.ApiKeyHeader.HeaderName,
+                HeaderValue = EncryptOrPreserveMasked(
+                    dto.ApiKeyHeader.HeaderValue,
+                    sameTypeAsExisting ? existingConfig?.ApiKeyHeader?.HeaderValue : null,
+                    secretEncryptionService),
+            },
+            HmacSignature = dto.HmacSignature is null ? null : new HmacSignatureConfig
+            {
+                Secret = EncryptOrPreserveMasked(
+                    dto.HmacSignature.Secret,
+                    sameTypeAsExisting ? existingConfig?.HmacSignature?.Secret : null,
+                    secretEncryptionService),
+                HeaderName = dto.HmacSignature.HeaderName,
+                Algorithm = dto.HmacSignature.Algorithm,
+            },
+        };
+    }
+
+    private static string EncryptOrPreserveMasked(
+        string value,
+        string? existingEncryptedValue,
+        ISecretEncryptionService secretEncryptionService)
+    {
+        if (value == MaskedValue && !string.IsNullOrWhiteSpace(existingEncryptedValue))
         {
-            TokenUrl = dto.OAuth2.TokenUrl,
-            ClientId = dto.OAuth2.ClientId,
-            ClientSecret = dto.OAuth2.ClientSecret,
-            Scope = dto.OAuth2.Scope,
-        },
-        ApiKeyHeader = dto.ApiKeyHeader is null ? null : new ApiKeyHeaderConfig
-        {
-            HeaderName = dto.ApiKeyHeader.HeaderName,
-            HeaderValue = dto.ApiKeyHeader.HeaderValue,
-        },
-        HmacSignature = dto.HmacSignature is null ? null : new HmacSignatureConfig
-        {
-            Secret = dto.HmacSignature.Secret,
-            HeaderName = dto.HmacSignature.HeaderName,
-            Algorithm = dto.HmacSignature.Algorithm,
-        },
-    };
+            return existingEncryptedValue;
+        }
+
+        return secretEncryptionService.IsEncrypted(value)
+            ? value
+            : secretEncryptionService.Encrypt(value);
+    }
 
     private static AuthenticationDto MapAndMask(AuthenticationConfig config) => new()
     {

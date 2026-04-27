@@ -36,6 +36,7 @@ In `Production`, the following settings are required:
 - `Elastic:Environment`
 - `Elastic:ElasticsearchUrl` (required when `Elastic:EnableElasticsearchSink=true`)
 - `ElasticApm:ServerUrl`, `ElasticApm:ServiceName`, `ElasticApm:Environment` (required when `ElasticApm:Enabled=true`)
+- `Encryption:MasterKey` (minimum 32 characters)
 
 ### Development exceptions
 
@@ -85,8 +86,25 @@ ElasticApm__Enabled=true
 ElasticApm__ServerUrl=http://apm-server:8200
 ElasticApm__ServiceName=hookbridge-api
 ElasticApm__Environment=Production
+
+# Encryption
+Encryption__MasterKey=replace-with-at-least-32-char-master-key
 ```
 
+## Secret Encryption at Rest
+
+HookBridge encrypts sensitive outbound subscription authentication fields before they are stored in MongoDB:
+
+- `Authentication.Basic.Password`
+- `Authentication.OAuth2.ClientSecret`
+- `Authentication.ApiKeyHeader.HeaderValue`
+- `Authentication.HmacSignature.Secret`
+
+Notes:
+- `Encryption:MasterKey` is required in `Production` and must be at least 32 characters.
+- API responses always mask secret values as `********` and never return encrypted payloads.
+- Secret decryption happens only in memory right before webhook delivery.
+- Do not rotate the master key manually yet (rotation workflow is not implemented).
 
 ## Validation and Security Limits
 
