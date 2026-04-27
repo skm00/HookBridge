@@ -9,6 +9,23 @@ Initial production-style SaaS solution scaffold for a multi-tenant webhook deliv
 - Kafka (planned)
 - React dashboard (planned)
 
+## Local Docker Compose Startup
+
+From the repository root:
+```bash
+cd deploy
+docker compose up --build
+```
+
+Local URLs:
+- API: `http://localhost:5000/swagger`
+- Dashboard: `http://localhost:3000`
+- MongoDB: `mongodb://localhost:27017`
+- Kafka: `localhost:9092`
+- Elasticsearch: `http://localhost:9200`
+- Kibana: `http://localhost:5601`
+- APM Server: `http://localhost:8200`
+
 ## Local MongoDB Setup
 
 ### Option 1: Docker
