@@ -149,6 +149,13 @@ Delivery flow:
 
 DLQ flow is now: **retry exhausted → `failed_events` collection → `webhook-dlq` topic**.
 
+## Failed Events API (Admin)
+
+### Manually retry a failed event
+```bash
+curl -X POST http://localhost:5000/api/v1/admin/failed-events/{id}/retry
+```
+
 ## Outbound Webhook Delivery Request Format
 
 The reusable outbound delivery client sends a POST request per delivery attempt with:

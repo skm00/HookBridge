@@ -1,7 +1,10 @@
 using HookBridge.Application.DTOs.FailedEvents;
+using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Messaging;
 using HookBridge.Application.Services;
 using HookBridge.Domain.Entities;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HookBridge.Application.Tests;
 
@@ -86,15 +89,85 @@ public sealed class FailedEventServiceTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task RetryAsync_Success_PublishesWebhookRetryMessageAndUpdatesStatus()
+    {
+        var fixture = new Fixture();
+        fixture.Seed();
+
+        var result = await fixture.Service.RetryAsync("failed-1");
+
+        Assert.True(result);
+        var published = Assert.Single(fixture.KafkaProducer.Published);
+        Assert.Equal("webhook-retry", published.Topic);
+        Assert.Equal("tenant-1", published.Key);
+        var message = Assert.IsType<WebhookRetryMessage>(published.Message);
+        Assert.Equal("evt-1", message.EventId);
+        Assert.Equal("tenant-1", message.TenantId);
+        Assert.Equal("sub-1", message.SubscriptionId);
+        Assert.Equal(1, message.AttemptNumber);
+        Assert.Equal(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc), message.NextRetryAt);
+        Assert.Equal("corr-1", message.CorrelationId);
+
+        var updated = await fixture.Repository.GetByIdAsync("failed-1");
+        Assert.NotNull(updated);
+        Assert.Equal("RetryRequested", updated.Status);
+        Assert.Equal(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc), updated.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task RetryAsync_ReturnsFalse_WhenMissing()
+    {
+        var fixture = new Fixture();
+        fixture.Seed();
+
+        var result = await fixture.Service.RetryAsync("missing");
+
+        Assert.False(result);
+        Assert.Empty(fixture.KafkaProducer.Published);
+    }
+
+    [Fact]
+    public async Task RetryAsync_ReturnsFalse_WhenStatusIsNotDlq()
+    {
+        var fixture = new Fixture();
+        fixture.Seed();
+        fixture.Repository.UpdateStatus("failed-1", "Processed");
+
+        var result = await fixture.Service.RetryAsync("failed-1");
+
+        Assert.False(result);
+        Assert.Empty(fixture.KafkaProducer.Published);
+    }
+
+    [Fact]
+    public async Task RetryAsync_WhenKafkaPublishFails_DoesNotUpdateStatus()
+    {
+        var fixture = new Fixture();
+        fixture.Seed();
+        fixture.KafkaProducer.ThrowOnProduce = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Service.RetryAsync("failed-1"));
+
+        var failedEvent = await fixture.Repository.GetByIdAsync("failed-1");
+        Assert.NotNull(failedEvent);
+        Assert.Equal("DLQ", failedEvent.Status);
+        Assert.Null(failedEvent.UpdatedAt);
+    }
+
     private sealed class Fixture
     {
-        private readonly InMemoryFailedEventRepository _repository = new();
+        public InMemoryFailedEventRepository Repository { get; } = new();
 
-        public FailedEventService Service => new(_repository);
+        public FakeKafkaProducer KafkaProducer { get; } = new();
+
+        private readonly FakeDateTimeProvider _dateTimeProvider = new(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc));
+
+        public FailedEventService Service => new(Repository, KafkaProducer, _dateTimeProvider, NullLogger<FailedEventService>.Instance);
 
         public void Seed()
         {
-            _repository.Add(new FailedEvent
+            Repository.Add(new FailedEvent
             {
                 Id = "failed-1",
                 TenantId = "tenant-1",
@@ -107,8 +180,9 @@ public sealed class FailedEventServiceTests
                 Status = "DLQ",
                 FailedAt = new DateTime(2026, 4, 27, 10, 0, 0, DateTimeKind.Utc),
                 CreatedAt = new DateTime(2026, 4, 27, 10, 0, 0, DateTimeKind.Utc),
+                CorrelationId = "corr-1",
             });
-            _repository.Add(new FailedEvent
+            Repository.Add(new FailedEvent
             {
                 Id = "failed-2",
                 TenantId = "tenant-2",
@@ -128,7 +202,7 @@ public sealed class FailedEventServiceTests
         {
             for (var i = 0; i < count; i++)
             {
-                _repository.Add(new FailedEvent
+                Repository.Add(new FailedEvent
                 {
                     Id = $"failed-{i}",
                     TenantId = "tenant-1",
@@ -206,9 +280,49 @@ public sealed class FailedEventServiceTests
             return Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
         }
 
+        public Task UpdateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default)
+        {
+            var existing = _items.FindIndex(x => x.Id == failedEvent.Id);
+            if (existing >= 0)
+            {
+                _items[existing] = failedEvent;
+            }
+
+            return Task.CompletedTask;
+        }
+
         public void Add(FailedEvent failedEvent)
         {
             _items.Add(failedEvent);
         }
+
+        public void UpdateStatus(string id, string status)
+        {
+            var item = _items.First(x => x.Id == id);
+            item.Status = status;
+        }
+    }
+
+    private sealed class FakeKafkaProducer : IKafkaProducer
+    {
+        public List<(string Topic, string Key, object Message)> Published { get; } = [];
+
+        public bool ThrowOnProduce { get; set; }
+
+        public Task ProduceAsync<T>(string topic, string key, T message, CancellationToken cancellationToken = default)
+        {
+            if (ThrowOnProduce)
+            {
+                throw new InvalidOperationException("Kafka publish failed");
+            }
+
+            Published.Add((topic, key, message!));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeDateTimeProvider(DateTime utcNow) : IDateTimeProvider
+    {
+        public DateTime UtcNow { get; } = utcNow;
     }
 }

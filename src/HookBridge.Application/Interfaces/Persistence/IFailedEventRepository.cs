@@ -12,4 +12,6 @@ public interface IFailedEventRepository
         CancellationToken cancellationToken = default);
 
     Task<FailedEvent?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
+
+    Task UpdateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default);
 }
