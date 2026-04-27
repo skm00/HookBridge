@@ -13,6 +13,7 @@ using Stripe;
 using Stripe.Checkout;
 using Xunit;
 using StripeSubscription = Stripe.Subscription;
+using InfrastructureBillingService = HookBridge.Infrastructure.Services.Billing.BillingService;
 
 namespace HookBridge.Application.Tests;
 
@@ -176,7 +177,7 @@ public sealed class BillingServiceTests
         Assert.Equal("PaymentFailed", tenant!.BillingStatus);
     }
 
-    private static BillingService CreateService(InMemoryTenantRepository tenantRepository, FakeStripeGateway stripe)
+    private static InfrastructureBillingService CreateService(InMemoryTenantRepository tenantRepository, FakeStripeGateway stripe)
         => new(
             tenantRepository,
             new CreateCheckoutSessionRequestDtoValidator(),
@@ -191,7 +192,7 @@ public sealed class BillingServiceTests
                 CancelUrl = "http://localhost:3000/billing/cancel",
             }),
             stripe,
-            NullLogger<BillingService>.Instance);
+            NullLogger<InfrastructureBillingService>.Instance);
 
     private sealed class InMemoryTenantRepository(Tenant tenant) : IMongoRepository<Tenant>
     {
