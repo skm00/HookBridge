@@ -6,7 +6,7 @@ const Header = (): JSX.Element => {
 
   const onLogout = (): void => {
     authStorage.clearToken();
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
 
   return (
