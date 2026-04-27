@@ -7,4 +7,8 @@ public interface IWebhookDeliveryService
     Task ProcessEventAsync(
         WebhookEventMessage message,
         CancellationToken cancellationToken = default);
+
+    Task ProcessRetryAsync(
+        WebhookRetryMessage message,
+        CancellationToken cancellationToken = default);
 }

@@ -69,87 +69,17 @@ public sealed class WebhookDeliveryService(
             var request = BuildRequest(subscription, incomingEvent, message.CorrelationId);
             var result = await webhookDeliveryClient.SendAsync(request, cancellationToken);
             const int currentAttemptNumber = 1;
-
             if (result.IsSuccess)
             {
                 succeeded++;
             }
 
-            var attempt = new DeliveryAttempt
-            {
-                TenantId = incomingEvent.TenantId,
-                EventId = incomingEvent.EventId,
-                SubscriptionId = subscription.Id,
-                EventType = incomingEvent.EventType,
-                TargetUrl = subscription.TargetUrl,
-                AttemptNumber = currentAttemptNumber,
-                Status = result.IsSuccess ? DeliveryStatus.Success : DeliveryStatus.Failed,
-                HttpStatusCode = result.HttpStatusCode,
-                ResponseBody = result.ResponseBody,
-                ErrorMessage = result.ErrorMessage,
-                DurationMs = result.DurationMs,
-                AttemptedAt = now,
-                CorrelationId = message.CorrelationId,
-                CreatedAt = now,
-                UpdatedAt = null,
-            };
-
+            var attempt = CreateDeliveryAttempt(incomingEvent, subscription, result, currentAttemptNumber, message.CorrelationId, now);
             await deliveryAttemptRepository.AddAsync(attempt, cancellationToken);
 
             if (!result.IsSuccess)
             {
-                var retryPolicy = new RetryPolicyDto
-                {
-                    MaxAttempts = subscription.RetryPolicy.MaxAttempts,
-                    InitialDelaySeconds = subscription.RetryPolicy.InitialDelaySeconds,
-                    BackoffType = subscription.RetryPolicy.BackoffType,
-                };
-
-                if (retryPolicyService.ShouldRetry(retryPolicy, currentAttemptNumber))
-                {
-                    var retryDelay = retryPolicyService.CalculateDelay(retryPolicy, currentAttemptNumber);
-                    var nextRetryAt = dateTimeProvider.UtcNow.Add(retryDelay);
-                    var nextAttemptNumber = currentAttemptNumber + 1;
-                    var retryMessage = new WebhookRetryMessage
-                    {
-                        EventId = incomingEvent.EventId,
-                        TenantId = incomingEvent.TenantId,
-                        SubscriptionId = subscription.Id,
-                        AttemptNumber = nextAttemptNumber,
-                        NextRetryAt = nextRetryAt,
-                        CorrelationId = message.CorrelationId,
-                    };
-
-                    try
-                    {
-                        await kafkaProducer.ProduceAsync(
-                            KafkaTopics.WebhookRetry,
-                            incomingEvent.TenantId,
-                            retryMessage,
-                            cancellationToken);
-
-                        logger.LogInformation(
-                            "Webhook retry scheduled. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, DelaySeconds: {DelaySeconds}, CorrelationId: {CorrelationId}",
-                            incomingEvent.TenantId,
-                            incomingEvent.EventId,
-                            subscription.Id,
-                            nextAttemptNumber,
-                            nextRetryAt,
-                            retryDelay.TotalSeconds,
-                            message.CorrelationId);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(
-                            ex,
-                            "Failed to publish webhook retry message. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, CorrelationId: {CorrelationId}",
-                            incomingEvent.TenantId,
-                            incomingEvent.EventId,
-                            subscription.Id,
-                            nextAttemptNumber,
-                            message.CorrelationId);
-                    }
-                }
+                await TryScheduleRetryAsync(incomingEvent, subscription, currentAttemptNumber, message.CorrelationId, cancellationToken);
             }
 
             logger.LogInformation(
@@ -182,6 +112,173 @@ public sealed class WebhookDeliveryService(
             incomingEvent.EventType,
             incomingEvent.Status,
             message.CorrelationId);
+    }
+
+    public async Task ProcessRetryAsync(WebhookRetryMessage message, CancellationToken cancellationToken = default)
+    {
+        var incomingEvent = await incomingEventRepository.FirstOrDefaultAsync(
+            x => x.TenantId == message.TenantId && x.EventId == message.EventId,
+            cancellationToken);
+
+        if (incomingEvent is null)
+        {
+            logger.LogWarning(
+                "Retry skipped because incoming event was not found. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, CorrelationId: {CorrelationId}",
+                message.TenantId,
+                message.EventId,
+                message.SubscriptionId,
+                message.AttemptNumber,
+                message.NextRetryAt,
+                message.CorrelationId);
+            return;
+        }
+
+        var subscription = await subscriptionRepository.GetByIdAsync(message.SubscriptionId, cancellationToken);
+        if (subscription is null)
+        {
+            logger.LogWarning(
+                "Retry skipped because subscription was not found. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, CorrelationId: {CorrelationId}",
+                message.TenantId,
+                message.EventId,
+                message.SubscriptionId,
+                message.AttemptNumber,
+                message.NextRetryAt,
+                message.CorrelationId);
+            return;
+        }
+
+        if (!subscription.IsActive)
+        {
+            logger.LogInformation(
+                "Retry skipped because subscription is inactive. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, CorrelationId: {CorrelationId}",
+                message.TenantId,
+                message.EventId,
+                message.SubscriptionId,
+                message.AttemptNumber,
+                message.NextRetryAt,
+                message.CorrelationId);
+            return;
+        }
+
+        var request = BuildRequest(subscription, incomingEvent, message.CorrelationId);
+        var result = await webhookDeliveryClient.SendAsync(request, cancellationToken);
+        var now = dateTimeProvider.UtcNow;
+        var attempt = CreateDeliveryAttempt(incomingEvent, subscription, result, message.AttemptNumber, message.CorrelationId, now);
+        await deliveryAttemptRepository.AddAsync(attempt, cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            logger.LogInformation(
+                "Retry delivery succeeded. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, CorrelationId: {CorrelationId}",
+                message.TenantId,
+                message.EventId,
+                message.SubscriptionId,
+                message.AttemptNumber,
+                message.NextRetryAt,
+                message.CorrelationId);
+            return;
+        }
+
+        logger.LogInformation(
+            "Retry delivery failed. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, CorrelationId: {CorrelationId}",
+            message.TenantId,
+            message.EventId,
+            message.SubscriptionId,
+            message.AttemptNumber,
+            message.NextRetryAt,
+            message.CorrelationId);
+        await TryScheduleRetryAsync(incomingEvent, subscription, message.AttemptNumber, message.CorrelationId, cancellationToken);
+    }
+
+    private DeliveryAttempt CreateDeliveryAttempt(
+        IncomingEvent incomingEvent,
+        Subscription subscription,
+        WebhookDeliveryResult result,
+        int attemptNumber,
+        string? correlationId,
+        DateTime attemptedAt)
+    {
+        return new DeliveryAttempt
+        {
+            TenantId = incomingEvent.TenantId,
+            EventId = incomingEvent.EventId,
+            SubscriptionId = subscription.Id,
+            EventType = incomingEvent.EventType,
+            TargetUrl = subscription.TargetUrl,
+            AttemptNumber = attemptNumber,
+            Status = result.IsSuccess ? DeliveryStatus.Success : DeliveryStatus.Failed,
+            HttpStatusCode = result.HttpStatusCode,
+            ResponseBody = result.ResponseBody,
+            ErrorMessage = result.ErrorMessage,
+            DurationMs = result.DurationMs,
+            AttemptedAt = attemptedAt,
+            CorrelationId = correlationId,
+            CreatedAt = attemptedAt,
+            UpdatedAt = null,
+        };
+    }
+
+    private async Task TryScheduleRetryAsync(
+        IncomingEvent incomingEvent,
+        Subscription subscription,
+        int currentAttemptNumber,
+        string? correlationId,
+        CancellationToken cancellationToken)
+    {
+        var retryPolicy = new RetryPolicyDto
+        {
+            MaxAttempts = subscription.RetryPolicy.MaxAttempts,
+            InitialDelaySeconds = subscription.RetryPolicy.InitialDelaySeconds,
+            BackoffType = subscription.RetryPolicy.BackoffType,
+        };
+
+        if (!retryPolicyService.ShouldRetry(retryPolicy, currentAttemptNumber))
+        {
+            return;
+        }
+
+        var retryDelay = retryPolicyService.CalculateDelay(retryPolicy, currentAttemptNumber);
+        var nextRetryAt = dateTimeProvider.UtcNow.Add(retryDelay);
+        var nextAttemptNumber = currentAttemptNumber + 1;
+        var retryMessage = new WebhookRetryMessage
+        {
+            EventId = incomingEvent.EventId,
+            TenantId = incomingEvent.TenantId,
+            SubscriptionId = subscription.Id,
+            AttemptNumber = nextAttemptNumber,
+            NextRetryAt = nextRetryAt,
+            CorrelationId = correlationId,
+        };
+
+        try
+        {
+            await kafkaProducer.ProduceAsync(
+                KafkaTopics.WebhookRetry,
+                incomingEvent.TenantId,
+                retryMessage,
+                cancellationToken);
+
+            logger.LogInformation(
+                "Retry rescheduled. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, DelaySeconds: {DelaySeconds}, CorrelationId: {CorrelationId}",
+                incomingEvent.TenantId,
+                incomingEvent.EventId,
+                subscription.Id,
+                nextAttemptNumber,
+                nextRetryAt,
+                retryDelay.TotalSeconds,
+                correlationId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Failed to publish webhook retry message. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, CorrelationId: {CorrelationId}",
+                incomingEvent.TenantId,
+                incomingEvent.EventId,
+                subscription.Id,
+                nextAttemptNumber,
+                correlationId);
+        }
     }
 
     private static WebhookDeliveryRequest BuildRequest(Subscription subscription, IncomingEvent incomingEvent, string? correlationId)
