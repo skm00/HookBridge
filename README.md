@@ -103,3 +103,42 @@ curl -X POST http://localhost:5000/api/v1/events/{tenantId} \
     }
   }'
 ```
+
+## Subscription Management API (Admin)
+
+### Create subscription
+```bash
+curl -X POST http://localhost:5000/api/v1/admin/subscriptions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenantId": "tenant-id",
+    "eventType": "order.created",
+    "targetUrl": "https://example.com/webhooks/orders",
+    "headers": [
+      { "name": "x-callback-source", "value": "hookbridge" }
+    ],
+    "authentication": {
+      "type": "Basic",
+      "basic": {
+        "username": "hook-user",
+        "password": "super-secret"
+      }
+    },
+    "retryPolicy": {
+      "maxAttempts": 3,
+      "initialDelaySeconds": 30,
+      "backoffType": "Exponential"
+    },
+    "timeoutSeconds": 30
+  }'
+```
+
+### Get subscription by id
+```bash
+curl http://localhost:5000/api/v1/admin/subscriptions/{subscriptionId}
+```
+
+### Search subscriptions
+```bash
+curl "http://localhost:5000/api/v1/admin/subscriptions?tenantId={tenantId}&eventType=order.created&targetUrl=example.com&isActive=true"
+```
