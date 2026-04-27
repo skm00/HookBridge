@@ -118,7 +118,7 @@ public sealed class AuthorizationPolicyBehaviorTests
         app.MapGet("/admin-or-owner", [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)] () => Results.Ok());
         app.MapGet("/developer-or-above", [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)] () => Results.Ok());
 
-        app.Start();
+        app.StartAsync().GetAwaiter().GetResult();
         return app.GetTestServer();
     }
 
