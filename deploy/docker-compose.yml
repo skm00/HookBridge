@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: hookbridge-mongodb
+    ports:
+      - "27017:27017"
+
+  hookbridge-api:
+    image: hookbridge-api:latest
+    build:
+      context: ..
+      dockerfile: src/HookBridge.Api/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongodb
+
+  hookbridge-worker:
+    image: hookbridge-worker:latest
+    build:
+      context: ..
+      dockerfile: src/HookBridge.Worker/Dockerfile
+    depends_on:
+      - mongodb
