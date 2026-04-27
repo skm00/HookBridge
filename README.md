@@ -131,6 +131,18 @@ The `/events` dashboard route now integrates with admin incoming-event APIs and 
 - Incoming-event status badges (Accepted, Delivered, Failed, PartiallyFailed, NoSubscriptions) and truncation for long values in the table.
 - "View Details" modal backed by `GET /api/v1/admin/events/{id}` showing complete event fields (tenant, event metadata, source/received timestamps, correlation data, and full JSON payload).
 
+### Search incoming events
+```bash
+curl "http://localhost:5000/api/v1/admin/events?eventId=evt_123&eventType=order.created&status=Accepted&fromDate=2026-04-27T00:00:00Z&toDate=2026-04-27T23:59:59Z&correlationId=test-correlation-001" \
+  -H "Authorization: Bearer <jwt-token>"
+```
+
+### Get incoming event by id
+```bash
+curl "http://localhost:5000/api/v1/admin/events/incoming-123" \
+  -H "Authorization: Bearer <jwt-token>"
+```
+
 ## Delivery Logs Dashboard Page
 
 The `/delivery-logs` dashboard route now integrates with admin delivery-attempt APIs and includes:

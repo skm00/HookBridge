@@ -27,6 +27,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<IApiKeyService, ApiKeyService>();
         services.AddScoped<IEventIngestionService, EventIngestionService>();
+        services.AddScoped<IIncomingEventQueryService, IncomingEventQueryService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IDeliveryAttemptService, DeliveryAttemptService>();
         services.AddScoped<IFailedEventService, FailedEventService>();
