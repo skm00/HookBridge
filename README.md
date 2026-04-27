@@ -41,6 +41,34 @@ Enable Elasticsearch shipping in development by setting `Elastic:EnableElasticse
 - `src/HookBridge.Api/appsettings.Development.json`
 - `src/HookBridge.Worker/appsettings.Development.json`
 
+
+## Elastic APM Setup
+
+HookBridge now supports Elastic APM tracing for API requests, worker message processing, Kafka-related processing spans, and outbound webhook delivery HTTP spans.
+
+### Local APM endpoint
+- APM Server: `http://localhost:8200`
+
+### Enable APM
+Set `ElasticApm:Enabled` to `true` in:
+- `src/HookBridge.Api/appsettings.Development.json`
+- `src/HookBridge.Worker/appsettings.Development.json`
+
+Each service has its own service name:
+- API: `hookbridge-api`
+- Worker: `hookbridge-worker`
+
+### View traces in Kibana
+1. Start local stack: `docker compose -f deploy/docker-compose.yml up -d`
+2. Open Kibana: `http://localhost:5601`
+3. Go to **Observability → APM → Services**.
+4. Select `hookbridge-api` or `hookbridge-worker` and inspect traces, transactions, and spans.
+
+Security notes:
+- HookBridge does not send webhook payload bodies as APM labels.
+- HookBridge does not attach secrets, authorization headers, API keys, tokens, or passwords as labels.
+- HookBridge records only target host (not full URL query strings) for outbound webhook labels.
+
 ## Local Kafka Configuration
 
 Both API and Worker development settings include a `Kafka` section:

@@ -1,3 +1,4 @@
+using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using HookBridge.Infrastructure.Configuration;
@@ -37,7 +38,8 @@ public sealed class WebhookEventConsumerWorkerTests
                 SecurityProtocol = "Plaintext",
                 ConsumerGroupId = "hookbridge-worker",
             }),
-            logger);
+            logger,
+            new WorkerTransactionRunner(new NoopTracingService()));
 
         using var cts = new CancellationTokenSource();
         await worker.RunOnceAsync(cts.Token);
@@ -75,7 +77,8 @@ public sealed class WebhookEventConsumerWorkerTests
                 SecurityProtocol = "Plaintext",
                 ConsumerGroupId = "hookbridge-worker",
             }),
-            logger);
+            logger,
+            new WorkerTransactionRunner(new NoopTracingService()));
 
         using var cts = new CancellationTokenSource();
         await worker.RunOnceAsync(cts.Token);
@@ -107,8 +110,9 @@ public sealed class WebhookEventConsumerWorkerTests
             IKafkaConsumer kafkaConsumer,
             IWebhookDeliveryService webhookDeliveryService,
             IOptions<KafkaSettings> kafkaOptions,
-            TestLogger<HookBridge.Worker.WebhookEventConsumerWorker> logger)
-            : base(kafkaConsumer, webhookDeliveryService, kafkaOptions, logger)
+            TestLogger<HookBridge.Worker.WebhookEventConsumerWorker> logger,
+            WorkerTransactionRunner transactionRunner)
+            : base(kafkaConsumer, webhookDeliveryService, kafkaOptions, logger, transactionRunner)
         {
         }
 
@@ -116,5 +120,21 @@ public sealed class WebhookEventConsumerWorkerTests
         {
             return ExecuteAsync(token);
         }
+    }
+
+    private sealed class NoopTracingService : ITracingService
+    {
+        public ITraceTransaction StartTransaction(string name, string type) => new NoopTraceTransaction();
+        public Task<T> CaptureSpanAsync<T>(string name, string type, Func<Task<T>> action) => action();
+        public Task CaptureSpanAsync(string name, string type, Func<Task> action) => action();
+    }
+
+    private sealed class NoopTraceTransaction : ITraceTransaction
+    {
+        public void SetLabel(string key, string? value) { }
+        public void SetLabel(string key, int value) { }
+        public void CaptureException(Exception exception) { }
+        public void End() { }
+        public void Dispose() { }
     }
 }

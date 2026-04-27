@@ -1,3 +1,4 @@
+using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using Moq;
@@ -14,7 +15,7 @@ public sealed class WebhookRetryConsumerWorkerTests
         var kafkaConsumerMock = CreateKafkaConsumer([message]);
         var deliveryServiceMock = new Mock<IWebhookDeliveryService>();
         var logger = new TestLogger<HookBridge.Worker.WebhookRetryConsumerWorker>();
-        var worker = new TestWebhookRetryConsumerWorker(kafkaConsumerMock.Object, deliveryServiceMock.Object, logger);
+        var worker = new TestWebhookRetryConsumerWorker(kafkaConsumerMock.Object, deliveryServiceMock.Object, logger, new WorkerTransactionRunner(new NoopTracingService()));
 
         using var cts = new CancellationTokenSource();
         await worker.RunOnceAsync(cts.Token);
@@ -29,7 +30,7 @@ public sealed class WebhookRetryConsumerWorkerTests
         var kafkaConsumerMock = CreateKafkaConsumer([message]);
         var deliveryServiceMock = new Mock<IWebhookDeliveryService>();
         var logger = new TestLogger<HookBridge.Worker.WebhookRetryConsumerWorker>();
-        var worker = new TestWebhookRetryConsumerWorker(kafkaConsumerMock.Object, deliveryServiceMock.Object, logger);
+        var worker = new TestWebhookRetryConsumerWorker(kafkaConsumerMock.Object, deliveryServiceMock.Object, logger, new WorkerTransactionRunner(new NoopTracingService()));
 
         using var cts = new CancellationTokenSource();
         await worker.RunOnceAsync(cts.Token);
@@ -45,7 +46,7 @@ public sealed class WebhookRetryConsumerWorkerTests
         var kafkaConsumerMock = CreateKafkaConsumer([message]);
         var deliveryServiceMock = new Mock<IWebhookDeliveryService>();
         var logger = new TestLogger<HookBridge.Worker.WebhookRetryConsumerWorker>();
-        var worker = new TestWebhookRetryConsumerWorker(kafkaConsumerMock.Object, deliveryServiceMock.Object, logger);
+        var worker = new TestWebhookRetryConsumerWorker(kafkaConsumerMock.Object, deliveryServiceMock.Object, logger, new WorkerTransactionRunner(new NoopTracingService()));
 
         using var cts = new CancellationTokenSource();
         await worker.RunOnceAsync(cts.Token);
@@ -70,7 +71,7 @@ public sealed class WebhookRetryConsumerWorkerTests
             .Returns(Task.CompletedTask);
 
         var logger = new TestLogger<HookBridge.Worker.WebhookRetryConsumerWorker>();
-        var worker = new TestWebhookRetryConsumerWorker(kafkaConsumerMock.Object, deliveryServiceMock.Object, logger);
+        var worker = new TestWebhookRetryConsumerWorker(kafkaConsumerMock.Object, deliveryServiceMock.Object, logger, new WorkerTransactionRunner(new NoopTracingService()));
 
         using var cts = new CancellationTokenSource();
         await worker.RunOnceAsync(cts.Token);
@@ -111,8 +112,9 @@ public sealed class WebhookRetryConsumerWorkerTests
     private sealed class TestWebhookRetryConsumerWorker(
         IKafkaConsumer kafkaConsumer,
         IWebhookDeliveryService webhookDeliveryService,
-        TestLogger<HookBridge.Worker.WebhookRetryConsumerWorker> logger)
-        : HookBridge.Worker.WebhookRetryConsumerWorker(kafkaConsumer, webhookDeliveryService, logger)
+        TestLogger<HookBridge.Worker.WebhookRetryConsumerWorker> logger,
+        WorkerTransactionRunner transactionRunner)
+        : HookBridge.Worker.WebhookRetryConsumerWorker(kafkaConsumer, webhookDeliveryService, logger, transactionRunner)
     {
         public List<TimeSpan> Delays { get; } = [];
 
@@ -126,5 +128,21 @@ public sealed class WebhookRetryConsumerWorkerTests
             Delays.Add(delay);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class NoopTracingService : ITracingService
+    {
+        public ITraceTransaction StartTransaction(string name, string type) => new NoopTraceTransaction();
+        public Task<T> CaptureSpanAsync<T>(string name, string type, Func<Task<T>> action) => action();
+        public Task CaptureSpanAsync(string name, string type, Func<Task> action) => action();
+    }
+
+    private sealed class NoopTraceTransaction : ITraceTransaction
+    {
+        public void SetLabel(string key, string? value) { }
+        public void SetLabel(string key, int value) { }
+        public void CaptureException(Exception exception) { }
+        public void End() { }
+        public void Dispose() { }
     }
 }

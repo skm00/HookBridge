@@ -27,6 +27,21 @@ services:
     depends_on:
       - elasticsearch
 
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:8.14.3
+    container_name: hookbridge-apm-server
+    command: >
+      apm-server -e
+      -E apm-server.host=0.0.0.0:8200
+      -E output.elasticsearch.hosts=["elasticsearch:9200"]
+      -E apm-server.kibana.enabled=true
+      -E apm-server.kibana.host=kibana:5601
+    ports:
+      - "8200:8200"
+    depends_on:
+      - elasticsearch
+      - kibana
+
   hookbridge-api:
     image: hookbridge-api:latest
     build:
@@ -37,6 +52,7 @@ services:
     depends_on:
       - mongodb
       - elasticsearch
+      - apm-server
 
   hookbridge-worker:
     image: hookbridge-worker:latest
@@ -46,3 +62,4 @@ services:
     depends_on:
       - mongodb
       - elasticsearch
+      - apm-server

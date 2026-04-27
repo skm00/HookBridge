@@ -14,17 +14,20 @@ public class WebhookEventConsumerWorker : BackgroundService
     private readonly IWebhookDeliveryService _webhookDeliveryService;
     private readonly ILogger<WebhookEventConsumerWorker> _logger;
     private readonly KafkaSettings _kafkaSettings;
+    private readonly WorkerTransactionRunner _transactionRunner;
 
     public WebhookEventConsumerWorker(
         IKafkaConsumer kafkaConsumer,
         IWebhookDeliveryService webhookDeliveryService,
         IOptions<KafkaSettings> kafkaOptions,
-        ILogger<WebhookEventConsumerWorker> logger)
+        ILogger<WebhookEventConsumerWorker> logger,
+        WorkerTransactionRunner transactionRunner)
     {
         _kafkaConsumer = kafkaConsumer;
         _webhookDeliveryService = webhookDeliveryService;
         _logger = logger;
         _kafkaSettings = kafkaOptions.Value;
+        _transactionRunner = transactionRunner;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -48,7 +51,17 @@ public class WebhookEventConsumerWorker : BackgroundService
 
             try
             {
-                await _webhookDeliveryService.ProcessEventAsync(message, stoppingToken);
+                await _transactionRunner.RunAsync(
+                    "Process webhook event",
+                    transaction =>
+                    {
+                        transaction.SetLabel("tenantId", message.TenantId);
+                        transaction.SetLabel("eventId", message.EventId);
+                        transaction.SetLabel("eventType", message.EventType);
+                        transaction.SetLabel("correlationId", message.CorrelationId);
+                    },
+                    token => _webhookDeliveryService.ProcessEventAsync(message, token),
+                    stoppingToken);
 
                 _logger.LogInformation(
                     "Webhook event processed successfully. TenantId: {TenantId}, EventId: {EventId}, EventType: {EventType}, CorrelationId: {CorrelationId}",

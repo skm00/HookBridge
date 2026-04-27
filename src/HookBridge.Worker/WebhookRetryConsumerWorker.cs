@@ -9,7 +9,8 @@ namespace HookBridge.Worker;
 public class WebhookRetryConsumerWorker(
     IKafkaConsumer kafkaConsumer,
     IWebhookDeliveryService webhookDeliveryService,
-    ILogger<WebhookRetryConsumerWorker> logger) : BackgroundService
+    ILogger<WebhookRetryConsumerWorker> logger,
+    WorkerTransactionRunner transactionRunner) : BackgroundService
 {
     private const string RetryConsumerGroupId = "hookbridge-worker-retry";
 
@@ -51,7 +52,18 @@ public class WebhookRetryConsumerWorker(
                     await DelayUntilAsync(delay, stoppingToken);
                 }
 
-                await webhookDeliveryService.ProcessRetryAsync(message, stoppingToken);
+                await transactionRunner.RunAsync(
+                    "Process webhook retry",
+                    transaction =>
+                    {
+                        transaction.SetLabel("tenantId", message.TenantId);
+                        transaction.SetLabel("eventId", message.EventId);
+                        transaction.SetLabel("subscriptionId", message.SubscriptionId);
+                        transaction.SetLabel("attemptNumber", message.AttemptNumber);
+                        transaction.SetLabel("correlationId", message.CorrelationId);
+                    },
+                    token => webhookDeliveryService.ProcessRetryAsync(message, token),
+                    stoppingToken);
             }
             catch (Exception ex)
             {

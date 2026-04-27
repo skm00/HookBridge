@@ -3,6 +3,8 @@ using System.Text;
 using System.Text.Json;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Models.Delivery;
+using Elastic.Apm;
+using Elastic.Apm.Api;
 using Microsoft.Extensions.Logging;
 
 namespace HookBridge.Infrastructure.Services;
@@ -77,7 +79,22 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
             await _webhookAuthenticationHandler.ApplyAsync(message, request, timeoutCts.Token);
 
             var client = _httpClientFactory.CreateClient();
-            using var response = await client.SendAsync(message, timeoutCts.Token);
+            var currentTransaction = Agent.Tracer.CurrentTransaction;
+            var span = currentTransaction?.StartSpan("Send webhook", "external.http");
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.SendAsync(message, timeoutCts.Token);
+            }
+            catch (Exception ex)
+            {
+                span?.CaptureException(ex);
+                throw;
+            }
+            finally
+            {
+                span?.End();
+            }
             var responseBody = await response.Content.ReadAsStringAsync(timeoutCts.Token);
 
             stopwatch.Stop();
@@ -89,6 +106,9 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
                 ResponseBody = responseBody,
                 DurationMs = stopwatch.ElapsedMilliseconds,
             };
+
+            SetApmLabels(span ?? currentTransaction, targetUri, request, result);
+            response.Dispose();
 
             _logger.LogInformation(
                 "Webhook delivery completed. TenantId: {TenantId}, EventId: {EventId}, EventType: {EventType}, TargetUrl: {TargetUrl}, HttpStatusCode: {HttpStatusCode}, DurationMs: {DurationMs}, CorrelationId: {CorrelationId}",
@@ -112,6 +132,8 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
                 DurationMs = stopwatch.ElapsedMilliseconds,
             };
 
+            SetApmLabels(Agent.Tracer.CurrentSpan ?? Agent.Tracer.CurrentTransaction, targetUri, request, result);
+
             _logger.LogWarning(
                 "Webhook delivery timed out. TenantId: {TenantId}, EventId: {EventId}, EventType: {EventType}, TargetUrl: {TargetUrl}, DurationMs: {DurationMs}, CorrelationId: {CorrelationId}",
                 request.TenantId,
@@ -132,6 +154,8 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
                 ErrorMessage = $"HTTP request failed: {ex.Message}",
                 DurationMs = stopwatch.ElapsedMilliseconds,
             };
+
+            SetApmLabels(Agent.Tracer.CurrentSpan ?? Agent.Tracer.CurrentTransaction, targetUri, request, result);
 
             _logger.LogWarning(
                 ex,
@@ -155,6 +179,8 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
                 DurationMs = stopwatch.ElapsedMilliseconds,
             };
 
+            SetApmLabels(Agent.Tracer.CurrentSpan ?? Agent.Tracer.CurrentTransaction, targetUri, request, result);
+
             _logger.LogError(
                 ex,
                 "Unexpected webhook delivery error. TenantId: {TenantId}, EventId: {EventId}, EventType: {EventType}, TargetUrl: {TargetUrl}, DurationMs: {DurationMs}, CorrelationId: {CorrelationId}",
@@ -167,6 +193,27 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
 
             return result;
         }
+    }
+
+
+    private static void SetApmLabels(IExecutionSegment? executionSegment, Uri targetUri, WebhookDeliveryRequest request, WebhookDeliveryResult result)
+    {
+        if (executionSegment is null)
+        {
+            return;
+        }
+
+        executionSegment.SetLabel("targetUrl", GetTargetHost(targetUri));
+        executionSegment.SetLabel("eventId", request.EventId ?? string.Empty);
+        executionSegment.SetLabel("eventType", request.EventType ?? string.Empty);
+        executionSegment.SetLabel("tenantId", request.TenantId ?? string.Empty);
+        executionSegment.SetLabel("httpStatusCode", result.HttpStatusCode ?? 0);
+        executionSegment.SetLabel("durationMs", result.DurationMs);
+    }
+
+    public static string GetTargetHost(Uri targetUri)
+    {
+        return targetUri.Host;
     }
 
     private static void AddHeaderIfPresent(HttpRequestMessage message, string headerName, string? headerValue)

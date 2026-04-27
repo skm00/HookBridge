@@ -36,6 +36,7 @@ public static class InfrastructureServiceRegistration
         services.Configure<StripeSettings>(configuration.GetSection("Stripe"));
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.Configure<ElasticSettings>(configuration.GetSection("Elastic"));
+        services.Configure<ElasticApmSettings>(configuration.GetSection("ElasticApm"));
 
         services.AddSingleton<IMongoClient>(serviceProvider =>
         {
@@ -55,6 +56,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IApiKeyHasher, ApiKeyHasher>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
+        services.AddSingleton<ITracingService, ElasticApmTracingService>();
         services.AddSingleton<IKafkaProducer, KafkaProducer>();
         services.AddSingleton<IKafkaConsumer, KafkaConsumer>();
         services.AddSingleton<IKafkaAdminService, KafkaAdminServicePlaceholder>();
