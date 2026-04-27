@@ -89,6 +89,53 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             [tenantEventUniqueIndex, eventTenantIndex, eventTypeIndex, receivedAtIndex, statusIndex],
             cancellationToken);
 
+        var deliveryAttempts = database.GetCollection<DeliveryAttempt>(nameof(DeliveryAttempt));
+
+        var deliveryTenantIdIndex = new CreateIndexModel<DeliveryAttempt>(
+            Builders<DeliveryAttempt>.IndexKeys.Ascending(x => x.TenantId),
+            new CreateIndexOptions { Name = "ix_deliveryattempt_tenantid" });
+
+        var deliveryEventIdIndex = new CreateIndexModel<DeliveryAttempt>(
+            Builders<DeliveryAttempt>.IndexKeys.Ascending(x => x.EventId),
+            new CreateIndexOptions { Name = "ix_deliveryattempt_eventid" });
+
+        var deliverySubscriptionIdIndex = new CreateIndexModel<DeliveryAttempt>(
+            Builders<DeliveryAttempt>.IndexKeys.Ascending(x => x.SubscriptionId),
+            new CreateIndexOptions { Name = "ix_deliveryattempt_subscriptionid" });
+
+        var deliveryStatusIndex = new CreateIndexModel<DeliveryAttempt>(
+            Builders<DeliveryAttempt>.IndexKeys.Ascending(x => x.Status),
+            new CreateIndexOptions { Name = "ix_deliveryattempt_status" });
+
+        var deliveryAttemptedAtIndex = new CreateIndexModel<DeliveryAttempt>(
+            Builders<DeliveryAttempt>.IndexKeys.Ascending(x => x.AttemptedAt),
+            new CreateIndexOptions { Name = "ix_deliveryattempt_attemptedat" });
+
+        var deliveryTenantStatusAttemptedAtIndex = new CreateIndexModel<DeliveryAttempt>(
+            Builders<DeliveryAttempt>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Ascending(x => x.Status)
+                .Ascending(x => x.AttemptedAt),
+            new CreateIndexOptions { Name = "ix_deliveryattempt_tenantid_status_attemptedat" });
+
+        var deliveryTenantEventIdIndex = new CreateIndexModel<DeliveryAttempt>(
+            Builders<DeliveryAttempt>.IndexKeys
+                .Ascending(x => x.TenantId)
+                .Ascending(x => x.EventId),
+            new CreateIndexOptions { Name = "ix_deliveryattempt_tenantid_eventid" });
+
+        await deliveryAttempts.Indexes.CreateManyAsync(
+            [
+                deliveryTenantIdIndex,
+                deliveryEventIdIndex,
+                deliverySubscriptionIdIndex,
+                deliveryStatusIndex,
+                deliveryAttemptedAtIndex,
+                deliveryTenantStatusAttemptedAtIndex,
+                deliveryTenantEventIdIndex,
+            ],
+            cancellationToken);
+
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

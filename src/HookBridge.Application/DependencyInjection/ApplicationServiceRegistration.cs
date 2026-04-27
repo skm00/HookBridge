@@ -24,6 +24,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IApiKeyService, ApiKeyService>();
         services.AddScoped<IEventIngestionService, EventIngestionService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
+        services.AddScoped<IDeliveryAttemptService, DeliveryAttemptService>();
         services.AddScoped<IValidator<CreateTenantRequestDto>, CreateTenantRequestDtoValidator>();
         services.AddScoped<IValidator<UpdateTenantRequestDto>, UpdateTenantRequestDtoValidator>();
         services.AddScoped<IValidator<CreateApiKeyRequestDto>, CreateApiKeyRequestDtoValidator>();

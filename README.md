@@ -172,3 +172,16 @@ curl -X POST http://localhost:5000/api/v1/admin/subscriptions/{subscriptionId}/e
 ```bash
 curl -X DELETE http://localhost:5000/api/v1/admin/subscriptions/{subscriptionId}
 ```
+
+
+## Delivery Logs API (Admin)
+
+### Search delivery logs
+```bash
+curl "http://localhost:5000/api/v1/admin/delivery-logs?tenantId={tenantId}&eventId={eventId}&subscriptionId={subscriptionId}&eventType=order.created&status=Failed&httpStatusCode=500&fromDate=2026-04-27T00:00:00Z&toDate=2026-04-27T23:59:59Z&targetUrl=example.com"
+```
+
+### Get delivery log by id
+```bash
+curl http://localhost:5000/api/v1/admin/delivery-logs/{deliveryAttemptId}
+```

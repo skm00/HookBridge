@@ -3,6 +3,7 @@ using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Security;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Persistence;
+using HookBridge.Infrastructure.Persistence.Repositories;
 using HookBridge.Infrastructure.Persistence.Indexes;
 using HookBridge.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
@@ -45,6 +46,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IApiKeyHasher, ApiKeyHasher>();
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
+        services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
         services.AddHostedService<MongoIndexInitializerHostedService>();
 
         return services;
