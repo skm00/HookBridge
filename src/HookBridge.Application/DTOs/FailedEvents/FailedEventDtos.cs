@@ -1,3 +1,5 @@
+using HookBridge.Application.DTOs.Common;
+
 namespace HookBridge.Application.DTOs.FailedEvents;
 
 public sealed class FailedEventResponseDto
@@ -33,7 +35,7 @@ public sealed class FailedEventResponseDto
     public DateTime? UpdatedAt { get; set; }
 }
 
-public sealed class FailedEventSearchRequestDto
+public sealed class FailedEventSearchRequestDto : PagedRequestDto
 {
     public string? TenantId { get; set; }
 

@@ -1,17 +1,23 @@
 using HookBridge.Application.DTOs.Events;
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Entities;
+using MongoDB.Driver;
 
 namespace HookBridge.Application.Services;
 
 public sealed class IncomingEventQueryService(IMongoRepository<IncomingEvent> incomingEventRepository) : IIncomingEventQueryService
 {
-    public async Task<IReadOnlyList<IncomingEventResponseDto>> SearchAsync(
+    public async Task<PagedResponseDto<IncomingEventResponseDto>> SearchAsync(
         IncomingEventSearchRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var items = await incomingEventRepository.FindAsync(
+        var pageNumber = request.NormalizedPageNumber;
+        var pageSize = request.NormalizedPageSize;
+        var descending = request.NormalizedSortDirection == "desc";
+
+        var result = await incomingEventRepository.QueryAsync(
             x =>
                 (string.IsNullOrWhiteSpace(request.TenantId) || x.TenantId == request.TenantId)
                 && (string.IsNullOrWhiteSpace(request.EventId) || x.EventId == request.EventId)
@@ -20,13 +26,24 @@ public sealed class IncomingEventQueryService(IMongoRepository<IncomingEvent> in
                 && (request.FromDate == null || x.ReceivedAt >= request.FromDate.Value)
                 && (request.ToDate == null || x.ReceivedAt <= request.ToDate.Value)
                 && (string.IsNullOrWhiteSpace(request.CorrelationId) || x.CorrelationId == request.CorrelationId),
+            GetSortDefinition(request.SortBy, descending),
+            request.Skip,
+            pageSize,
             cancellationToken);
 
-        return items
-            .OrderByDescending(x => x.ReceivedAt)
-            .Take(500)
-            .Select(Map)
-            .ToList();
+        return PagedResponseDto<IncomingEventResponseDto>.Create(result.Items.Select(Map).ToList(), pageNumber, pageSize, result.TotalCount);
+    }
+
+    private static SortDefinition<IncomingEvent> GetSortDefinition(string? sortBy, bool descending)
+    {
+        var sortBuilder = Builders<IncomingEvent>.Sort;
+        return (sortBy ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "receivedat" => descending ? sortBuilder.Descending(x => x.ReceivedAt) : sortBuilder.Ascending(x => x.ReceivedAt),
+            "eventtype" => descending ? sortBuilder.Descending(x => x.EventType) : sortBuilder.Ascending(x => x.EventType),
+            "status" => descending ? sortBuilder.Descending(x => x.Status) : sortBuilder.Ascending(x => x.Status),
+            _ => sortBuilder.Descending(x => x.ReceivedAt),
+        };
     }
 
     public async Task<IncomingEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

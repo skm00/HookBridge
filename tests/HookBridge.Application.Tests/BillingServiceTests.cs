@@ -204,6 +204,10 @@ public sealed class BillingServiceTests
         public Task<IReadOnlyList<Tenant>> FindAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<Tenant>>(tenants.AsQueryable().Where(predicate).ToList());
 
+        
+        public Task<(IReadOnlyList<Tenant> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, MongoDB.Driver.SortDefinition<Tenant> sort, int skip, int limit, CancellationToken cancellationToken = default)
+            => Task.FromResult<(IReadOnlyList<Tenant>, long)>((tenants.Skip(skip).Take(limit).ToList(), tenants.LongCount()));
+
         public Task<Tenant?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, CancellationToken cancellationToken = default)
             => Task.FromResult(tenants.AsQueryable().FirstOrDefault(predicate));
 

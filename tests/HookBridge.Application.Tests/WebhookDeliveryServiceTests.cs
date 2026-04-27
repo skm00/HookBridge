@@ -515,8 +515,8 @@ public sealed class WebhookDeliveryServiceTests
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyList<FailedEventResponseDto>> SearchAsync(FailedEventSearchRequestDto request, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<FailedEventResponseDto>>([]);
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>> SearchAsync(FailedEventSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>.Create([], 1, 50, 0));
 
         public Task<FailedEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult<FailedEventResponseDto?>(null);
@@ -603,7 +603,15 @@ public sealed class WebhookDeliveryServiceTests
             return Task.FromResult<IReadOnlyList<T>>(_items.Where(compiled).ToList());
         }
 
-        public Task<T?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+        
+        public Task<(IReadOnlyList<T> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, MongoDB.Driver.SortDefinition<T> sort, int skip, int limit, CancellationToken cancellationToken = default)
+        {
+            var compiled = predicate.Compile();
+            var filtered = _items.Where(compiled).ToList();
+            var paged = filtered.Skip(skip).Take(limit).ToList();
+            return Task.FromResult<(IReadOnlyList<T>, long)>((paged, filtered.LongCount()));
+        }
+public Task<T?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
         {
             var compiled = predicate.Compile();
             return Task.FromResult(_items.FirstOrDefault(compiled));

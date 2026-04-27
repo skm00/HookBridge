@@ -12,8 +12,11 @@ public sealed class DeliveryAttemptRepository(IMongoDatabase database) : IDelive
 {
     private readonly IMongoCollection<DeliveryAttempt> _collection = database.GetCollection<DeliveryAttempt>(nameof(DeliveryAttempt));
 
-    public async Task<IReadOnlyList<DeliveryAttempt>> SearchAsync(
+    public async Task<(IReadOnlyList<DeliveryAttempt> Items, long TotalCount)> SearchAsync(
         DeliveryAttemptSearchRequestDto request,
+        SortDefinition<DeliveryAttempt> sort,
+        int skip,
+        int limit,
         CancellationToken cancellationToken = default)
     {
         var filters = new List<FilterDefinition<DeliveryAttempt>>();
@@ -70,11 +73,16 @@ public sealed class DeliveryAttemptRepository(IMongoDatabase database) : IDelive
             ? Builders<DeliveryAttempt>.Filter.Empty
             : Builders<DeliveryAttempt>.Filter.And(filters);
 
-        return await _collection
+        var countTask = _collection.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+        var itemsTask = _collection
             .Find(filter)
-            .SortByDescending(x => x.AttemptedAt)
-            .Limit(500)
+            .Sort(sort)
+            .Skip(skip)
+            .Limit(limit)
             .ToListAsync(cancellationToken);
+
+        await Task.WhenAll(countTask, itemsTask);
+        return (itemsTask.Result, countTask.Result);
     }
 
     public Task<DeliveryAttempt?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

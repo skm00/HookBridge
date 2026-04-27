@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using HookBridge.Domain.Entities;
+using MongoDB.Driver;
 
 namespace HookBridge.Application.Interfaces.Persistence;
 
@@ -22,6 +23,16 @@ public interface IMongoRepository<T>
     /// Finds entities matching a predicate.
     /// </summary>
     Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Executes a filtered paged query and returns items and total count.
+    /// </summary>
+    Task<(IReadOnlyList<T> Items, long TotalCount)> QueryAsync(
+        Expression<Func<T, bool>> predicate,
+        SortDefinition<T> sort,
+        int skip,
+        int limit,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Finds the first entity matching a predicate or null if no match exists.

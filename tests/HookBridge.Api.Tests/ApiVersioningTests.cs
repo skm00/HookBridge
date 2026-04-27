@@ -195,7 +195,7 @@ public sealed class ApiVersioningTests
         public Task<bool> DisableAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> EnableAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<SubscriptionResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionResponseDto?>(null);
-        public Task<IReadOnlyList<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<SubscriptionResponseDto>>([]);
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<SubscriptionResponseDto>.Create([], 1, 50, 0));
         public Task<SubscriptionResponseDto?> UpdateAsync(string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionResponseDto?>(null);
     }
 

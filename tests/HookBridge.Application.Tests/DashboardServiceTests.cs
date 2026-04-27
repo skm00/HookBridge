@@ -111,6 +111,10 @@ public sealed class DashboardServiceTests
         public Task<IReadOnlyList<Tenant>> FindAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        
+        public Task<(IReadOnlyList<Tenant> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, MongoDB.Driver.SortDefinition<Tenant> sort, int skip, int limit, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task<Tenant?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
@@ -161,8 +165,11 @@ public sealed class DashboardServiceTests
 
         public List<(string TenantId, DateTime FromDate, DateTime ToDate, DeliveryStatus? Status)> Calls { get; } = [];
 
-        public Task<IReadOnlyList<DeliveryAttempt>> SearchAsync(
+        public Task<(IReadOnlyList<DeliveryAttempt> Items, long TotalCount)> SearchAsync(
             HookBridge.Application.DTOs.DeliveryAttempts.DeliveryAttemptSearchRequestDto request,
+            MongoDB.Driver.SortDefinition<DeliveryAttempt> sort,
+            int skip,
+            int limit,
             CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
@@ -189,7 +196,7 @@ public sealed class DashboardServiceTests
         public Task AddAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<IReadOnlyList<FailedEvent>> SearchAsync(HookBridge.Application.DTOs.FailedEvents.FailedEventSearchRequestDto request, CancellationToken cancellationToken = default)
+        public Task<(IReadOnlyList<FailedEvent> Items, long TotalCount)> SearchAsync(HookBridge.Application.DTOs.FailedEvents.FailedEventSearchRequestDto request, MongoDB.Driver.SortDefinition<FailedEvent> sort, int skip, int limit, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<FailedEvent?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

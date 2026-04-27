@@ -1,3 +1,5 @@
+import type { PagedRequest } from './paging';
+
 export type BackoffType = 'Fixed' | 'Exponential';
 
 export type AuthenticationType = 'None' | 'Basic' | 'ApiKeyHeader' | 'HmacSignature' | 'OAuth2ClientCredentials';
@@ -59,7 +61,7 @@ export type Subscription = {
   updatedAt?: string;
 };
 
-export type SubscriptionListFilters = {
+export type SubscriptionListFilters = PagedRequest & {
   eventType?: string;
   targetUrl?: string;
   isActive?: boolean;

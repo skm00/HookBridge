@@ -1,3 +1,5 @@
+import type { PagedRequest } from './paging';
+
 export type FailedEventStatus = 'DLQ' | 'RetryRequested';
 
 export type FailedEventResponse = {
@@ -18,7 +20,7 @@ export type FailedEventResponse = {
   updatedAt: string | null;
 };
 
-export type FailedEventSearchRequest = {
+export type FailedEventSearchRequest = PagedRequest & {
   eventId?: string;
   subscriptionId?: string;
   eventType?: string;

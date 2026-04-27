@@ -1,4 +1,5 @@
 using HookBridge.Application.DTOs.FailedEvents;
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
@@ -6,6 +7,7 @@ using HookBridge.Application.Messaging;
 using HookBridge.Shared.Constants;
 using HookBridge.Domain.Entities;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
 
 namespace HookBridge.Application.Services;
 
@@ -20,12 +22,30 @@ public sealed class FailedEventService(
         return failedEventRepository.AddAsync(failedEvent, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<FailedEventResponseDto>> SearchAsync(
+    public async Task<PagedResponseDto<FailedEventResponseDto>> SearchAsync(
         FailedEventSearchRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var items = await failedEventRepository.SearchAsync(request, cancellationToken);
-        return items.Select(Map).ToList();
+        var pageNumber = request.NormalizedPageNumber;
+        var pageSize = request.NormalizedPageSize;
+        var descending = request.NormalizedSortDirection == "desc";
+        var sort = GetSortDefinition(request.SortBy, descending);
+
+        var result = await failedEventRepository.SearchAsync(request, sort, request.Skip, pageSize, cancellationToken);
+        return PagedResponseDto<FailedEventResponseDto>.Create(result.Items.Select(Map).ToList(), pageNumber, pageSize, result.TotalCount);
+    }
+
+    private static SortDefinition<FailedEvent> GetSortDefinition(string? sortBy, bool descending)
+    {
+        var sortBuilder = Builders<FailedEvent>.Sort;
+        return (sortBy ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "failedat" => descending ? sortBuilder.Descending(x => x.FailedAt) : sortBuilder.Ascending(x => x.FailedAt),
+            "eventtype" => descending ? sortBuilder.Descending(x => x.EventType) : sortBuilder.Ascending(x => x.EventType),
+            "status" => descending ? sortBuilder.Descending(x => x.Status) : sortBuilder.Ascending(x => x.Status),
+            "finalattemptnumber" => descending ? sortBuilder.Descending(x => x.FinalAttemptNumber) : sortBuilder.Ascending(x => x.FinalAttemptNumber),
+            _ => sortBuilder.Descending(x => x.FailedAt),
+        };
     }
 
     public async Task<FailedEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

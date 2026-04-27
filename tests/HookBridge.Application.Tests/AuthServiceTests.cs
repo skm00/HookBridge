@@ -279,7 +279,15 @@ public sealed class AuthServiceTests
             return Task.FromResult<IReadOnlyList<T>>(_items.Where(compiled).ToList());
         }
 
-        public Task<T?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+        
+        public Task<(IReadOnlyList<T> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, MongoDB.Driver.SortDefinition<T> sort, int skip, int limit, CancellationToken cancellationToken = default)
+        {
+            var compiled = predicate.Compile();
+            var filtered = _items.Where(compiled).ToList();
+            var paged = filtered.Skip(skip).Take(limit).ToList();
+            return Task.FromResult<(IReadOnlyList<T>, long)>((paged, filtered.LongCount()));
+        }
+public Task<T?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
         {
             var compiled = predicate.Compile();
             return Task.FromResult(_items.FirstOrDefault(compiled));

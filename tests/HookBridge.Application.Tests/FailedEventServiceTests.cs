@@ -19,7 +19,7 @@ public sealed class FailedEventServiceTests
 
         var results = await fixture.Service.SearchAsync(new FailedEventSearchRequestDto { TenantId = "tenant-1" });
 
-        Assert.All(results, x => Assert.Equal("tenant-1", x.TenantId));
+        Assert.All(results.Items, x => Assert.Equal("tenant-1", x.TenantId));
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public sealed class FailedEventServiceTests
 
         var results = await fixture.Service.SearchAsync(new FailedEventSearchRequestDto { EventId = "evt-2" });
 
-        Assert.All(results, x => Assert.Equal("evt-2", x.EventId));
+        Assert.All(results.Items, x => Assert.Equal("evt-2", x.EventId));
     }
 
     [Fact]
@@ -41,8 +41,8 @@ public sealed class FailedEventServiceTests
 
         var results = await fixture.Service.SearchAsync(new FailedEventSearchRequestDto { Status = "DLQ" });
 
-        Assert.NotEmpty(results);
-        Assert.All(results, x => Assert.Equal("DLQ", x.Status));
+        Assert.NotEmpty(results.Items);
+        Assert.All(results.Items, x => Assert.Equal("DLQ", x.Status));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class FailedEventServiceTests
 
         var results = await fixture.Service.SearchAsync(new FailedEventSearchRequestDto());
 
-        Assert.True(results.Zip(results.Skip(1)).All(pair => pair.First.FailedAt >= pair.Second.FailedAt));
+        Assert.True(results.Items.Zip(results.Items.Skip(1)).All(pair => pair.First.FailedAt >= pair.Second.FailedAt));
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class FailedEventServiceTests
 
         var results = await fixture.Service.SearchAsync(new FailedEventSearchRequestDto());
 
-        Assert.Equal(500, results.Count);
+        Assert.Equal(500, results.PageSize);
     }
 
     [Fact]
@@ -231,7 +231,7 @@ public sealed class FailedEventServiceTests
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyList<FailedEvent>> SearchAsync(FailedEventSearchRequestDto request, CancellationToken cancellationToken = default)
+        public Task<(IReadOnlyList<FailedEvent> Items, long TotalCount)> SearchAsync(FailedEventSearchRequestDto request, MongoDB.Driver.SortDefinition<FailedEvent> sort, int skip, int limit, CancellationToken cancellationToken = default)
         {
             IEnumerable<FailedEvent> query = _items;
 
@@ -270,10 +270,9 @@ public sealed class FailedEventServiceTests
                 query = query.Where(x => x.FailedAt <= request.ToDate.Value);
             }
 
-            return Task.FromResult<IReadOnlyList<FailedEvent>>(query
-                .OrderByDescending(x => x.FailedAt)
-                .Take(500)
-                .ToList());
+            var list = query.ToList();
+            var paged = list.Skip(skip).Take(limit).ToList();
+            return Task.FromResult<(IReadOnlyList<FailedEvent>, long)>((paged, list.LongCount()));
         }
 
         public Task<FailedEvent?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

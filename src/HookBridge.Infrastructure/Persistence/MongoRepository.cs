@@ -29,6 +29,26 @@ public sealed class MongoRepository<T>(IMongoDatabase database) : IMongoReposito
     }
 
     /// <inheritdoc />
+    public async Task<(IReadOnlyList<T> Items, long TotalCount)> QueryAsync(
+        Expression<Func<T, bool>> predicate,
+        SortDefinition<T> sort,
+        int skip,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var totalCountTask = _collection.CountDocumentsAsync(predicate, cancellationToken: cancellationToken);
+        var itemsTask = _collection
+            .Find(predicate)
+            .Sort(sort)
+            .Skip(skip)
+            .Limit(limit)
+            .ToListAsync(cancellationToken);
+
+        await Task.WhenAll(totalCountTask, itemsTask);
+        return (itemsTask.Result, totalCountTask.Result);
+    }
+
+    /// <inheritdoc />
     public Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
     {
         return _collection.Find(predicate).FirstOrDefaultAsync(cancellationToken);

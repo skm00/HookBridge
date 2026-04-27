@@ -1,10 +1,11 @@
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.DTOs.DeliveryAttempts;
 
 namespace HookBridge.Application.Interfaces.Services;
 
 public interface IDeliveryAttemptService
 {
-    Task<IReadOnlyList<DeliveryAttemptResponseDto>> SearchAsync(
+    Task<PagedResponseDto<DeliveryAttemptResponseDto>> SearchAsync(
         DeliveryAttemptSearchRequestDto request,
         CancellationToken cancellationToken = default);
 

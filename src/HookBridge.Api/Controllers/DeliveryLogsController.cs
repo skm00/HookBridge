@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Application.DTOs.DeliveryAttempts;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.RateLimiting;
@@ -25,8 +26,8 @@ public sealed class DeliveryLogsController(
 {
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(IReadOnlyList<DeliveryAttemptResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<DeliveryAttemptResponseDto>>> SearchAsync(
+    [ProducesResponseType(typeof(PagedResponseDto<DeliveryAttemptResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponseDto<DeliveryAttemptResponseDto>>> SearchAsync(
         [FromQuery] string? tenantId,
         [FromQuery] string? eventId,
         [FromQuery] string? subscriptionId,
@@ -36,6 +37,10 @@ public sealed class DeliveryLogsController(
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
         [FromQuery] string? targetUrl,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = "desc",
         CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
@@ -59,6 +64,10 @@ public sealed class DeliveryLogsController(
             FromDate = fromDate,
             ToDate = toDate,
             TargetUrl = targetUrl,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            SortBy = sortBy,
+            SortDirection = sortDirection,
         };
 
         var result = await deliveryAttemptService.SearchAsync(request, cancellationToken);

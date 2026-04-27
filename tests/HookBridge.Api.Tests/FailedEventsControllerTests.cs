@@ -15,11 +15,11 @@ public sealed class FailedEventsControllerTests
         var service = new FakeFailedEventService();
         var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
 
-        var result = await controller.SearchAsync("tenant-1", null, null, null, "DLQ", null, null, CancellationToken.None);
+        var result = await controller.SearchAsync("tenant-1", null, null, null, "DLQ", null, null, 1, 50, null, "desc", CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = Assert.IsAssignableFrom<IReadOnlyList<FailedEventResponseDto>>(ok.Value);
-        Assert.Single(payload);
+        var payload = Assert.IsType<HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>>(ok.Value);
+        Assert.Single(payload.Items);
     }
 
     [Fact]
@@ -103,14 +103,14 @@ public sealed class FailedEventsControllerTests
         public Task CreateAsync(HookBridge.Domain.Entities.FailedEvent failedEvent, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task<IReadOnlyList<FailedEventResponseDto>> SearchAsync(FailedEventSearchRequestDto request, CancellationToken cancellationToken = default)
+        public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>> SearchAsync(FailedEventSearchRequestDto request, CancellationToken cancellationToken = default)
         {
             IReadOnlyList<FailedEventResponseDto> result = _items
                 .Where(x => string.IsNullOrWhiteSpace(request.TenantId) || x.TenantId == request.TenantId)
                 .Where(x => string.IsNullOrWhiteSpace(request.Status) || x.Status == request.Status)
                 .ToList();
 
-            return Task.FromResult(result);
+            return Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>.Create(result, request.NormalizedPageNumber, request.NormalizedPageSize, result.LongCount()));
         }
 
         public Task<FailedEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

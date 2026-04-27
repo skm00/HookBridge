@@ -1,3 +1,4 @@
+using HookBridge.Application.DTOs.Common;
 using HookBridge.Domain.Enums;
 
 namespace HookBridge.Application.DTOs.DeliveryAttempts;
@@ -39,7 +40,7 @@ public sealed class DeliveryAttemptResponseDto
     public DateTime? UpdatedAt { get; set; }
 }
 
-public sealed class DeliveryAttemptSearchRequestDto
+public sealed class DeliveryAttemptSearchRequestDto : PagedRequestDto
 {
     public string? TenantId { get; set; }
 
