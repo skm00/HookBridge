@@ -112,6 +112,16 @@ The `/overview` dashboard route now integrates with `GET /api/v1/admin/dashboard
 
 
 
+
+## API Keys Dashboard Page
+
+The `/api-keys` dashboard route now integrates with tenant API-key admin endpoints and includes:
+- API key listing backed by `GET /api/v1/admin/tenants/{tenantId}/api-keys`.
+- API key creation backed by `POST /api/v1/admin/tenants/{tenantId}/api-keys` with one-time plain key reveal, copy-to-clipboard action, and clear warning text.
+- API key revoke action backed by `DELETE /api/v1/admin/tenants/{tenantId}/api-keys/{keyId}` with confirmation and post-action refresh.
+- Loading, error, empty states, manual refresh, status badges (Active/Revoked), and masked key prefix display.
+- Tenant context derived from the authenticated admin JWT tenant claim.
+
 ## Delivery Logs Dashboard Page
 
 The `/delivery-logs` dashboard route now integrates with admin delivery-attempt APIs and includes:
