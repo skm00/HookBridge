@@ -39,8 +39,7 @@ public static class RateLimitingServiceCollectionExtensions
                 var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
                 logger.LogWarning(
-                    "Rate limit exceeded. PolicyName: {PolicyName}, TenantId: {TenantId}, UserId: {UserId}, IPAddress: {IPAddress}, Path: {Path}",
-                    context.PolicyName,
+                    "Rate limit exceeded. TenantId: {TenantId}, UserId: {UserId}, IPAddress: {IPAddress}, Path: {Path}",
                     tenantId,
                     userId,
                     ipAddress,
