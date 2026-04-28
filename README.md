@@ -139,6 +139,54 @@ In `Development`, Stripe secrets are allowed to be empty so local startup is not
 
 `Stripe:SuccessUrl` and `Stripe:CancelUrl` are still required in all environments.
 
+## Production Readiness Checklist
+
+Use the readiness endpoint to verify whether a deployment is ready to go live.
+
+### Endpoint
+
+```bash
+curl -H "Authorization: Bearer <owner-jwt>" \
+  http://localhost:5000/api/v1/admin/system/production-readiness
+```
+
+- Requires JWT authentication.
+- Requires the `OwnerOnly` authorization policy.
+- Returns `isReady` (overall) and a per-check `checks` array with `name`, `isReady`, and `message`.
+
+### Checklist items
+
+The endpoint validates:
+
+1. MongoDB connection configured and reachable.
+2. Kafka configured (`Kafka:BootstrapServers`).
+3. JWT secret length is at least 32 characters.
+4. Encryption master key length is at least 32 characters.
+5. Stripe `SecretKey` and `WebhookSecret` configured (required in Production).
+6. CORS configured, with no wildcard origin in Production.
+7. Rate limiting enabled (`RateLimit:Enabled=true`).
+8. Elastic configured when `Elastic:EnableElasticsearchSink=true`.
+9. Elastic APM configured when `ElasticApm:Enabled=true`.
+10. HTTPS and HSTS enabled in Production.
+11. Email settings configured when `Email:Enabled=true`.
+12. Demo data seeding disabled in Production (`DemoData:Enabled=false`).
+
+### Critical vs warning-only behavior
+
+- **Critical checks** fail the overall `isReady` value.
+- **Warning-only checks** are still reported, but do not block overall readiness when they fail (for example optional integrations that are disabled).
+
+### Required before go-live
+
+Before a Production cutover, ensure at minimum:
+
+- MongoDB, Kafka, JWT, and encryption settings are valid.
+- Stripe production secrets are set.
+- CORS allowlist is explicit (no `*`).
+- Rate limiting is enabled.
+- HTTPS/HSTS is enabled in your production host configuration.
+- Demo data seeding is disabled.
+
 ## Email Notifications Setup
 
 HookBridge supports SMTP-backed email delivery for high-severity notifications.
