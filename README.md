@@ -139,6 +139,48 @@ In `Development`, Stripe secrets are allowed to be empty so local startup is not
 
 `Stripe:SuccessUrl` and `Stripe:CancelUrl` are still required in all environments.
 
+
+## Data Retention and Automated Cleanup
+
+HookBridge includes configurable retention windows to prevent unbounded growth in MongoDB collections.
+
+### Default retention
+
+```json
+{
+  "DataRetention": {
+    "Enabled": true,
+    "IncomingEventsDays": 30,
+    "DeliveryLogsDays": 30,
+    "FailedEventsDays": 90,
+    "AuditLogsDays": 90,
+    "NotificationsDays": 30
+  }
+}
+```
+
+### How to configure
+
+Set the `DataRetention` section in appsettings or environment variables:
+
+```bash
+DataRetention__Enabled=true
+DataRetention__IncomingEventsDays=30
+DataRetention__DeliveryLogsDays=30
+DataRetention__FailedEventsDays=90
+DataRetention__AuditLogsDays=90
+DataRetention__NotificationsDays=30
+```
+
+### Cleanup job behavior
+
+- The worker executes cleanup every 24 hours.
+- Cleanup is skipped when `DataRetention:Enabled=false`.
+- Each cleanup operation deletes records older than `UtcNow - RetentionDays`.
+- Safety guard: the most recent 24 hours of data is never deleted, regardless of retention values.
+- A warning is logged for retention values below 7 days.
+- Structured logs include entity type, deleted count, retention days, and cutoff date.
+
 ## Production Readiness Checklist
 
 Use the readiness endpoint to verify whether a deployment is ready to go live.

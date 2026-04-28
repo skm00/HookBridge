@@ -140,6 +140,18 @@ public static class InfrastructureServiceRegistration
                 settings.Enabled ? Required(settings.TenantSlug, "TenantSlug") : null,
             ]);
 
+        services.AddValidatedOptions<DataRetentionSettings>(
+            configuration,
+            "DataRetention",
+            settings =>
+            [
+                Positive(settings.IncomingEventsDays, "IncomingEventsDays"),
+                Positive(settings.DeliveryLogsDays, "DeliveryLogsDays"),
+                Positive(settings.FailedEventsDays, "FailedEventsDays"),
+                Positive(settings.AuditLogsDays, "AuditLogsDays"),
+                Positive(settings.NotificationsDays, "NotificationsDays"),
+            ]);
+
         services.PostConfigure<SecuritySettings>(settings =>
         {
             if (string.IsNullOrWhiteSpace(configuration["Security:AllowPrivateNetworkTargetUrls"]))
@@ -181,6 +193,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
+        services.AddScoped<IDataCleanupService, DataCleanupService>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
         services.AddScoped<IFailedEventRepository, FailedEventRepository>();

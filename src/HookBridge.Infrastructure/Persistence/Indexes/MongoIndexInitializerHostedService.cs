@@ -101,12 +101,16 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             Builders<IncomingEvent>.IndexKeys.Ascending(x => x.ReceivedAt),
             new CreateIndexOptions { Name = "ix_incomingevent_receivedat" });
 
+        var incomingCreatedAtIndex = new CreateIndexModel<IncomingEvent>(
+            Builders<IncomingEvent>.IndexKeys.Ascending(x => x.CreatedAt),
+            new CreateIndexOptions { Name = "ix_incomingevent_createdat" });
+
         var statusIndex = new CreateIndexModel<IncomingEvent>(
             Builders<IncomingEvent>.IndexKeys.Ascending(x => x.Status),
             new CreateIndexOptions { Name = "ix_incomingevent_status" });
 
         await incomingEvents.Indexes.CreateManyAsync(
-            [tenantEventUniqueIndex, eventTenantIndex, eventTypeIndex, receivedAtIndex, statusIndex],
+            [tenantEventUniqueIndex, eventTenantIndex, eventTypeIndex, receivedAtIndex, incomingCreatedAtIndex, statusIndex],
             cancellationToken);
 
         var deliveryAttempts = database.GetCollection<DeliveryAttempt>(nameof(DeliveryAttempt));
@@ -131,6 +135,10 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             Builders<DeliveryAttempt>.IndexKeys.Ascending(x => x.AttemptedAt),
             new CreateIndexOptions { Name = "ix_deliveryattempt_attemptedat" });
 
+        var deliveryCreatedAtIndex = new CreateIndexModel<DeliveryAttempt>(
+            Builders<DeliveryAttempt>.IndexKeys.Ascending(x => x.CreatedAt),
+            new CreateIndexOptions { Name = "ix_deliveryattempt_createdat" });
+
         var deliveryTenantStatusAttemptedAtIndex = new CreateIndexModel<DeliveryAttempt>(
             Builders<DeliveryAttempt>.IndexKeys
                 .Ascending(x => x.TenantId)
@@ -151,6 +159,7 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
                 deliverySubscriptionIdIndex,
                 deliveryStatusIndex,
                 deliveryAttemptedAtIndex,
+                deliveryCreatedAtIndex,
                 deliveryTenantStatusAttemptedAtIndex,
                 deliveryTenantEventIdIndex,
             ],
@@ -178,6 +187,10 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
             Builders<FailedEvent>.IndexKeys.Ascending(x => x.FailedAt),
             new CreateIndexOptions { Name = "ix_failedevent_failedat" });
 
+        var failedCreatedAtIndex = new CreateIndexModel<FailedEvent>(
+            Builders<FailedEvent>.IndexKeys.Ascending(x => x.CreatedAt),
+            new CreateIndexOptions { Name = "ix_failedevent_createdat" });
+
         var failedTenantStatusFailedAtIndex = new CreateIndexModel<FailedEvent>(
             Builders<FailedEvent>.IndexKeys
                 .Ascending(x => x.TenantId)
@@ -192,6 +205,7 @@ public sealed class MongoIndexInitializerHostedService(IMongoDatabase database) 
                 failedSubscriptionIdIndex,
                 failedStatusIndex,
                 failedAtIndex,
+                failedCreatedAtIndex,
                 failedTenantStatusFailedAtIndex,
             ],
             cancellationToken);
