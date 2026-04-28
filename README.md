@@ -9,6 +9,20 @@ Initial production-style SaaS solution scaffold for a multi-tenant webhook deliv
 - Kafka (planned)
 - React dashboard (planned)
 
+## Dashboard Public Website Routes
+
+HookBridge Dashboard now includes a public marketing website for product discovery and self-serve signup.
+
+Public routes (no auth token required):
+- `/` — Landing page with product overview, feature highlights, FAQ, and CTA buttons.
+- `/pricing` — Public pricing plans (Free, Starter, Pro, Enterprise).
+- `/docs` — Docs preview page with quickstart steps and sample event-ingestion curl.
+- `/login` — Admin sign-in page.
+- `/register` — Admin registration page.
+
+Protected dashboard routes (auth required):
+- `/overview` and all operational pages such as tenants, subscriptions, events, delivery logs, billing, and settings.
+
 ## API Versioning
 
 HookBridge APIs are versioned using URL segments for long-term compatibility.
