@@ -16,7 +16,13 @@ HookBridge Dashboard now includes a public marketing website for product discove
 Public routes (no auth token required):
 - `/` — Landing page with product overview, feature highlights, FAQ, and CTA buttons.
 - `/pricing` — Public pricing plans (Free, Starter, Pro, Enterprise).
-- `/docs` — Docs preview page with quickstart steps and sample event-ingestion curl.
+- `/docs` — Documentation home (Quickstart).
+- `/docs/quickstart` — Account setup, API key creation, first subscription, first event, and delivery logs.
+- `/docs/events` — Ingestion endpoint, headers, request/response schemas, and curl example.
+- `/docs/subscriptions` — Subscription model, event matching, target URLs, headers, and auth options.
+- `/docs/authentication` — Inbound `x-api-key` and outbound Basic/API-key/OAuth2/HMAC authentication.
+- `/docs/retries` — Fixed and exponential retry behavior, DLQ flow, and manual replay.
+- `/docs/errors` — Common API error codes (`400/401/403/429/500`) and troubleshooting.
 - `/login` — Admin sign-in page.
 - `/register` — Admin registration page.
 
