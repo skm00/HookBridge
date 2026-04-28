@@ -18,6 +18,7 @@ public sealed class AuthorizationAttributesTests
     [InlineData(typeof(BillingController))]
     [InlineData(typeof(DashboardController))]
     [InlineData(typeof(NotificationsController))]
+    [InlineData(typeof(BackupController))]
     public void AdminEndpoints_RequireAuthorization(Type controllerType)
     {
         var authorize = Attribute.GetCustomAttribute(controllerType, typeof(AuthorizeAttribute));
@@ -41,6 +42,8 @@ public sealed class AuthorizationAttributesTests
         AssertMethodPolicy<DashboardController>(nameof(DashboardController.GetOverviewAsync), AuthorizationPolicies.ViewerOrAbove);
         AssertMethodPolicy<NotificationsController>(nameof(NotificationsController.SearchAsync), AuthorizationPolicies.ViewerOrAbove);
         AssertMethodPolicy<IncomingEventsController>(nameof(IncomingEventsController.SearchAsync), AuthorizationPolicies.DeveloperOrAbove);
+        AssertMethodPolicy<BackupController>(nameof(BackupController.ExportAsync), AuthorizationPolicies.OwnerOnly);
+        AssertMethodPolicy<BackupController>(nameof(BackupController.ImportAsync), AuthorizationPolicies.OwnerOnly);
     }
 
     private static void AssertMethodPolicy<TController>(string methodName, string expectedPolicy)
