@@ -48,7 +48,7 @@ public sealed class BillingController(
         var status = await billingService.GetBillingStatusAsync(tenantId, cancellationToken);
         if (status is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<BillingStatusResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         return OkResponse(status);
@@ -65,7 +65,7 @@ public sealed class BillingController(
 
         if (!Request.Headers.TryGetValue("Stripe-Signature", out var stripeSignature) || string.IsNullOrWhiteSpace(stripeSignature))
         {
-            return ErrorResponse(StatusCodes.Status400BadRequest, "Missing Stripe signature.");
+            return ErrorResponse<object>(StatusCodes.Status400BadRequest, "Missing Stripe signature.");
         }
 
         try
@@ -75,7 +75,7 @@ public sealed class BillingController(
         }
         catch (StripeException)
         {
-            return ErrorResponse(StatusCodes.Status400BadRequest, "Invalid Stripe webhook signature.");
+            return ErrorResponse<object>(StatusCodes.Status400BadRequest, "Invalid Stripe webhook signature.");
         }
         catch (Exception)
         {

@@ -84,7 +84,7 @@ public sealed class DeliveryLogsController(
         var result = await deliveryAttemptService.GetByIdAsync(id, cancellationToken);
         if (result is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<DeliveryAttemptResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(result.TenantId);

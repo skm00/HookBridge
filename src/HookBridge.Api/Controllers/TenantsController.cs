@@ -84,7 +84,7 @@ public sealed class TenantsController(
         var tenant = await tenantService.GetByIdAsync(id, cancellationToken);
         if (tenant is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<TenantResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         return OkResponse(tenant);
@@ -114,7 +114,7 @@ public sealed class TenantsController(
         var updated = await tenantService.UpdateAsync(id, request, cancellationToken);
         if (updated is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<TenantResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         return OkResponse(updated);

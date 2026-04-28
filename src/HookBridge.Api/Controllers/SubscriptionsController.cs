@@ -47,7 +47,7 @@ public sealed class SubscriptionsController(
         var subscription = await subscriptionService.GetByIdAsync(id, cancellationToken);
         if (subscription is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<SubscriptionResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(subscription.TenantId);
@@ -100,7 +100,7 @@ public sealed class SubscriptionsController(
         var existing = await subscriptionService.GetByIdAsync(id, cancellationToken);
         if (existing is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<SubscriptionResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(existing.TenantId);
@@ -108,7 +108,7 @@ public sealed class SubscriptionsController(
         var updated = await subscriptionService.UpdateAsync(id, request, cancellationToken);
         if (updated is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<SubscriptionResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         return OkResponse(updated);

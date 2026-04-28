@@ -38,13 +38,13 @@ public sealed class EventsController(
     {
         if (!Request.Headers.TryGetValue("x-api-key", out var apiKeyHeader) || string.IsNullOrWhiteSpace(apiKeyHeader))
         {
-            return ErrorResponse(StatusCodes.Status401Unauthorized, "Unauthorized.");
+            return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status401Unauthorized, "Unauthorized.");
         }
 
         var rawPayload = await ReadRawPayloadAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(rawPayload))
         {
-            return ErrorResponse(StatusCodes.Status400BadRequest, "Invalid request payload.");
+            return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status400BadRequest, "Invalid request payload.");
         }
 
         EventIngestionRequestDto? request;
@@ -57,12 +57,12 @@ public sealed class EventsController(
         }
         catch (JsonException)
         {
-            return ErrorResponse(StatusCodes.Status400BadRequest, "Invalid request payload.");
+            return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status400BadRequest, "Invalid request payload.");
         }
 
         if (request is null)
         {
-            return ErrorResponse(StatusCodes.Status400BadRequest, "Invalid request payload.");
+            return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status400BadRequest, "Invalid request payload.");
         }
 
         var correlationId = Request.Headers.TryGetValue("x-correlation-id", out var correlationHeader)
@@ -72,7 +72,7 @@ public sealed class EventsController(
         var apiKeyValidation = await apiKeyService.ValidateAsync(tenantId, apiKeyHeader.ToString(), cancellationToken);
         if (!apiKeyValidation.IsValid)
         {
-            return ErrorResponse(StatusCodes.Status401Unauthorized, "Unauthorized.");
+            return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status401Unauthorized, "Unauthorized.");
         }
 
         var clientIp = clientIpResolver.GetClientIp(HttpContext);
@@ -84,14 +84,14 @@ public sealed class EventsController(
                 apiKeyValidation.ApiKeyId,
                 clientIp,
                 Request.Path.Value);
-            return ErrorResponse(StatusCodes.Status403Forbidden, "IP address is not allowed.");
+            return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status403Forbidden, "IP address is not allowed.");
         }
 
         if (apiKeyValidation.EnableSignatureValidation)
         {
             if (!Request.Headers.TryGetValue(apiKeyValidation.SignatureHeaderName, out var signatureHeader))
             {
-                return ErrorResponse(StatusCodes.Status401Unauthorized, "Invalid signature.");
+                return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status401Unauthorized, "Invalid signature.");
             }
 
             var isValidSignature = webhookSignatureValidator.Validate(
@@ -100,7 +100,7 @@ public sealed class EventsController(
                 apiKeyValidation.SignatureSecret ?? string.Empty);
             if (!isValidSignature)
             {
-                return ErrorResponse(StatusCodes.Status401Unauthorized, "Invalid signature.");
+                return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status401Unauthorized, "Invalid signature.");
             }
         }
 
@@ -117,11 +117,11 @@ public sealed class EventsController(
         }
         catch (UnauthorizedException)
         {
-            return ErrorResponse(StatusCodes.Status401Unauthorized, "Unauthorized.");
+            return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status401Unauthorized, "Unauthorized.");
         }
         catch (TooManyRequestsException)
         {
-            return ErrorResponse(StatusCodes.Status429TooManyRequests, "Rate limit exceeded. Please try again later.");
+            return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status429TooManyRequests, "Rate limit exceeded. Please try again later.");
         }
     }
 

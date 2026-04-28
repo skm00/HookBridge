@@ -61,7 +61,7 @@ public sealed class ApiKeysController(
         var updated = await apiKeyService.UpdateAsync(tenantId, keyId, request, cancellationToken);
         if (updated is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<ApiKeyResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         return OkResponse(updated);
