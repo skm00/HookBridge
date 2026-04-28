@@ -132,7 +132,7 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
                 DurationMs = stopwatch.ElapsedMilliseconds,
             };
 
-            SetApmLabels(Agent.Tracer.CurrentSpan ?? Agent.Tracer.CurrentTransaction, targetUri, request, result);
+            SetApmLabels(GetCurrentExecutionSegment(), targetUri, request, result);
 
             _logger.LogWarning(
                 "Webhook delivery timed out. TenantId: {TenantId}, EventId: {EventId}, EventType: {EventType}, TargetUrl: {TargetUrl}, DurationMs: {DurationMs}, CorrelationId: {CorrelationId}",
@@ -155,7 +155,7 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
                 DurationMs = stopwatch.ElapsedMilliseconds,
             };
 
-            SetApmLabels(Agent.Tracer.CurrentSpan ?? Agent.Tracer.CurrentTransaction, targetUri, request, result);
+            SetApmLabels(GetCurrentExecutionSegment(), targetUri, request, result);
 
             _logger.LogWarning(
                 ex,
@@ -179,7 +179,7 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
                 DurationMs = stopwatch.ElapsedMilliseconds,
             };
 
-            SetApmLabels(Agent.Tracer.CurrentSpan ?? Agent.Tracer.CurrentTransaction, targetUri, request, result);
+            SetApmLabels(GetCurrentExecutionSegment(), targetUri, request, result);
 
             _logger.LogError(
                 ex,
@@ -195,6 +195,13 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
         }
     }
 
+
+    private static IExecutionSegment? GetCurrentExecutionSegment()
+    {
+        return Agent.Tracer.CurrentSpan is not null
+            ? (IExecutionSegment)Agent.Tracer.CurrentSpan
+            : Agent.Tracer.CurrentTransaction;
+    }
 
     private static void SetApmLabels(IExecutionSegment? executionSegment, Uri targetUri, WebhookDeliveryRequest request, WebhookDeliveryResult result)
     {
