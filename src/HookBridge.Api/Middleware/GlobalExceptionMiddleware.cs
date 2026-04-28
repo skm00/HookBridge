@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FluentValidation;
 using HookBridge.Application.Exceptions;
+using HookBridge.Shared.Api;
 
 namespace HookBridge.Api.Middleware;
 
@@ -21,102 +22,51 @@ public sealed class GlobalExceptionMiddleware(RequestDelegate next)
         }
         catch (ValidationException validationException)
         {
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            context.Response.ContentType = "application/json";
+            var errors = validationException.Errors
+                .GroupBy(x => x.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.ErrorMessage).Distinct().ToArray());
 
-            var response = new
-            {
-                message = "Validation failed.",
-                errors = validationException.Errors.Select(x => new { x.PropertyName, x.ErrorMessage }),
-                traceId = context.TraceIdentifier,
-                statusCode = StatusCodes.Status400BadRequest,
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await WriteErrorResponseAsync(
+                context,
+                StatusCodes.Status400BadRequest,
+                ApiResponseFactory.ValidationError(errors, context.TraceIdentifier));
         }
         catch (ConflictException conflictException)
         {
-            context.Response.StatusCode = StatusCodes.Status409Conflict;
-            context.Response.ContentType = "application/json";
-
-            var response = new
-            {
-                message = conflictException.Message,
-                traceId = context.TraceIdentifier,
-                statusCode = StatusCodes.Status409Conflict,
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await WriteErrorResponseAsync(context, StatusCodes.Status409Conflict,
+                ApiResponseFactory.Error(conflictException.Message, StatusCodes.Status409Conflict, context.TraceIdentifier));
         }
         catch (KeyNotFoundException keyNotFoundException)
         {
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-            context.Response.ContentType = "application/json";
-
-            var response = new
-            {
-                message = keyNotFoundException.Message,
-                traceId = context.TraceIdentifier,
-                statusCode = StatusCodes.Status404NotFound,
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await WriteErrorResponseAsync(context, StatusCodes.Status404NotFound,
+                ApiResponseFactory.Error(keyNotFoundException.Message, StatusCodes.Status404NotFound, context.TraceIdentifier));
         }
         catch (UnauthorizedException unauthorizedException)
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json";
-
-            var response = new
-            {
-                message = unauthorizedException.Message,
-                traceId = context.TraceIdentifier,
-                statusCode = StatusCodes.Status401Unauthorized,
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await WriteErrorResponseAsync(context, StatusCodes.Status401Unauthorized,
+                ApiResponseFactory.Error(unauthorizedException.Message, StatusCodes.Status401Unauthorized, context.TraceIdentifier));
         }
         catch (ForbiddenException forbiddenException)
         {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.ContentType = "application/json";
-
-            var response = new
-            {
-                message = forbiddenException.Message,
-                traceId = context.TraceIdentifier,
-                statusCode = StatusCodes.Status403Forbidden,
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await WriteErrorResponseAsync(context, StatusCodes.Status403Forbidden,
+                ApiResponseFactory.Error(forbiddenException.Message, StatusCodes.Status403Forbidden, context.TraceIdentifier));
         }
         catch (TooManyRequestsException tooManyRequestsException)
         {
-            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-            context.Response.ContentType = "application/json";
-
-            var response = new
-            {
-                message = tooManyRequestsException.Message,
-                traceId = context.TraceIdentifier,
-                statusCode = StatusCodes.Status429TooManyRequests,
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await WriteErrorResponseAsync(context, StatusCodes.Status429TooManyRequests,
+                ApiResponseFactory.Error(tooManyRequestsException.Message, StatusCodes.Status429TooManyRequests, context.TraceIdentifier));
         }
         catch (Exception)
         {
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            context.Response.ContentType = "application/json";
-
-            var response = new
-            {
-                message = "An unexpected error occurred.",
-                traceId = context.TraceIdentifier,
-                statusCode = StatusCodes.Status500InternalServerError,
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await WriteErrorResponseAsync(context, StatusCodes.Status500InternalServerError,
+                ApiResponseFactory.Error("An unexpected error occurred.", StatusCodes.Status500InternalServerError, context.TraceIdentifier));
         }
+    }
+
+    private static Task WriteErrorResponseAsync(HttpContext context, int statusCode, ApiErrorResponse response)
+    {
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
+        return context.Response.WriteAsync(JsonSerializer.Serialize(response));
     }
 }

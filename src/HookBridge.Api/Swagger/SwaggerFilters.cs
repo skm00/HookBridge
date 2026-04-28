@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.OpenApi.Any;
+using HookBridge.Shared.Api;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
@@ -189,6 +190,17 @@ public sealed class SwaggerCommonResponsesOperationFilter : IOperationFilter
             if (!operation.Responses.ContainsKey(statusCode))
             {
                 operation.Responses[statusCode] = new OpenApiResponse { Description = description };
+            }
+
+            if (int.TryParse(statusCode, out var parsedStatusCode) && parsedStatusCode >= 400)
+            {
+                operation.Responses[statusCode].Content = new Dictionary<string, OpenApiMediaType>
+                {
+                    ["application/json"] = new OpenApiMediaType
+                    {
+                        Schema = context.SchemaGenerator.GenerateSchema(typeof(ApiErrorResponse), context.SchemaRepository),
+                    },
+                };
             }
         }
     }

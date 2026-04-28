@@ -1044,3 +1044,51 @@ Error-handling behavior:
 - Notification search failures show: `Unable to load notifications.`
 - Mark-as-read failures show: `Unable to mark notification as read.`
 - Header unread-count failures fail silently and show no unread badge count.
+
+## API response format
+
+HookBridge API responses now follow a consistent envelope for successful and error responses.
+
+### Success response (`ApiResponse<T>`)
+
+```json
+{
+  "success": true,
+  "message": "Optional message",
+  "data": {
+    "id": "tenant_123"
+  },
+  "traceId": "0HMV..."
+}
+```
+
+### Error response (`ApiErrorResponse`)
+
+```json
+{
+  "success": false,
+  "message": "An unexpected error occurred.",
+  "statusCode": 500,
+  "traceId": "0HMV..."
+}
+```
+
+### Validation error response
+
+```json
+{
+  "success": false,
+  "message": "Validation failed.",
+  "statusCode": 400,
+  "traceId": "0HMV...",
+  "errors": {
+    "field": ["Field is required."]
+  }
+}
+```
+
+### Standard auth and throttling errors
+
+- `401`: `Unauthorized.`
+- `403`: `Forbidden.`
+- `429`: `Rate limit exceeded. Please try again later.`

@@ -3,36 +3,31 @@ using HookBridge.Api.RateLimiting;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces.Services;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace HookBridge.Api.Controllers;
 
-/// <summary>
-/// Accepts tenant events for asynchronous webhook fan-out delivery.
-/// </summary>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/events/{tenantId}")]
 [EnableRateLimiting(RateLimitingPolicyNames.EventIngestionPolicy)]
-public sealed class EventsController(IEventIngestionService eventIngestionService) : ControllerBase
+public sealed class EventsController(IEventIngestionService eventIngestionService) : ApiControllerBase
 {
-    /// <summary>
-    /// Ingests a single event using the <c>x-api-key</c> header for tenant authentication.
-    /// </summary>
     [HttpPost]
-    [ProducesResponseType(typeof(EventIngestionResponseDto), StatusCodes.Status202Accepted)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public async Task<ActionResult<EventIngestionResponseDto>> IngestAsync(
+    [ProducesResponseType(typeof(ApiResponse<EventIngestionResponseDto>), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<ApiResponse<EventIngestionResponseDto>>> IngestAsync(
         string tenantId,
         [FromBody] EventIngestionRequestDto request,
         CancellationToken cancellationToken)
     {
         if (!Request.Headers.TryGetValue("x-api-key", out var apiKeyHeader) || string.IsNullOrWhiteSpace(apiKeyHeader))
         {
-            return Unauthorized(new { message = "x-api-key header is required." });
+            return ErrorResponse(StatusCodes.Status401Unauthorized, "Unauthorized.");
         }
 
         var correlationId = Request.Headers.TryGetValue("x-correlation-id", out var correlationHeader)
@@ -48,15 +43,15 @@ public sealed class EventsController(IEventIngestionService eventIngestionServic
                 correlationId,
                 cancellationToken);
 
-            return Accepted(response);
+            return AcceptedResponse(response);
         }
         catch (UnauthorizedException)
         {
-            return Unauthorized(new { message = "Invalid API key." });
+            return ErrorResponse(StatusCodes.Status401Unauthorized, "Unauthorized.");
         }
-        catch (TooManyRequestsException ex)
+        catch (TooManyRequestsException)
         {
-            return StatusCode(StatusCodes.Status429TooManyRequests, new { message = ex.Message });
+            return ErrorResponse(StatusCodes.Status429TooManyRequests, "Rate limit exceeded. Please try again later.");
         }
     }
 }

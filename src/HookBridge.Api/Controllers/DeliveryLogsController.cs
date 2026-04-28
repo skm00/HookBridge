@@ -8,6 +8,7 @@ using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -22,12 +23,12 @@ public sealed class DeliveryLogsController(
     IDeliveryAttemptService deliveryAttemptService,
     ICurrentUserContext currentUserContext,
     TenantAccessValidator tenantAccessValidator,
-    ILogger<DeliveryLogsController> logger) : ControllerBase
+    ILogger<DeliveryLogsController> logger) : ApiControllerBase
 {
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(PagedResponseDto<DeliveryAttemptResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResponseDto<DeliveryAttemptResponseDto>>> SearchAsync(
+    [ProducesResponseType(typeof(ApiResponse<PagedResponseDto<DeliveryAttemptResponseDto>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<PagedResponseDto<DeliveryAttemptResponseDto>>>> SearchAsync(
         [FromQuery] string? tenantId,
         [FromQuery] string? eventId,
         [FromQuery] string? subscriptionId,
@@ -71,22 +72,22 @@ public sealed class DeliveryLogsController(
         };
 
         var result = await deliveryAttemptService.SearchAsync(request, cancellationToken);
-        return Ok(result);
+        return OkResponse(result);
     }
 
     [HttpGet("{id}")]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(DeliveryAttemptResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<DeliveryAttemptResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<DeliveryAttemptResponseDto>> GetByIdAsync(string id, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<DeliveryAttemptResponseDto>>> GetByIdAsync(string id, CancellationToken cancellationToken)
     {
         var result = await deliveryAttemptService.GetByIdAsync(id, cancellationToken);
         if (result is null)
         {
-            return NotFound();
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(result.TenantId);
-        return Ok(result);
+        return OkResponse(result);
     }
 }
