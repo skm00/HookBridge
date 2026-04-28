@@ -1312,3 +1312,65 @@ Behavior notes:
 
 - Current implementation is intended for manual/export workflows and does **not** replace full infrastructure backup automation.
 - Full-environment disaster recovery (database snapshots, object storage replication, cross-region failover) should still be handled via infrastructure tooling.
+
+## Feature Flags
+
+HookBridge supports lightweight configuration-based feature flags for environment-level rollout, with optional per-tenant overrides.
+
+### Configuration
+
+Add a `FeatureFlags` section in `appsettings` (or environment variables):
+
+```json
+{
+  "FeatureFlags": {
+    "Flags": {
+      "EnableBilling": true,
+      "EnableEmailNotifications": false,
+      "EnableAdvancedDashboard": true,
+      "EnableAuditLogs": true
+    },
+    "TenantFeatureOverrides": [
+      {
+        "TenantId": "tenant-beta",
+        "FlagName": "EnableAdvancedDashboard",
+        "IsEnabled": false
+      }
+    ]
+  }
+}
+```
+
+Environment variable equivalents:
+
+```bash
+FeatureFlags__Flags__EnableBilling=true
+FeatureFlags__Flags__EnableEmailNotifications=false
+FeatureFlags__Flags__EnableAdvancedDashboard=true
+FeatureFlags__TenantFeatureOverrides__0__TenantId=tenant-beta
+FeatureFlags__TenantFeatureOverrides__0__FlagName=EnableAdvancedDashboard
+FeatureFlags__TenantFeatureOverrides__0__IsEnabled=false
+```
+
+### Runtime usage in code
+
+Use `IFeatureFlagService`:
+
+- `IsEnabled("EnableBilling")` for global feature checks.
+- `IsEnabled("EnableBilling", tenantId)` for tenant-aware checks.
+
+Behavior:
+- Missing flags default to `false`.
+- Lookup is case-insensitive.
+- Tenant override takes precedence over global flag when a match exists.
+
+### Endpoint gating with attribute
+
+Use `[RequireFeature("FeatureName")]` on controllers/actions.
+
+When disabled, HookBridge returns `404 Not Found` so gated endpoints remain hidden.
+
+Examples in this repository:
+- `BillingController` is gated by `EnableBilling`.
+- `DashboardController` is gated by `EnableAdvancedDashboard`.
+- Notification email dispatch is gated by `EnableEmailNotifications` in `NotificationService`.

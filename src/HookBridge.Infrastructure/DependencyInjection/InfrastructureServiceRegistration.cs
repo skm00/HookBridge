@@ -1,4 +1,5 @@
 using HookBridge.Application.Configuration;
+using HookBridge.Application.Services;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
@@ -110,6 +111,11 @@ public static class InfrastructureServiceRegistration
             "Security",
             _ => []);
 
+        services.AddValidatedOptions<FeatureFlagsSettings>(
+            configuration,
+            "FeatureFlags",
+            _ => []);
+
         services.AddValidatedOptions<EncryptionSettings>(
             configuration,
             "Encryption",
@@ -179,6 +185,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddSingleton<ISecretEncryptionService, SecretEncryptionService>();
+        services.AddSingleton<IFeatureFlagService, FeatureFlagService>();
         services.AddSingleton<ITracingService, ElasticApmTracingService>();
         services.AddSingleton<IKafkaProducer, KafkaProducer>();
         services.AddSingleton<IKafkaConsumer, KafkaConsumer>();
