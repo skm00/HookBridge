@@ -19,6 +19,7 @@ public sealed class ApiKeyService(
     IDateTimeProvider dateTimeProvider,
     IApiKeyGenerator apiKeyGenerator,
     IApiKeyHasher apiKeyHasher,
+    ISecretEncryptionService secretEncryptionService,
     IValidator<CreateApiKeyRequestDto> createValidator,
     ILogger<ApiKeyService> logger) : IApiKeyService
 {
@@ -48,6 +49,13 @@ public sealed class ApiKeyService(
             KeyHash = apiKeyHasher.Hash(plainApiKey),
             KeyPrefix = apiKeyGenerator.GetKeyPrefix(plainApiKey),
             IsActive = true,
+            EnableSignatureValidation = request.EnableSignatureValidation,
+            SignatureSecret = request.EnableSignatureValidation && !string.IsNullOrWhiteSpace(request.SignatureSecret)
+                ? secretEncryptionService.Encrypt(request.SignatureSecret)
+                : null,
+            SignatureHeaderName = string.IsNullOrWhiteSpace(request.SignatureHeaderName)
+                ? ApiKey.DefaultSignatureHeaderName
+                : request.SignatureHeaderName.Trim(),
             LastUsedAt = null,
             RevokedAt = null,
             CreatedAt = now,
@@ -167,6 +175,13 @@ public sealed class ApiKeyService(
             IsValid = true,
             TenantId = tenantId,
             ApiKeyId = apiKey.Id,
+            EnableSignatureValidation = apiKey.EnableSignatureValidation,
+            SignatureSecret = apiKey.EnableSignatureValidation && !string.IsNullOrWhiteSpace(apiKey.SignatureSecret)
+                ? secretEncryptionService.Decrypt(apiKey.SignatureSecret)
+                : null,
+            SignatureHeaderName = string.IsNullOrWhiteSpace(apiKey.SignatureHeaderName)
+                ? ApiKey.DefaultSignatureHeaderName
+                : apiKey.SignatureHeaderName,
             FailureReason = null,
         };
     }
@@ -178,6 +193,10 @@ public sealed class ApiKeyService(
         Name = apiKey.Name,
         KeyPrefix = apiKey.KeyPrefix,
         IsActive = apiKey.IsActive,
+        EnableSignatureValidation = apiKey.EnableSignatureValidation,
+        SignatureHeaderName = string.IsNullOrWhiteSpace(apiKey.SignatureHeaderName)
+            ? ApiKey.DefaultSignatureHeaderName
+            : apiKey.SignatureHeaderName,
         LastUsedAt = apiKey.LastUsedAt,
         RevokedAt = apiKey.RevokedAt,
         CreatedAt = apiKey.CreatedAt,
@@ -188,6 +207,7 @@ public sealed class ApiKeyService(
     {
         IsValid = false,
         FailureReason = reason,
+        SignatureHeaderName = ApiKey.DefaultSignatureHeaderName,
     };
 
     private async Task TryAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)

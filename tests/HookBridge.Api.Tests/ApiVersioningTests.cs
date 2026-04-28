@@ -13,6 +13,7 @@ using HookBridge.Api.Swagger;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.Interfaces;
+using HookBridge.Application.Interfaces.Security;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
@@ -215,6 +216,8 @@ public sealed class ApiVersioningTests
                 services.AddAuthorization();
 
                 services.AddSingleton<IEventIngestionService, FakeEventIngestionService>();
+                services.AddSingleton<IApiKeyService, FakeApiKeyService>();
+                services.AddSingleton<IWebhookSignatureValidator, FakeWebhookSignatureValidator>();
                 services.AddSingleton<ISubscriptionService, FakeSubscriptionService>();
                 services.AddSingleton<ICurrentUserContext>(new FakeCurrentUserContext());
                 services.AddScoped<TenantAccessValidator>();
@@ -266,6 +269,20 @@ public sealed class ApiVersioningTests
                 EventId = request.EventId,
                 Message = "Event accepted for delivery.",
             });
+    }
+
+    private sealed class FakeApiKeyService : IApiKeyService
+    {
+        public Task<HookBridge.Application.DTOs.ApiKeys.CreateApiKeyResponseDto> CreateAsync(string tenantId, HookBridge.Application.DTOs.ApiKeys.CreateApiKeyRequestDto request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyList<HookBridge.Application.DTOs.ApiKeys.ApiKeyResponseDto>> GetByTenantAsync(string tenantId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<HookBridge.Application.DTOs.ApiKeys.ApiKeyValidationResult> ValidateAsync(string tenantId, string plainApiKey, CancellationToken cancellationToken = default)
+            => Task.FromResult(new HookBridge.Application.DTOs.ApiKeys.ApiKeyValidationResult { IsValid = true, TenantId = tenantId, ApiKeyId = "key-1" });
+    }
+
+    private sealed class FakeWebhookSignatureValidator : IWebhookSignatureValidator
+    {
+        public bool Validate(string payload, string signatureHeader, string secret) => true;
     }
 
     private sealed class FakeSubscriptionService : ISubscriptionService

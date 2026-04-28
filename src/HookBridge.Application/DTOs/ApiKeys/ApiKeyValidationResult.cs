@@ -9,4 +9,10 @@ public sealed class ApiKeyValidationResult
     public string? ApiKeyId { get; set; }
 
     public string? FailureReason { get; set; }
+
+    public bool EnableSignatureValidation { get; set; }
+
+    public string? SignatureSecret { get; set; }
+
+    public string SignatureHeaderName { get; set; } = HookBridge.Domain.Entities.ApiKey.DefaultSignatureHeaderName;
 }

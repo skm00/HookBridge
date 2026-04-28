@@ -97,6 +97,27 @@ public sealed class ApiKeyServiceTests
     }
 
     [Fact]
+    public async Task CreateApiKey_WithSignatureValidation_StoresEncryptedSecret()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var apiKeyRepo = new InMemoryRepository<ApiKey>();
+        var service = CreateService(apiKeyRepo, tenantRepo);
+
+        await service.CreateAsync("tenant-1", new CreateApiKeyRequestDto
+        {
+            Name = "Primary",
+            EnableSignatureValidation = true,
+            SignatureSecret = "my-secret",
+            SignatureHeaderName = "x-custom-signature",
+        });
+        var stored = (await apiKeyRepo.FindAsync(_ => true)).Single();
+
+        Assert.True(stored.EnableSignatureValidation);
+        Assert.Equal("enc:my-secret", stored.SignatureSecret);
+        Assert.Equal("x-custom-signature", stored.SignatureHeaderName);
+    }
+
+    [Fact]
     public async Task Validate_ValidApiKey_ReturnsSuccess()
     {
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
@@ -191,6 +212,7 @@ public sealed class ApiKeyServiceTests
             new FixedDateTimeProvider(),
             new FixedApiKeyGenerator(),
             new FixedApiKeyHasher(),
+            new PassThroughSecretEncryptionService(),
             new CreateApiKeyRequestDtoValidator(),
             NullLogger<ApiKeyService>.Instance);
     }
@@ -264,6 +286,15 @@ public sealed class ApiKeyServiceTests
 
         public bool Verify(string plainApiKey, string keyHash)
             => keyHash == Hash(plainApiKey);
+    }
+
+    private sealed class PassThroughSecretEncryptionService : ISecretEncryptionService
+    {
+        public string Encrypt(string plainText) => $"enc:{plainText}";
+
+        public string Decrypt(string cipherText) => cipherText.Replace("enc:", string.Empty, StringComparison.Ordinal);
+
+        public bool IsEncrypted(string value) => value.StartsWith("enc:", StringComparison.Ordinal);
     }
 
     private sealed class InMemoryRepository<T> : IMongoRepository<T>
