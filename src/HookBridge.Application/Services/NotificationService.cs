@@ -3,7 +3,9 @@ using HookBridge.Application.DTOs.Notifications;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
+using HookBridge.Domain.Constants;
 using HookBridge.Domain.Entities;
+using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace HookBridge.Application.Services;
@@ -11,14 +13,19 @@ namespace HookBridge.Application.Services;
 public sealed class NotificationService(
     INotificationRepository notificationRepository,
     IGuidGenerator guidGenerator,
-    IDateTimeProvider dateTimeProvider) : INotificationService
+    IDateTimeProvider dateTimeProvider,
+    IMongoRepository<Tenant> tenantRepository,
+    IEmailSender emailSender,
+    ILogger<NotificationService> logger) : INotificationService
 {
-    public Task CreateAsync(Notification notification, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(Notification notification, CancellationToken cancellationToken = default)
     {
         notification.Id = string.IsNullOrWhiteSpace(notification.Id) ? guidGenerator.NewGuid() : notification.Id;
         notification.CreatedAt = notification.CreatedAt == default ? dateTimeProvider.UtcNow : notification.CreatedAt;
         notification.UpdatedAt = null;
-        return notificationRepository.AddAsync(notification, cancellationToken);
+
+        await notificationRepository.AddAsync(notification, cancellationToken);
+        await TrySendEmailAsync(notification, cancellationToken);
     }
 
     public async Task<PagedResponseDto<NotificationResponseDto>> SearchAsync(
@@ -62,6 +69,70 @@ public sealed class NotificationService(
 
     public Task<int> GetUnreadCountAsync(string tenantId, CancellationToken cancellationToken = default)
         => notificationRepository.GetUnreadCountAsync(tenantId, cancellationToken);
+
+    private async Task TrySendEmailAsync(Notification notification, CancellationToken cancellationToken)
+    {
+        if (notification.Severity is not (NotificationSeverities.Critical or NotificationSeverities.Error))
+        {
+            return;
+        }
+
+        try
+        {
+            var tenant = await tenantRepository.GetByIdAsync(notification.TenantId, cancellationToken);
+            if (tenant is null)
+            {
+                logger.LogWarning("Tenant {TenantId} not found for notification email dispatch.", notification.TenantId);
+                return;
+            }
+
+            var recipients = (tenant.NotificationEmails ?? [])
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (recipients.Count == 0 && !string.IsNullOrWhiteSpace(tenant.ContactEmail))
+            {
+                recipients.Add(tenant.ContactEmail);
+            }
+
+            if (recipients.Count == 0)
+            {
+                logger.LogInformation(
+                    "No notification recipients configured for tenant {TenantId}; skipping notification email.",
+                    tenant.Id);
+                return;
+            }
+
+            var subject = $"[{notification.Severity}] {notification.Title}";
+            var htmlBody = BuildHtmlBody(notification);
+            foreach (var recipient in recipients)
+            {
+                await emailSender.SendAsync(recipient, subject, htmlBody, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send notification email for notification {NotificationId}.", notification.Id);
+        }
+    }
+
+    private static string BuildHtmlBody(Notification notification)
+    {
+        return $"""
+                <html>
+                  <body>
+                    <h2>{notification.Title}</h2>
+                    <p><strong>Severity:</strong> {notification.Severity}</p>
+                    <p><strong>Message:</strong> {notification.Message}</p>
+                    <p><strong>ResourceType:</strong> {notification.ResourceType ?? "-"}</p>
+                    <p><strong>ResourceId:</strong> {notification.ResourceId ?? "-"}</p>
+                    <p><strong>CreatedAt:</strong> {notification.CreatedAt:O}</p>
+                    <p><a href="{{DASHBOARD_NOTIFICATION_URL}}">Open notification in dashboard</a></p>
+                  </body>
+                </html>
+                """;
+    }
 
     private static NotificationResponseDto Map(Notification notification) => new()
     {

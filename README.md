@@ -57,6 +57,56 @@ In `Development`, Stripe secrets are allowed to be empty so local startup is not
 
 `Stripe:SuccessUrl` and `Stripe:CancelUrl` are still required in all environments.
 
+## Email Notifications Setup
+
+HookBridge supports SMTP-backed email delivery for high-severity notifications.
+
+### SMTP configuration
+
+Configure the `Email` section in `appsettings` or environment variables:
+
+```json
+{
+  "Email": {
+    "Enabled": false,
+    "Provider": "Smtp",
+    "SmtpHost": "smtp.example.com",
+    "SmtpPort": 587,
+    "SmtpUsername": "smtp-user",
+    "SmtpPassword": "smtp-password",
+    "FromEmail": "noreply@hookbridge.local",
+    "FromName": "HookBridge",
+    "UseSsl": true
+  }
+}
+```
+
+Environment variable equivalents:
+
+```bash
+Email__Enabled=true
+Email__Provider=Smtp
+Email__SmtpHost=smtp.example.com
+Email__SmtpPort=587
+Email__SmtpUsername=smtp-user
+Email__SmtpPassword=smtp-password
+Email__FromEmail=noreply@hookbridge.local
+Email__FromName=HookBridge
+Email__UseSsl=true
+```
+
+### Enabled flag behavior
+
+- When `Email:Enabled=false`, notification emails are skipped.
+- When `Email:Enabled=true`, HookBridge sends via SMTP with HTML email bodies.
+
+### Notification email rules
+
+- Only `Critical` and `Error` notifications trigger email.
+- Recipients are selected from `Tenant.NotificationEmails`.
+- If `NotificationEmails` is empty, HookBridge falls back to `Tenant.ContactEmail`.
+- Failures in email delivery are logged and never block notification creation.
+
 ### Example environment variables
 
 ```bash

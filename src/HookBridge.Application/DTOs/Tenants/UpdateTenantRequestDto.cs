@@ -8,4 +8,6 @@ public sealed class UpdateTenantRequestDto
     public string? Name { get; set; }
 
     public string? ContactEmail { get; set; }
+
+    public List<string> NotificationEmails { get; set; } = [];
 }

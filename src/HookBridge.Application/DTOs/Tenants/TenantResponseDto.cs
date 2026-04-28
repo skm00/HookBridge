@@ -17,6 +17,8 @@ public sealed class TenantResponseDto
 
     public string? ContactEmail { get; set; }
 
+    public IReadOnlyList<string> NotificationEmails { get; set; } = [];
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
