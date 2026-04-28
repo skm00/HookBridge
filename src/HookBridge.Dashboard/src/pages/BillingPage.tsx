@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { billingApi } from '../api/billingApi';
 import ErrorAlert from '../components/ErrorAlert';
+import PageHeader from '../components/PageHeader';
+import SkeletonCard from '../components/SkeletonCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { getErrorMessage, getTraceId } from '../utils/errorUtils';
 import { authStorage } from '../auth/authStorage';
 import type { BillingPlan, BillingStatusResponse } from '../types/billing';
@@ -100,6 +103,7 @@ const getStatusBadgeClasses = (status: string): string => {
 const BillingPage = (): JSX.Element => {
   const [billingStatus, setBillingStatus] = useState<BillingStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
   const [activeCheckoutPlan, setActiveCheckoutPlan] = useState<BillingPlan | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -108,14 +112,18 @@ const BillingPage = (): JSX.Element => {
 
   const tenantId = authStorage.getTenantId();
 
-  const loadBillingStatus = useCallback(async (): Promise<void> => {
+  const loadBillingStatus = useCallback(async (refresh = false): Promise<void> => {
     if (!tenantId) {
       setErrorMessage('Unable to load billing status.');
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    if (refresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
     setErrorMessage('');
     setErrorTraceId(null);
 
@@ -127,6 +135,7 @@ const BillingPage = (): JSX.Element => {
       setErrorTraceId(getTraceId(error));
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [tenantId]);
 
@@ -169,28 +178,35 @@ const BillingPage = (): JSX.Element => {
   if (isLoading) {
     return (
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold text-slate-900">Billing</h2>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">Loading billing status...</div>
+        <PageHeader title="Billing" description="Loading billing status..." />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5" aria-hidden="true">
+          {Array.from({ length: 5 }, (_, index) => (
+            <SkeletonCard key={index} />
+          ))}
+        </div>
       </section>
     );
   }
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Billing</h2>
-          <p className="mt-1 text-sm text-slate-600">Manage your current plan and upgrade options.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void loadBillingStatus()}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          disabled={isCreatingCheckout}
-        >
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Billing"
+        description="Manage your current plan and upgrade options."
+        actions={(
+          <>
+            {isRefreshing ? <LoadingSpinner size="sm" label="Refreshing" /> : null}
+            <button
+              type="button"
+              onClick={() => void loadBillingStatus(true)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={isCreatingCheckout || isRefreshing}
+            >
+              Refresh
+            </button>
+          </>
+        )}
+      />
 
       {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} /> : null}
       {checkoutMessage ? (

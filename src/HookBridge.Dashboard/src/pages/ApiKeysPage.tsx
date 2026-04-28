@@ -1,8 +1,12 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { apiKeysApi } from '../api/apiKeysApi';
 import { authStorage } from '../auth/authStorage';
+import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import FieldError from '../components/FieldError';
+import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/PageHeader';
+import SkeletonTable from '../components/SkeletonTable';
 import { getErrorMessage, getTraceId, getValidationErrors } from '../utils/errorUtils';
 import type { ApiKeyResponse } from '../types/apiKey';
 
@@ -31,6 +35,8 @@ const ApiKeysPage = (): JSX.Element => {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -40,7 +46,11 @@ const ApiKeysPage = (): JSX.Element => {
   const [plainApiKey, setPlainApiKey] = useState<string | null>(null);
 
   const loadApiKeys = useCallback(async (currentTenantId: string): Promise<void> => {
-    setIsLoading(true);
+    if (hasLoadedOnce) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
     setErrorMessage('');
     setErrorTraceId(null);
     setValidationErrors({});
@@ -53,8 +63,10 @@ const ApiKeysPage = (): JSX.Element => {
       setErrorTraceId(getTraceId(error));
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
+      setHasLoadedOnce(true);
     }
-  }, []);
+  }, [hasLoadedOnce]);
 
   useEffect(() => {
     const tokenTenantId = authStorage.getTenantId();
@@ -153,20 +165,23 @@ const ApiKeysPage = (): JSX.Element => {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">API Keys</h1>
-            <p className="mt-1 text-sm text-slate-600">Create and manage tenant API keys for ingestion.</p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-          >
-            Refresh
-          </button>
-        </div>
+        <PageHeader
+          title="API Keys"
+          description="Create and manage tenant API keys for ingestion."
+          actions={(
+            <>
+              {isRefreshing ? <LoadingSpinner size="sm" label="Refreshing" /> : null}
+              <button
+                type="button"
+                onClick={() => void handleRefresh()}
+                disabled={isLoading || isRefreshing || isSubmitting}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Refresh
+              </button>
+            </>
+          )}
+        />
 
         <form onSubmit={(event) => void handleCreateApiKey(event)} className="mt-6 grid gap-4 sm:grid-cols-[1fr_auto]">
           <div>
@@ -201,11 +216,13 @@ const ApiKeysPage = (): JSX.Element => {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        {isLoading ? (
-          <p className="p-5 text-sm text-slate-600">Loading API keys...</p>
-        ) : apiKeys.length === 0 ? (
-          <p className="p-5 text-sm text-slate-600">No API keys found.</p>
-        ) : (
+        {isLoading ? <SkeletonTable rows={6} columns={7} /> : null}
+        {!isLoading && apiKeys.length === 0 ? (
+          <div className="p-5">
+            <EmptyState title="No API keys found" description="Create an API key to begin ingesting events." />
+          </div>
+        ) : null}
+        {!isLoading && apiKeys.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
@@ -252,7 +269,7 @@ const ApiKeysPage = (): JSX.Element => {
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </div>
 
       {plainApiKey ? (

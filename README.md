@@ -1101,3 +1101,13 @@ The React dashboard standardizes API error handling using the backend `ApiErrorR
 - `traceId` values from API errors are preserved and shown in shared error alerts for support/debugging.
 - Validation errors are surfaced at both form level and field level, with support for camelCase/PascalCase backend field names.
 - `401` responses clear auth and redirect to `/login`, while `403` and `429` show friendly inline messages without logging users out.
+
+## Frontend UX Components
+
+The dashboard includes reusable frontend UX components for consistent loading and empty-state behavior:
+
+- `LoadingSpinner` — Tailwind spinner with size variants (`sm`, `md`, `lg`) and accessible label support.
+- `SkeletonCard` — pulse-based metric/card placeholder for dashboard-style cards.
+- `SkeletonTable` — configurable table skeleton placeholder with `rows` and `columns` props.
+- `EmptyState` — reusable empty-state container with title, optional description, and optional action slot.
+- `PageHeader` — standardized page title/description/actions header used across dashboard pages.
