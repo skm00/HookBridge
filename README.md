@@ -29,6 +29,27 @@ Public routes (no auth token required):
 Protected dashboard routes (auth required):
 - `/overview` and all operational pages such as tenants, subscriptions, events, delivery logs, billing, and settings.
 
+## Dashboard Theme & Responsive UI Notes
+
+The React dashboard frontend now uses a centralized Tailwind theme and shared UI primitives for a more consistent, production-style experience.
+
+- **Theme tokens** in `tailwind.config.js` define primary/background/surface/border/text scales plus success/warning/error semantic colors.
+- **Global UI baselines** in `src/HookBridge.Dashboard/src/index.css` provide:
+  - Improved dashboard background gradient
+  - Font smoothing defaults
+  - Shared focus-visible ring styles
+  - Reusable utility classes (`hb-card`, `hb-btn-*`, `hb-input`, `hb-select`, `hb-table-wrap`)
+- **Responsive shell improvements**:
+  - Mobile sidebar drawer with overlay + close behavior
+  - Grouped navigation sections for Product, Monitoring, Administration, and System
+  - Sticky header with current page context, user identity hints, notifications, and styled logout action
+- **Reusable UI components** (dependency-free):
+  - `Button`, `Badge`, `Card`, `Input`, `Select`, `Modal`, `TableContainer`
+- **Responsive content behavior**:
+  - Data tables remain horizontally scrollable on small screens
+  - Card grids naturally stack on mobile breakpoints
+  - Forms continue to support single-column layout at small widths
+
 ## API Versioning
 
 HookBridge APIs are versioned using URL segments for long-term compatibility.

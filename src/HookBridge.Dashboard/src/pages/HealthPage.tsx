@@ -174,7 +174,7 @@ const HealthPage = (): JSX.Element => {
               type="button"
               onClick={() => void runHealthChecks()}
               disabled={isLoading || isRefreshing}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              className="hb-btn-secondary disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isLoading || isRefreshing ? 'Refreshing...' : 'Refresh'}
             </button>
@@ -194,7 +194,7 @@ const HealthPage = (): JSX.Element => {
 
       {!isLoading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {healthCards.map((card) => (
-          <article key={card.key} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <article key={card.key} className="hb-card">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-slate-900">{card.displayName}</h3>
               <span

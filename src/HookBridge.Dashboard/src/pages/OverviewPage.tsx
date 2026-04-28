@@ -14,7 +14,7 @@ type MetricCardProps = {
 
 const MetricCard = ({ title, value }: MetricCardProps): JSX.Element => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="hb-card">
       <p className="text-sm font-medium text-slate-600">{title}</p>
       <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
     </div>
@@ -114,7 +114,7 @@ const OverviewPage = (): JSX.Element => {
               type="button"
               onClick={() => void loadOverview(true)}
               disabled={isRefreshing}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              className="hb-btn-secondary disabled:cursor-not-allowed disabled:opacity-70"
             >
               Refresh
             </button>
@@ -141,7 +141,7 @@ const OverviewPage = (): JSX.Element => {
               type="button"
               onClick={() => void loadOverview(true)}
               disabled={isRefreshing}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              className="hb-btn-secondary disabled:cursor-not-allowed disabled:opacity-70"
             >
               Refresh
             </button>
@@ -150,16 +150,16 @@ const OverviewPage = (): JSX.Element => {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="hb-card">
           <p className="text-sm text-slate-600">Tenant</p>
           <p className="mt-1 text-xl font-semibold text-slate-900">{overview.tenantName}</p>
           <p className="mt-1 text-xs text-slate-500">ID: {overview.tenantId}</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="hb-card">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm text-slate-600">Current Plan</p>
-            <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700">{overview.plan}</span>
+            <span className="rounded-full border border-primary-border bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary-dark">{overview.plan}</span>
           </div>
           <p className="mt-3 text-sm text-slate-600">Monthly Usage</p>
           <p className="mt-1 text-lg font-semibold text-slate-900">{usageLabel}</p>
@@ -174,11 +174,11 @@ const OverviewPage = (): JSX.Element => {
         <MetricCard title="Successful Attempts" value={formatNumber(overview.successfulDeliveryAttemptsThisMonth)} />
         <MetricCard title="Failed Attempts" value={formatNumber(overview.failedDeliveryAttemptsThisMonth)} />
         <MetricCard title="DLQ Events" value={formatNumber(overview.failedEventsInDlq)} />
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="hb-card">
           <p className="text-sm font-medium text-slate-600">Success Rate</p>
           <div className="mt-2 flex items-center gap-2">
             <p className="text-2xl font-semibold text-slate-900">{formatRate(overview.successRate)}</p>
-            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+            <span className="rounded-full border border-success-border bg-success-bg px-2.5 py-1 text-xs font-semibold text-success">
               {formatRate(overview.successRate)}
             </span>
           </div>

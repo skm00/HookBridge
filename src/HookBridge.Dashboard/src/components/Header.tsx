@@ -1,12 +1,36 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { authStorage } from '../auth/authStorage';
 import { notificationsApi } from '../api/notificationsApi';
 import { NOTIFICATIONS_UPDATED_EVENT } from '../pages/NotificationsPage';
+import Button from './ui/Button';
 
-const Header = (): JSX.Element => {
+const routeTitles: Record<string, string> = {
+  '/overview': 'Overview',
+  '/tenants': 'Tenants',
+  '/api-keys': 'API Keys',
+  '/subscriptions': 'Subscriptions',
+  '/events': 'Events',
+  '/delivery-logs': 'Delivery Logs',
+  '/audit-logs': 'Audit Logs',
+  '/notifications': 'Notifications',
+  '/failed-events': 'Failed Events',
+  '/billing': 'Billing',
+  '/settings': 'Settings',
+  '/health': 'Health'
+};
+
+type HeaderProps = {
+  onOpenMenu: () => void;
+};
+
+const Header = ({ onOpenMenu }: HeaderProps): JSX.Element => {
+  const location = useLocation();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
+
+  const pageTitle = useMemo(() => routeTitles[location.pathname] ?? 'HookBridge Dashboard', [location.pathname]);
+  const userProfile = useMemo(() => authStorage.getUserProfile(), []);
 
   const loadUnreadCount = useCallback(async (): Promise<void> => {
     try {
@@ -37,26 +61,26 @@ const Header = (): JSX.Element => {
   };
 
   return (
-    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:px-6">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500">Platform</p>
-        <h1 className="text-xl font-semibold text-slate-900">HookBridge</h1>
-      </div>
-      <div className="flex items-center gap-2 sm:gap-3">
-        <button
-          type="button"
-          onClick={() => navigate('/notifications')}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-        >
-          {unreadCount && unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications'}
-        </button>
-        <button
-          type="button"
-          onClick={onLogout}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
-        >
-          Logout
-        </button>
+    <header className="sticky top-0 z-20 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <button type="button" onClick={onOpenMenu} className="focus-ring rounded-md border border-border bg-surface px-2 py-1 text-text-muted md:hidden" aria-label="Open menu">
+            ☰
+          </button>
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold text-text">{pageTitle}</p>
+            {(userProfile.email || userProfile.role) ? (
+              <p className="truncate text-xs text-text-muted">{userProfile.email ?? 'Unknown user'} {userProfile.role ? `• ${userProfile.role}` : ''}</p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => navigate('/notifications')}>
+            {unreadCount && unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications'}
+          </Button>
+          <Button variant="danger" size="sm" onClick={onLogout}>Logout</Button>
+        </div>
       </div>
     </header>
   );

@@ -537,10 +537,10 @@ const SubscriptionsPage = (): JSX.Element => {
         <p className="mt-1 text-sm text-slate-600">Create and manage webhook subscriptions for your tenant.</p>
       </div>
 
-      {successMessage ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{successMessage}</div> : null}
+      {successMessage ? <div className="rounded-xl border border-success-border bg-success-bg p-3 text-sm text-success">{successMessage}</div> : null}
       {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="hb-card p-4">
         <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
           <label className="text-sm text-slate-700">
@@ -602,7 +602,7 @@ const SubscriptionsPage = (): JSX.Element => {
             <button
               type="button"
               onClick={handleResetFilters}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="hb-btn-secondary"
             >
               Reset
             </button>
@@ -610,9 +610,9 @@ const SubscriptionsPage = (): JSX.Element => {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <table className="hb-table">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
               <tr>
                 <th className="px-4 py-3">
@@ -749,7 +749,7 @@ const SubscriptionsPage = (): JSX.Element => {
         }}
       />
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="hb-card p-4">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-slate-900">{formMode === 'create' ? 'Create Subscription' : 'Edit Subscription'}</h3>
           {formMode === 'edit' ? (
@@ -875,7 +875,7 @@ const SubscriptionsPage = (): JSX.Element => {
           {form.headers.length === 0 ? <p className="text-sm text-slate-500">No custom headers configured.</p> : null}
 
           {form.headers.map((header) => (
-            <div key={header.id} className="grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-[1fr_1fr_auto]">
+            <div key={header.id} className="grid gap-2 rounded-lg border border-border p-3 md:grid-cols-[1fr_1fr_auto]">
               <input
                 type="text"
                 value={header.name}
@@ -1022,7 +1022,7 @@ const SubscriptionsPage = (): JSX.Element => {
           ) : null}
 
           {formMode === 'edit' && editingSubscriptionId ? (
-            <p className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
+            <p className="rounded-lg border border-border bg-slate-50 p-2 text-xs text-slate-600">
               Authentication summary: {authenticationSummary(buildAuthentication(form))}
             </p>
           ) : null}
