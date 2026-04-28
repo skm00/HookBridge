@@ -134,7 +134,7 @@ public sealed class NotificationService(
                     <p><strong>ResourceType:</strong> {notification.ResourceType ?? "-"}</p>
                     <p><strong>ResourceId:</strong> {notification.ResourceId ?? "-"}</p>
                     <p><strong>CreatedAt:</strong> {notification.CreatedAt:O}</p>
-                    <p><a href="{{DASHBOARD_NOTIFICATION_URL}}">Open notification in dashboard</a></p>
+                    <p><a href="DASHBOARD_NOTIFICATION_URL">Open notification in dashboard</a></p>
                   </body>
                 </html>
                 """;
