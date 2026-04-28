@@ -9,6 +9,15 @@ Initial production-style SaaS solution scaffold for a multi-tenant webhook deliv
 - Kafka (planned)
 - React dashboard (planned)
 
+## Run the Demo
+
+For a complete guided demo flow (local setup, seeded login, success/failure webhook scenarios, DLQ retry, and dashboard walkthrough), use:
+
+- Demo script: [`docs/demo.md`](docs/demo.md)
+- Reusable API examples: [`docs/api-examples.md`](docs/api-examples.md)
+- Postman collection: [`docs/postman/hookbridge.postman_collection.json`](docs/postman/hookbridge.postman_collection.json)
+- Thunder Client collection: [`docs/thunder-client/hookbridge.json`](docs/thunder-client/hookbridge.json)
+
 ## Dashboard Public Website Routes
 
 HookBridge Dashboard now includes a public marketing website for product discovery and self-serve signup.

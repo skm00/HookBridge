@@ -1,0 +1,187 @@
+{
+  "info": {
+    "_postman_id": "8edf33be-6a83-4f71-9204-8db31f0cc4ef",
+    "name": "HookBridge Demo Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Sample HookBridge admin + ingestion flow for local demo usage."
+  },
+  "item": [
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"demo@hookbridge.local\",\n  \"password\": \"DemoPassword123!\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data && json.data.token) {",
+              "  pm.collectionVariables.set('jwtToken', json.data.token);",
+              "}",
+              "if (json && json.data && json.data.user && json.data.user.tenantId) {",
+              "  pm.collectionVariables.set('tenantId', json.data.user.tenantId);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create API key",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwtToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Demo Key\"\n}"
+        },
+        "url": "{{baseUrl}}/admin/tenants/{{tenantId}}/api-keys"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data && json.data.plainTextKey) {",
+              "  pm.collectionVariables.set('apiKey', json.data.plainTextKey);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create subscription",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwtToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"eventType\": \"order.created\",\n  \"targetUrl\": \"https://webhook.site/<your-url>\",\n  \"retryPolicy\": {\n    \"maxAttempts\": 3,\n    \"initialDelaySeconds\": 10,\n    \"backoffType\": \"Exponential\"\n  },\n  \"timeoutSeconds\": 30\n}"
+        },
+        "url": "{{baseUrl}}/admin/subscriptions"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data && json.data.id) {",
+              "  pm.collectionVariables.set('subscriptionId', json.data.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Send event",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "x-api-key", "value": "{{apiKey}}" },
+          { "key": "x-correlation-id", "value": "postman-demo-001" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventType\": \"order.created\",\n  \"eventId\": \"evt-postman-001\",\n  \"timestamp\": \"2026-04-28T13:00:00Z\",\n  \"data\": {\n    \"orderId\": \"ORD-POSTMAN-1\",\n    \"amount\": 88.4,\n    \"currency\": \"USD\"\n  }\n}"
+        },
+        "url": "{{baseUrl}}/events/{{tenantId}}"
+      }
+    },
+    {
+      "name": "Search events",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+        ],
+        "url": "{{baseUrl}}/admin/events?pageNumber=1&pageSize=20"
+      }
+    },
+    {
+      "name": "Search delivery logs",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+        ],
+        "url": "{{baseUrl}}/admin/delivery-logs?pageNumber=1&pageSize=20"
+      }
+    },
+    {
+      "name": "Search failed events",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+        ],
+        "url": "{{baseUrl}}/admin/failed-events?pageNumber=1&pageSize=20&status=DLQ"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data && Array.isArray(json.data.items) && json.data.items.length > 0) {",
+              "  pm.collectionVariables.set('failedEventId', json.data.items[0].id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manual retry",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+        ],
+        "url": "{{baseUrl}}/admin/failed-events/{{failedEventId}}/retry"
+      }
+    },
+    {
+      "name": "Dashboard overview",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+        ],
+        "url": "{{baseUrl}}/admin/dashboard/overview"
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/v1" },
+    { "key": "tenantId", "value": "{{TENANT_ID}}" },
+    { "key": "jwtToken", "value": "{{JWT_TOKEN}}" },
+    { "key": "apiKey", "value": "{{API_KEY}}" },
+    { "key": "subscriptionId", "value": "{{SUBSCRIPTION_ID}}" },
+    { "key": "failedEventId", "value": "{{FAILED_EVENT_ID}}" }
+  ]
+}

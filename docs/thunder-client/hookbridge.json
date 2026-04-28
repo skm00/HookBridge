@@ -1,0 +1,153 @@
+{
+  "client": "Thunder Client",
+  "collectionName": "HookBridge Demo",
+  "dateExported": "2026-04-28T00:00:00.000Z",
+  "version": "1.1",
+  "folders": [],
+  "requests": [
+    {
+      "_id": "login",
+      "name": "Login",
+      "method": "POST",
+      "url": "{{baseUrl}}/auth/login",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"demo@hookbridge.local\",\n  \"password\": \"DemoPassword123!\"\n}"
+      }
+    },
+    {
+      "_id": "create-api-key",
+      "name": "Create API key",
+      "method": "POST",
+      "url": "{{baseUrl}}/admin/tenants/{{tenantId}}/api-keys",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{jwtToken}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Thunder Demo Key\"\n}"
+      }
+    },
+    {
+      "_id": "create-subscription",
+      "name": "Create Subscription",
+      "method": "POST",
+      "url": "{{baseUrl}}/admin/subscriptions",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{jwtToken}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"eventType\": \"order.created\",\n  \"targetUrl\": \"https://webhook.site/<your-url>\",\n  \"retryPolicy\": {\n    \"maxAttempts\": 3,\n    \"initialDelaySeconds\": 10,\n    \"backoffType\": \"Exponential\"\n  },\n  \"timeoutSeconds\": 30\n}"
+      }
+    },
+    {
+      "_id": "send-event",
+      "name": "Send Event",
+      "method": "POST",
+      "url": "{{baseUrl}}/events/{{tenantId}}",
+      "headers": [
+        {
+          "name": "x-api-key",
+          "value": "{{apiKey}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"eventType\": \"order.created\",\n  \"eventId\": \"evt-thunder-001\",\n  \"data\": {\n    \"orderId\": \"ORD-THUNDER-1\"\n  }\n}"
+      }
+    },
+    {
+      "_id": "search-events",
+      "name": "Search Events",
+      "method": "GET",
+      "url": "{{baseUrl}}/admin/events?pageNumber=1&pageSize=20",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{jwtToken}}"
+        }
+      ]
+    },
+    {
+      "_id": "search-delivery-logs",
+      "name": "Search Delivery Logs",
+      "method": "GET",
+      "url": "{{baseUrl}}/admin/delivery-logs?pageNumber=1&pageSize=20",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{jwtToken}}"
+        }
+      ]
+    },
+    {
+      "_id": "search-failed-events",
+      "name": "Search Failed Events",
+      "method": "GET",
+      "url": "{{baseUrl}}/admin/failed-events?pageNumber=1&pageSize=20&status=DLQ",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{jwtToken}}"
+        }
+      ]
+    },
+    {
+      "_id": "manual-retry",
+      "name": "Manual Retry",
+      "method": "POST",
+      "url": "{{baseUrl}}/admin/failed-events/{{failedEventId}}/retry",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{jwtToken}}"
+        }
+      ]
+    },
+    {
+      "_id": "dashboard-overview",
+      "name": "Dashboard Overview",
+      "method": "GET",
+      "url": "{{baseUrl}}/admin/dashboard/overview",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{jwtToken}}"
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "baseUrl": "http://localhost:5000/api/v1",
+    "tenantId": "{{TENANT_ID}}",
+    "jwtToken": "{{JWT_TOKEN}}",
+    "apiKey": "{{API_KEY}}",
+    "subscriptionId": "{{SUBSCRIPTION_ID}}",
+    "failedEventId": "{{FAILED_EVENT_ID}}"
+  }
+}
