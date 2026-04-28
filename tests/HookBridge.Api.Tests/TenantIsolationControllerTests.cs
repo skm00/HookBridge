@@ -213,6 +213,8 @@ public sealed class TenantIsolationControllerTests
             return Task.FromResult<IReadOnlyList<ApiKeyResponseDto>>([]);
         }
 
+        public Task<ApiKeyResponseDto?> UpdateAsync(string tenantId, string keyId, UpdateApiKeyRequestDto request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
         public Task<bool> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public Task<ApiKeyValidationResult> ValidateAsync(string tenantId, string plainApiKey, CancellationToken cancellationToken = default)

@@ -47,6 +47,26 @@ public sealed class ApiKeysController(
         return OkResponse(keys);
     }
 
+    [HttpPut("{keyId}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
+    [ProducesResponseType(typeof(ApiResponse<ApiKeyResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<ApiKeyResponseDto>>> UpdateAsync(
+        string tenantId,
+        string keyId,
+        [FromBody] UpdateApiKeyRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        tenantAccessValidator.EnsureTenantAccess(tenantId);
+        var updated = await apiKeyService.UpdateAsync(tenantId, keyId, request, cancellationToken);
+        if (updated is null)
+        {
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+        }
+
+        return OkResponse(updated);
+    }
+
     [HttpDelete("{keyId}")]
     [Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

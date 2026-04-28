@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using HookBridge.Api.RateLimiting;
+using HookBridge.Api.Security;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces.Security;
@@ -7,6 +8,7 @@ using HookBridge.Application.Interfaces.Services;
 using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
 
@@ -19,12 +21,16 @@ namespace HookBridge.Api.Controllers;
 public sealed class EventsController(
     IEventIngestionService eventIngestionService,
     IApiKeyService apiKeyService,
-    IWebhookSignatureValidator webhookSignatureValidator) : ApiControllerBase
+    IWebhookSignatureValidator webhookSignatureValidator,
+    IClientIpResolver clientIpResolver,
+    IIpAllowlistService ipAllowlistService,
+    ILogger<EventsController> logger) : ApiControllerBase
 {
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<EventIngestionResponseDto>), StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<ApiResponse<EventIngestionResponseDto>>> IngestAsync(
         string tenantId,
@@ -67,6 +73,18 @@ public sealed class EventsController(
         if (!apiKeyValidation.IsValid)
         {
             return ErrorResponse(StatusCodes.Status401Unauthorized, "Unauthorized.");
+        }
+
+        var clientIp = clientIpResolver.GetClientIp(HttpContext);
+        if (!ipAllowlistService.IsAllowed(clientIp, apiKeyValidation.AllowedIpAddresses))
+        {
+            logger.LogWarning(
+                "Blocked event ingestion due to IP allowlist. TenantId={TenantId}, ApiKeyId={ApiKeyId}, ClientIp={ClientIp}, Path={Path}",
+                tenantId,
+                apiKeyValidation.ApiKeyId,
+                clientIp,
+                Request.Path.Value);
+            return ErrorResponse(StatusCodes.Status403Forbidden, "IP address is not allowed.");
         }
 
         if (apiKeyValidation.EnableSignatureValidation)

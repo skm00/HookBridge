@@ -26,4 +26,6 @@ public sealed class ApiKey : BaseEntity
     public string? SignatureSecret { get; set; }
 
     public string SignatureHeaderName { get; set; } = DefaultSignatureHeaderName;
+
+    public List<string>? AllowedIpAddresses { get; set; }
 }

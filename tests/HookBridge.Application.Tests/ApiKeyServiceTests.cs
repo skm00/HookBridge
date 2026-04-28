@@ -26,6 +26,7 @@ public sealed class ApiKeyServiceTests
         Assert.Equal("hb_live_test-value", response.PlainApiKey);
         Assert.Equal("Primary", response.ApiKey.Name);
         Assert.Equal("hb_live_test****", response.ApiKey.KeyPrefix);
+        Assert.Null(response.ApiKey.AllowedIpAddresses);
     }
 
     [Fact]
@@ -115,6 +116,23 @@ public sealed class ApiKeyServiceTests
         Assert.True(stored.EnableSignatureValidation);
         Assert.Equal("enc:my-secret", stored.SignatureSecret);
         Assert.Equal("x-custom-signature", stored.SignatureHeaderName);
+    }
+
+    [Fact]
+    public async Task CreateApiKey_WithAllowedIpAddresses_PersistsAllowlist()
+    {
+        var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        var apiKeyRepo = new InMemoryRepository<ApiKey>();
+        var service = CreateService(apiKeyRepo, tenantRepo);
+
+        await service.CreateAsync("tenant-1", new CreateApiKeyRequestDto
+        {
+            Name = "Primary",
+            AllowedIpAddresses = ["192.168.1.10", "10.0.0.0/24"],
+        });
+
+        var stored = (await apiKeyRepo.FindAsync(_ => true)).Single();
+        Assert.Equal(["192.168.1.10", "10.0.0.0/24"], stored.AllowedIpAddresses);
     }
 
     [Fact]
@@ -214,6 +232,7 @@ public sealed class ApiKeyServiceTests
             new FixedApiKeyHasher(),
             new PassThroughSecretEncryptionService(),
             new CreateApiKeyRequestDtoValidator(),
+            new UpdateApiKeyRequestDtoValidator(),
             NullLogger<ApiKeyService>.Instance);
     }
 

@@ -218,6 +218,8 @@ public sealed class ApiVersioningTests
                 services.AddSingleton<IEventIngestionService, FakeEventIngestionService>();
                 services.AddSingleton<IApiKeyService, FakeApiKeyService>();
                 services.AddSingleton<IWebhookSignatureValidator, FakeWebhookSignatureValidator>();
+                services.AddSingleton<IClientIpResolver, ClientIpResolver>();
+                services.AddSingleton<IIpAllowlistService, IpAllowlistService>();
                 services.AddSingleton<ISubscriptionService, FakeSubscriptionService>();
                 services.AddSingleton<ICurrentUserContext>(new FakeCurrentUserContext());
                 services.AddScoped<TenantAccessValidator>();
@@ -275,6 +277,8 @@ public sealed class ApiVersioningTests
     {
         public Task<HookBridge.Application.DTOs.ApiKeys.CreateApiKeyResponseDto> CreateAsync(string tenantId, HookBridge.Application.DTOs.ApiKeys.CreateApiKeyRequestDto request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyList<HookBridge.Application.DTOs.ApiKeys.ApiKeyResponseDto>> GetByTenantAsync(string tenantId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<HookBridge.Application.DTOs.ApiKeys.ApiKeyResponseDto?> UpdateAsync(string tenantId, string keyId, HookBridge.Application.DTOs.ApiKeys.UpdateApiKeyRequestDto request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
         public Task<bool> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<HookBridge.Application.DTOs.ApiKeys.ApiKeyValidationResult> ValidateAsync(string tenantId, string plainApiKey, CancellationToken cancellationToken = default)
             => Task.FromResult(new HookBridge.Application.DTOs.ApiKeys.ApiKeyValidationResult { IsValid = true, TenantId = tenantId, ApiKeyId = "key-1" });
