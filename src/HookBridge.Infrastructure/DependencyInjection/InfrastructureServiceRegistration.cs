@@ -129,6 +129,16 @@ public static class InfrastructureServiceRegistration
                 settings.Enabled ? Positive(settings.SmtpPort, "SmtpPort") : null,
                 settings.Enabled ? Required(settings.FromEmail, "FromEmail") : null,
             ]);
+        services.AddValidatedOptions<DemoDataSettings>(
+            configuration,
+            "DemoData",
+            settings =>
+            [
+                settings.Enabled ? Required(settings.AdminEmail, "AdminEmail") : null,
+                settings.Enabled ? Required(settings.AdminPassword, "AdminPassword") : null,
+                settings.Enabled ? Required(settings.TenantName, "TenantName") : null,
+                settings.Enabled ? Required(settings.TenantSlug, "TenantSlug") : null,
+            ]);
 
         services.PostConfigure<SecuritySettings>(settings =>
         {
@@ -170,6 +180,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
         services.AddScoped<IFailedEventRepository, FailedEventRepository>();

@@ -9,6 +9,9 @@ using HookBridge.Api.Swagger;
 using HookBridge.Api.Security;
 using HookBridge.Application.DependencyInjection;
 using HookBridge.Application.Interfaces;
+using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
+using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
 using HookBridge.Infrastructure.DependencyInjection;
 using Elastic.Apm.NetCoreAll;
@@ -186,6 +189,74 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHookBridgeHealthEndpoints();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapPost("/api/v1/dev/demo/seed", async (
+        IDemoDataSeeder seeder,
+        IMongoRepository<Tenant> tenantRepository,
+        IMongoRepository<AdminUser> adminUserRepository,
+        IMongoRepository<ApiKey> apiKeyRepository,
+        IMongoRepository<Subscription> subscriptionRepository,
+        IMongoRepository<IncomingEvent> incomingEventRepository,
+        IMongoRepository<DeliveryAttempt> deliveryAttemptRepository,
+        IMongoRepository<FailedEvent> failedEventRepository,
+        IMongoRepository<Notification> notificationRepository,
+        IMongoRepository<AuditLog> auditLogRepository,
+        CancellationToken cancellationToken) =>
+    {
+        await seeder.SeedAsync(cancellationToken);
+
+        var tenant = await tenantRepository.FirstOrDefaultAsync(x => x.Slug == "demo-company", cancellationToken);
+        var tenantId = tenant?.Id;
+
+        var adminCount = tenantId is null
+            ? 0
+            : (await adminUserRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken)).Count;
+        var apiKeyCount = tenantId is null
+            ? 0
+            : (await apiKeyRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken)).Count;
+        var subscriptionCount = tenantId is null
+            ? 0
+            : (await subscriptionRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken)).Count;
+        var incomingEventCount = tenantId is null
+            ? 0
+            : (await incomingEventRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken)).Count;
+        var deliveryAttemptCount = tenantId is null
+            ? 0
+            : (await deliveryAttemptRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken)).Count;
+        var failedEventCount = tenantId is null
+            ? 0
+            : (await failedEventRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken)).Count;
+        var notificationCount = tenantId is null
+            ? 0
+            : (await notificationRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken)).Count;
+        var auditLogCount = tenantId is null
+            ? 0
+            : (await auditLogRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken)).Count;
+
+        return Results.Ok(new
+        {
+            TenantCount = tenant is null ? 0 : 1,
+            AdminUserCount = adminCount,
+            ApiKeyCount = apiKeyCount,
+            SubscriptionCount = subscriptionCount,
+            IncomingEventCount = incomingEventCount,
+            DeliveryAttemptCount = deliveryAttemptCount,
+            FailedEventCount = failedEventCount,
+            NotificationCount = notificationCount,
+            AuditLogCount = auditLogCount,
+        });
+    });
+}
+
+if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("DemoData:Enabled"))
+{
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<IDemoDataSeeder>();
+    await seeder.SeedAsync();
+    Log.Information("Demo seed completed on startup because DemoData:Enabled is true.");
+}
 
 app.Run();
 
