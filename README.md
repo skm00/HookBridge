@@ -1275,3 +1275,40 @@ The dashboard includes reusable frontend UX components for consistent loading an
 - `SkeletonTable` — configurable table skeleton placeholder with `rows` and `columns` props.
 - `EmptyState` — reusable empty-state container with title, optional description, and optional action slot.
 - `PageHeader` — standardized page title/description/actions header used across dashboard pages.
+
+## Backup and Restore
+
+HookBridge now includes a documented manual backup/restore strategy and minimal tenant-level export/import hooks.
+
+### Manual MongoDB backup/restore
+
+- Backup command:
+
+```bash
+mongodump --uri="mongodb://..." --out=backup/
+```
+
+- Restore command:
+
+```bash
+mongorestore --uri="mongodb://..." backup/
+```
+
+See full operational guidance in [`docs/backup-restore.md`](docs/backup-restore.md).
+
+### API-based tenant export/import
+
+Owner admins can use tenant-scoped endpoints:
+
+- `GET /api/v1/admin/tenants/{tenantId}/backup`
+- `POST /api/v1/admin/tenants/{tenantId}/restore` (multipart file upload, 10MB max)
+
+Behavior notes:
+- Requires JWT authentication and `OwnerOnly` policy.
+- Enforces tenant isolation.
+- Export omits plain secrets (for example, plain API keys are never included).
+
+### Limitations
+
+- Current implementation is intended for manual/export workflows and does **not** replace full infrastructure backup automation.
+- Full-environment disaster recovery (database snapshots, object storage replication, cross-region failover) should still be handled via infrastructure tooling.
