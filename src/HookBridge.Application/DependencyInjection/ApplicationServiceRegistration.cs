@@ -36,6 +36,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IRetryPolicyService, RetryPolicyService>();
+        services.AddScoped<IProductionReadinessService, ProductionReadinessService>();
         services.AddScoped<IValidator<RegisterAdminRequestDto>, RegisterAdminRequestDtoValidator>();
         services.AddScoped<IValidator<LoginRequestDto>, LoginRequestDtoValidator>();
         services.AddScoped<IValidator<CreateTenantRequestDto>, CreateTenantRequestDtoValidator>();
