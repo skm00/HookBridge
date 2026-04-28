@@ -710,7 +710,10 @@ curl -X DELETE http://localhost:5000/api/v1/admin/tenants/{tenantId}
 curl -X POST http://localhost:5000/api/v1/admin/tenants/{tenantId}/api-keys \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Ingestion Key"
+    "name": "Ingestion Key",
+    "enableSignatureValidation": true,
+    "signatureSecret": "replace-with-random-secret",
+    "signatureHeaderName": "x-hookbridge-signature"
   }'
 ```
 
@@ -731,6 +734,7 @@ curl -X DELETE http://localhost:5000/api/v1/admin/tenants/{tenantId}/api-keys/{k
 curl -X POST http://localhost:5000/api/v1/events/{tenantId} \
   -H "Content-Type: application/json" \
   -H "x-api-key: <plain-api-key>" \
+  -H "x-hookbridge-signature: sha256=<hex-or-base64-signature>" \
   -H "x-correlation-id: test-correlation-001" \
   -d '{
     "eventType": "order.created",
@@ -741,6 +745,32 @@ curl -X POST http://localhost:5000/api/v1/events/{tenantId} \
       "amount": 250
     }
   }'
+```
+
+### Webhook signature verification (optional but recommended)
+
+If `enableSignatureValidation` is set to `true` on the API key, HookBridge validates the incoming request payload signature:
+- Algorithm: `HMACSHA256`
+- Header format: `sha256=<hex-or-base64-signature>`
+- Default header name: `x-hookbridge-signature` (configurable per API key)
+
+Python example for generating the header:
+
+```python
+import hmac
+import hashlib
+import base64
+
+payload = b'{"eventType":"order.created","eventId":"evt_123","data":{"orderId":"1001"}}'
+secret = b'replace-with-random-secret'
+
+digest = hmac.new(secret, payload, hashlib.sha256).digest()
+hex_signature = digest.hex()
+base64_signature = base64.b64encode(digest).decode("utf-8")
+
+print(f"x-hookbridge-signature: sha256={hex_signature}")
+# or
+print(f"x-hookbridge-signature: sha256={base64_signature}")
 ```
 
 ## Event Ingestion Flow

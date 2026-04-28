@@ -5,6 +5,8 @@ namespace HookBridge.Domain.Entities;
 /// </summary>
 public sealed class ApiKey : BaseEntity
 {
+    public const string DefaultSignatureHeaderName = "x-hookbridge-signature";
+
     public string TenantId { get; set; } = string.Empty;
 
     public string Name { get; set; } = string.Empty;
@@ -18,4 +20,10 @@ public sealed class ApiKey : BaseEntity
     public DateTime? LastUsedAt { get; set; }
 
     public DateTime? RevokedAt { get; set; }
+
+    public bool EnableSignatureValidation { get; set; }
+
+    public string? SignatureSecret { get; set; }
+
+    public string SignatureHeaderName { get; set; } = DefaultSignatureHeaderName;
 }

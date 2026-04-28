@@ -12,6 +12,10 @@ public sealed class ApiKeyResponseDto
 
     public bool IsActive { get; set; }
 
+    public bool EnableSignatureValidation { get; set; }
+
+    public string SignatureHeaderName { get; set; } = string.Empty;
+
     public DateTime? LastUsedAt { get; set; }
 
     public DateTime? RevokedAt { get; set; }

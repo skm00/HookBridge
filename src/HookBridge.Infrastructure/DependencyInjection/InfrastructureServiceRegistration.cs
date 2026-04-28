@@ -182,6 +182,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
         services.AddSingleton<IApiKeyHasher, ApiKeyHasher>();
+        services.AddSingleton<IWebhookSignatureValidator, WebhookSignatureValidator>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddSingleton<ISecretEncryptionService, SecretEncryptionService>();
