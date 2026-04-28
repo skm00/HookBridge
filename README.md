@@ -222,6 +222,50 @@ ElasticApm__Environment=Production
 Encryption__MasterKey=replace-with-at-least-32-char-master-key
 ```
 
+## Demo Data Seed (Development)
+
+HookBridge can seed end-to-end demo data (tenant, admin, API key, subscriptions, events, delivery logs, failed events, notifications, and audit logs) for product demos.
+
+### Enable demo data
+
+Set the `DemoData` config section (for example in `appsettings.Development.json`):
+
+```json
+{
+  "DemoData": {
+    "Enabled": true,
+    "AdminEmail": "demo@hookbridge.local",
+    "AdminPassword": "DemoPassword123!",
+    "TenantName": "Demo Company",
+    "TenantSlug": "demo-company"
+  }
+}
+```
+
+Notes:
+- Auto-seeding only runs on API startup in `Development` when `DemoData:Enabled=true`.
+- Production does not auto-run demo seed logic.
+
+### Demo login
+
+- Email: `demo@hookbridge.local`
+- Password: `DemoPassword123!`
+
+### Demo API key
+
+- Development demo key (printed to API console logs only in Development): `hb_live_demo_key_for_local_testing`
+- Stored in database as a hash, not plain text.
+
+### Trigger seed endpoint manually
+
+Development-only endpoint:
+
+```bash
+curl -X POST http://localhost:5000/api/v1/dev/demo/seed
+```
+
+The endpoint is unavailable in Production and returns summary counts for seeded demo records in Development.
+
 ## Secret Encryption at Rest
 
 HookBridge encrypts sensitive outbound subscription authentication fields before they are stored in MongoDB:
