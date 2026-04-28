@@ -16,7 +16,6 @@ using HookBridge.Domain.Enums;
 using HookBridge.Infrastructure.DependencyInjection;
 using Elastic.Apm.NetCoreAll;
 using HookBridge.Infrastructure.Configuration;
-using HookBridge.Infrastructure.Logging;
 using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +27,10 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, _, loggerConfiguration) =>
-    loggerConfiguration.ConfigureHookBridgeEcsLogging(context.Configuration, "hookbridge-api"));
+    HookBridge.Infrastructure.Logging.SerilogConfigurationExtensions.ConfigureHookBridgeEcsLogging(
+        loggerConfiguration,
+        context.Configuration,
+        "hookbridge-api"));
 
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
