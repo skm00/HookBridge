@@ -107,7 +107,8 @@ public sealed class WebhookDeliveryClient : IWebhookDeliveryClient
                 DurationMs = stopwatch.ElapsedMilliseconds,
             };
 
-            SetApmLabels(span ?? currentTransaction, targetUri, request, result);
+            IExecutionSegment? executionSegment = span is not null ? span : currentTransaction;
+            SetApmLabels(executionSegment, targetUri, request, result);
             response.Dispose();
 
             _logger.LogInformation(
