@@ -21,6 +21,7 @@ public sealed class ApiKeyService(
     IApiKeyHasher apiKeyHasher,
     ISecretEncryptionService secretEncryptionService,
     IValidator<CreateApiKeyRequestDto> createValidator,
+    IValidator<UpdateApiKeyRequestDto> updateValidator,
     ILogger<ApiKeyService> logger) : IApiKeyService
 {
     public async Task<CreateApiKeyResponseDto> CreateAsync(string tenantId, CreateApiKeyRequestDto request, CancellationToken cancellationToken = default)
@@ -56,6 +57,7 @@ public sealed class ApiKeyService(
             SignatureHeaderName = string.IsNullOrWhiteSpace(request.SignatureHeaderName)
                 ? ApiKey.DefaultSignatureHeaderName
                 : request.SignatureHeaderName.Trim(),
+            AllowedIpAddresses = NormalizeAllowlist(request.AllowedIpAddresses),
             LastUsedAt = null,
             RevokedAt = null,
             CreatedAt = now,
@@ -96,6 +98,28 @@ public sealed class ApiKeyService(
 
         var keys = await apiKeyRepository.FindAsync(x => x.TenantId == tenantId, cancellationToken);
         return keys.Select(Map).ToList();
+    }
+
+    public async Task<ApiKeyResponseDto?> UpdateAsync(string tenantId, string keyId, UpdateApiKeyRequestDto request, CancellationToken cancellationToken = default)
+    {
+        await updateValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var tenant = await tenantRepository.GetByIdAsync(tenantId, cancellationToken);
+        if (tenant is null)
+        {
+            return null;
+        }
+
+        var apiKey = await apiKeyRepository.GetByIdAsync(keyId, cancellationToken);
+        if (apiKey is null || apiKey.TenantId != tenantId)
+        {
+            return null;
+        }
+
+        apiKey.AllowedIpAddresses = NormalizeAllowlist(request.AllowedIpAddresses);
+        apiKey.UpdatedAt = dateTimeProvider.UtcNow;
+        await apiKeyRepository.UpdateAsync(apiKey, cancellationToken);
+        return Map(apiKey);
     }
 
     public async Task<bool> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken = default)
@@ -182,6 +206,7 @@ public sealed class ApiKeyService(
             SignatureHeaderName = string.IsNullOrWhiteSpace(apiKey.SignatureHeaderName)
                 ? ApiKey.DefaultSignatureHeaderName
                 : apiKey.SignatureHeaderName,
+            AllowedIpAddresses = apiKey.AllowedIpAddresses,
             FailureReason = null,
         };
     }
@@ -201,6 +226,7 @@ public sealed class ApiKeyService(
         RevokedAt = apiKey.RevokedAt,
         CreatedAt = apiKey.CreatedAt,
         UpdatedAt = apiKey.UpdatedAt,
+        AllowedIpAddresses = apiKey.AllowedIpAddresses,
     };
 
     private static ApiKeyValidationResult Invalid(string reason) => new()
@@ -209,6 +235,17 @@ public sealed class ApiKeyService(
         FailureReason = reason,
         SignatureHeaderName = ApiKey.DefaultSignatureHeaderName,
     };
+
+    private static List<string>? NormalizeAllowlist(List<string>? allowlist)
+    {
+        var normalized = allowlist?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return normalized is { Count: > 0 } ? normalized : null;
+    }
 
     private async Task TryAuditAsync(AuditLog auditLog, CancellationToken cancellationToken)
     {

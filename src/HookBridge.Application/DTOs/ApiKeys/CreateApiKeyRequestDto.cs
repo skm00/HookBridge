@@ -9,4 +9,6 @@ public sealed class CreateApiKeyRequestDto
     public string? SignatureSecret { get; set; }
 
     public string SignatureHeaderName { get; set; } = HookBridge.Domain.Entities.ApiKey.DefaultSignatureHeaderName;
+
+    public List<string>? AllowedIpAddresses { get; set; }
 }

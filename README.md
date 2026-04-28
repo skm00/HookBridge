@@ -91,6 +91,35 @@ HookBridge publishes OpenAPI documentation for local development to help with di
 - Swagger is version-aware and serves `/swagger/v1/swagger.json`.
 - Swagger UI includes the `v1` document in the dropdown selector.
 
+## API Key IP Allowlist
+
+For inbound event ingestion, each API key can optionally define an IP allowlist. When configured, HookBridge will only accept requests from matching client IPs.
+
+### Supported formats
+
+- Exact IPv4/IPv6 addresses (for example, `192.168.1.10`)
+- CIDR ranges (for example, `10.0.0.0/24`)
+- Maximum 50 entries per API key
+
+### Examples
+
+```json
+{
+  "name": "Production ingestion key",
+  "allowedIpAddresses": [
+    "192.168.1.10",
+    "10.0.0.0/24"
+  ]
+}
+```
+
+### Security recommendations
+
+- Use explicit static egress IPs from your webhook source whenever possible.
+- Prefer narrow CIDR blocks over broad ranges.
+- Keep allowlists per environment (dev/stage/prod) and rotate keys if network ownership changes.
+- If HookBridge runs behind a reverse proxy/load balancer, ensure `X-Forwarded-For` is preserved correctly.
+
 ### Export `swagger.json`
 
 Use curl locally:

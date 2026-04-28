@@ -1,4 +1,5 @@
 using HookBridge.Api.Controllers;
+using HookBridge.Api.Security;
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.Exceptions;
@@ -6,6 +7,7 @@ using HookBridge.Application.Interfaces.Security;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Text;
 using Xunit;
 
@@ -116,9 +118,31 @@ public sealed class EventsControllerTests
         Assert.Equal(StatusCodes.Status202Accepted, accepted.StatusCode);
     }
 
+    [Fact]
+    public async Task AllowlistBlocked_Returns403()
+    {
+        var controller = BuildController(
+            new FakeEventIngestionService(),
+            new FakeApiKeyService(allowedIpAddresses: ["10.0.0.0/24"]));
+        controller.Request.Headers["x-api-key"] = "hb_live_key";
+        controller.HttpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("192.168.1.10");
+        SetRequestBody(controller, BuildRequestJson());
+
+        var result = await controller.IngestAsync("tenant-1", CancellationToken.None);
+
+        var forbidden = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+    }
+
     private static EventsController BuildController(IEventIngestionService service, IApiKeyService apiKeyService, IWebhookSignatureValidator? validator = null)
     {
-        var controller = new EventsController(service, apiKeyService, validator ?? new FakeWebhookSignatureValidator())
+        var controller = new EventsController(
+            service,
+            apiKeyService,
+            validator ?? new FakeWebhookSignatureValidator(),
+            new ClientIpResolver(),
+            new IpAllowlistService(),
+            NullLogger<EventsController>.Instance)
         {
             ControllerContext = new ControllerContext
             {
@@ -178,11 +202,13 @@ public sealed class EventsControllerTests
         }
     }
 
-    private sealed class FakeApiKeyService(bool isValid = true, bool requireSignature = false, string? signatureSecret = null) : IApiKeyService
+    private sealed class FakeApiKeyService(bool isValid = true, bool requireSignature = false, string? signatureSecret = null, List<string>? allowedIpAddresses = null) : IApiKeyService
     {
         public Task<CreateApiKeyResponseDto> CreateAsync(string tenantId, CreateApiKeyRequestDto request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
         public Task<IReadOnlyList<ApiKeyResponseDto>> GetByTenantAsync(string tenantId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+        public Task<ApiKeyResponseDto?> UpdateAsync(string tenantId, string keyId, UpdateApiKeyRequestDto request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
         public Task<bool> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
@@ -195,6 +221,7 @@ public sealed class EventsControllerTests
                 EnableSignatureValidation = requireSignature,
                 SignatureHeaderName = "x-hookbridge-signature",
                 SignatureSecret = signatureSecret,
+                AllowedIpAddresses = allowedIpAddresses,
                 FailureReason = isValid ? null : "api_key_invalid",
             });
     }

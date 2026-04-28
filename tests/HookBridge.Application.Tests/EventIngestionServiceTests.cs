@@ -274,6 +274,8 @@ public sealed class EventIngestionServiceTests
         public Task<IReadOnlyList<ApiKeyResponseDto>> GetByTenantAsync(string tenantId, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<ApiKeyResponseDto?> UpdateAsync(string tenantId, string keyId, UpdateApiKeyRequestDto request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
         public Task<bool> RevokeAsync(string tenantId, string keyId, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

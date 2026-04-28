@@ -43,6 +43,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IValidator<CreateTenantRequestDto>, CreateTenantRequestDtoValidator>();
         services.AddScoped<IValidator<UpdateTenantRequestDto>, UpdateTenantRequestDtoValidator>();
         services.AddScoped<IValidator<CreateApiKeyRequestDto>, CreateApiKeyRequestDtoValidator>();
+        services.AddScoped<IValidator<UpdateApiKeyRequestDto>, UpdateApiKeyRequestDtoValidator>();
         services.AddScoped<IValidator<EventIngestionRequestDto>, EventIngestionRequestDtoValidator>();
         services.AddScoped<IValidator<CreateSubscriptionRequestDto>, CreateSubscriptionRequestDtoValidator>();
         services.AddScoped<IValidator<UpdateSubscriptionRequestDto>, UpdateSubscriptionRequestDtoValidator>();

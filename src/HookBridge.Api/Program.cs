@@ -99,6 +99,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<TenantAccessValidator>();
+builder.Services.AddScoped<IClientIpResolver, ClientIpResolver>();
+builder.Services.AddScoped<IIpAllowlistService, IpAllowlistService>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
