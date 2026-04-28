@@ -10,6 +10,7 @@ import FailedEventsPage from './pages/FailedEventsPage';
 import HealthPage from './pages/HealthPage';
 import LoginPage from './pages/LoginPage';
 import OverviewPage from './pages/OverviewPage';
+import NotificationsPage from './pages/NotificationsPage';
 import RegisterPage from './pages/RegisterPage';
 import SettingsPage from './pages/SettingsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
@@ -31,6 +32,7 @@ const App = (): JSX.Element => {
           <Route path="/events" element={<EventsPage />} />
           <Route path="/delivery-logs" element={<DeliveryLogsPage />} />
           <Route path="/audit-logs" element={<AuditLogsPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/failed-events" element={<FailedEventsPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/settings" element={<SettingsPage />} />

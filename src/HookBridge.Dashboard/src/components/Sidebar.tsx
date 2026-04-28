@@ -8,6 +8,7 @@ const navItems = [
   { to: '/events', label: 'Events' },
   { to: '/delivery-logs', label: 'Delivery Logs' },
   { to: '/audit-logs', label: 'Audit Logs' },
+  { to: '/notifications', label: 'Notifications' },
   { to: '/failed-events', label: 'Failed Events' },
   { to: '/billing', label: 'Billing' },
   { to: '/settings', label: 'Settings' },
