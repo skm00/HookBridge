@@ -8,12 +8,18 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace HookBridge.Api.Controllers;
 
+/// <summary>
+/// Accepts tenant events for asynchronous webhook fan-out delivery.
+/// </summary>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/events/{tenantId}")]
 [EnableRateLimiting(RateLimitingPolicyNames.EventIngestionPolicy)]
 public sealed class EventsController(IEventIngestionService eventIngestionService) : ControllerBase
 {
+    /// <summary>
+    /// Ingests a single event using the <c>x-api-key</c> header for tenant authentication.
+    /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(EventIngestionResponseDto), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

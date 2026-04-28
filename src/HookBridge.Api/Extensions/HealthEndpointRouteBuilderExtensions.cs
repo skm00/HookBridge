@@ -11,7 +11,10 @@ public static class HealthEndpointRouteBuilderExtensions
 {
     public static void MapHookBridgeHealthEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
+            .AllowAnonymous()
+            .WithTags("Health")
+            .WithSummary("Returns a lightweight liveness status.");
 
         app.MapGet("/api/v{version:apiVersion}/health/mongodb", async (IMongoDatabase database, CancellationToken cancellationToken) =>
         {
@@ -35,7 +38,10 @@ public static class HealthEndpointRouteBuilderExtensions
                     message = $"MongoDB connection failed. Reason: {ex.Message}",
                 });
             }
-        });
+        })
+            .AllowAnonymous()
+            .WithTags("Health")
+            .WithSummary("Checks MongoDB connectivity.");
 
         app.MapGet("/api/v{version:apiVersion}/health/kafka", async (IKafkaAdminService kafkaAdminService, CancellationToken cancellationToken) =>
         {
@@ -69,7 +75,10 @@ public static class HealthEndpointRouteBuilderExtensions
                     message = $"Kafka connection failed. Reason: {ex.Message}",
                 });
             }
-        });
+        })
+            .AllowAnonymous()
+            .WithTags("Health")
+            .WithSummary("Checks Kafka connectivity.");
 
         app.MapGet("/api/v{version:apiVersion}/health/apm", (IOptions<ElasticApmSettings> apmOptions) =>
         {
@@ -81,7 +90,10 @@ public static class HealthEndpointRouteBuilderExtensions
                 isHealthy = enabled,
                 message = enabled ? "Elastic APM is enabled." : "Elastic APM is disabled.",
             });
-        });
+        })
+            .AllowAnonymous()
+            .WithTags("Health")
+            .WithSummary("Reports Elastic APM feature state.");
 
         app.MapGet("/api/v{version:apiVersion}/health/elasticsearch", async (IElasticsearchHealthService elasticsearchHealthService, CancellationToken cancellationToken) =>
         {
@@ -93,6 +105,9 @@ public static class HealthEndpointRouteBuilderExtensions
                 isHealthy = response.IsHealthy,
                 message = response.Message,
             });
-        });
+        })
+            .AllowAnonymous()
+            .WithTags("Health")
+            .WithSummary("Checks Elasticsearch connectivity.");
     }
 }

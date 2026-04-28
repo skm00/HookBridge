@@ -37,6 +37,38 @@ HookBridge APIs are versioned using URL segments for long-term compatibility.
 - Route format: `/api/v{version}/...` (for example, `/api/v1/events/{tenantId}` and `/api/v1/admin/subscriptions`)
 - Future versions will follow the same pattern, such as `/api/v2/...`
 
+## Swagger / OpenAPI
+
+HookBridge publishes OpenAPI documentation for local development to help with discovery, SDK generation, and API testing.
+
+- Swagger UI (Development): `http://localhost:5000/swagger`
+- OpenAPI document (v1): `http://localhost:5000/swagger/v1/swagger.json`
+
+### Authentication in Swagger
+
+- **Bearer JWT**: used by admin APIs under `/api/v1/admin/...`.
+  - Set `Authorization: Bearer <token>`
+- **x-api-key**: used by event ingestion under `/api/v1/events/{tenantId}`.
+  - Set `x-api-key: <tenant-api-key>`
+- Public endpoints do not require auth:
+  - `/api/v1/auth/login`
+  - `/api/v1/auth/register`
+  - `/health` and `/api/v1/health/*`
+  - `/api/v1/billing/stripe/webhook`
+
+### API versioning in Swagger
+
+- Swagger is version-aware and serves `/swagger/v1/swagger.json`.
+- Swagger UI includes the `v1` document in the dropdown selector.
+
+### Export `swagger.json`
+
+Use curl locally:
+
+```bash
+curl http://localhost:5000/swagger/v1/swagger.json -o swagger.v1.json
+```
+
 ## Configuration Validation
 
 HookBridge validates critical configuration sections at startup and fails fast with actionable errors (for example, `Jwt:Secret must be at least 32 characters long.`).
