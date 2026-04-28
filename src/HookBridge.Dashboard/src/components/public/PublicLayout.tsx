@@ -4,7 +4,7 @@ import PublicNavbar from './PublicNavbar';
 
 const PublicLayout = (): JSX.Element => {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-background text-text">
       <PublicNavbar />
       <main>
         <Outlet />

@@ -292,21 +292,21 @@ const AuditLogsPage = (): JSX.Element => {
           <button
             type="button"
             onClick={handleRefresh}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="hb-btn-secondary"
           >
             Refresh
           </button>
           <button
             type="button"
             onClick={handleClearFilters}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="hb-btn-secondary"
           >
             Clear filters
           </button>
         </div>
       </header>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="hb-card p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <input
             value={filters.userEmail}
@@ -349,7 +349,7 @@ const AuditLogsPage = (): JSX.Element => {
 
       {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} /> : null}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="hb-table-wrap">
         <table className="min-w-[1450px] divide-y divide-slate-200 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
             <tr>
@@ -470,8 +470,8 @@ const AuditLogsPage = (): JSX.Element => {
 
       {(selectedLog || detailErrorMessage || isDetailLoading) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-surface shadow-xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <h2 className="text-lg font-semibold text-slate-900">Audit Log Details</h2>
               <button type="button" onClick={closeDetails} className="text-slate-500 hover:text-slate-800">
                 Close

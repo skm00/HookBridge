@@ -164,7 +164,7 @@ const ApiKeysPage = (): JSX.Element => {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="hb-card">
         <PageHeader
           title="API Keys"
           description="Create and manage tenant API keys for ingestion."
@@ -215,7 +215,7 @@ const ApiKeysPage = (): JSX.Element => {
         {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-border bg-surface shadow-sm">
         {isLoading ? <SkeletonTable rows={6} columns={7} /> : null}
         {!isLoading && apiKeys.length === 0 ? (
           <div className="p-5">
@@ -224,7 +224,7 @@ const ApiKeysPage = (): JSX.Element => {
         ) : null}
         {!isLoading && apiKeys.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <table className="hb-table">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Name</th>
@@ -259,7 +259,7 @@ const ApiKeysPage = (): JSX.Element => {
                         type="button"
                         onClick={() => void handleRevoke(key)}
                         disabled={!key.isActive || activeRowId === key.id}
-                        className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                        className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-border disabled:text-slate-400"
                       >
                         {activeRowId === key.id ? 'Revoking...' : 'Revoke'}
                       </button>
@@ -274,7 +274,7 @@ const ApiKeysPage = (): JSX.Element => {
 
       {plainApiKey ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-6 shadow-lg">
+          <div className="w-full max-w-xl rounded-xl border border-border bg-surface p-6 shadow-lg">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">New API key created</h2>

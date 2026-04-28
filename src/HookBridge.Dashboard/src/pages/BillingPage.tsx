@@ -199,7 +199,7 @@ const BillingPage = (): JSX.Element => {
             <button
               type="button"
               onClick={() => void loadBillingStatus(true)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              className="hb-btn-secondary disabled:cursor-not-allowed disabled:opacity-70"
               disabled={isCreatingCheckout || isRefreshing}
             >
               Refresh
@@ -210,30 +210,30 @@ const BillingPage = (): JSX.Element => {
 
       {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} /> : null}
       {checkoutMessage ? (
-        <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-700">{checkoutMessage}</div>
+        <div className="rounded-xl border border-primary-border bg-primary-soft p-4 text-sm text-primary-dark">{checkoutMessage}</div>
       ) : null}
 
       {billingStatus ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="hb-card">
             <p className="text-sm text-slate-600">Current plan</p>
             <p className="mt-2 text-lg font-semibold text-slate-900">{billingStatus.plan}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="hb-card">
             <p className="text-sm text-slate-600">Billing status</p>
             <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClasses(statusBadge)}`}>
               {statusBadge}
             </span>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="hb-card">
             <p className="text-sm text-slate-600">Monthly event limit</p>
             <p className="mt-2 text-lg font-semibold text-slate-900">{formatLimit(billingStatus.monthlyEventLimit)}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="hb-card">
             <p className="text-sm text-slate-600">Current period start</p>
             <p className="mt-2 text-sm font-medium text-slate-900">{formatDate(billingStatus.currentPeriodStart)}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="hb-card">
             <p className="text-sm text-slate-600">Current period end</p>
             <p className="mt-2 text-sm font-medium text-slate-900">{formatDate(billingStatus.currentPeriodEnd)}</p>
           </div>
@@ -249,14 +249,14 @@ const BillingPage = (): JSX.Element => {
           return (
             <article
               key={card.plan}
-              className={`rounded-xl border bg-white p-5 shadow-sm ${
-                isCurrentPlan ? 'border-brand-500 ring-1 ring-brand-200' : 'border-slate-200'
+              className={`rounded-xl border bg-surface p-5 shadow-sm ${
+                isCurrentPlan ? 'border-brand-500 ring-1 ring-brand-200' : 'border-border'
               }`}
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900">{card.plan}</h3>
                 {isCurrentPlan ? (
-                  <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700">Current</span>
+                  <span className="rounded-full border border-primary-border bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary-dark">Current</span>
                 ) : null}
               </div>
 
