@@ -63,7 +63,7 @@ public sealed class NotificationsController(
         var notification = await notificationService.GetByIdAsync(id, cancellationToken);
         if (notification is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<NotificationResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(notification.TenantId);

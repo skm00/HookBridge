@@ -80,7 +80,7 @@ public sealed class FailedEventsController(
         var result = await failedEventService.GetByIdAsync(id, cancellationToken);
         if (result is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<FailedEventResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(result.TenantId);
@@ -97,20 +97,20 @@ public sealed class FailedEventsController(
         var failedEvent = await failedEventService.GetByIdAsync(id, cancellationToken);
         if (failedEvent is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<object>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(failedEvent.TenantId);
 
         if (!string.Equals(failedEvent.Status, "DLQ", StringComparison.OrdinalIgnoreCase))
         {
-            return ErrorResponse(StatusCodes.Status400BadRequest, "Failed event is not retryable.");
+            return ErrorResponse<object>(StatusCodes.Status400BadRequest, "Failed event is not retryable.");
         }
 
         var retryRequested = await failedEventService.RetryAsync(id, cancellationToken);
         if (!retryRequested)
         {
-            return ErrorResponse(StatusCodes.Status400BadRequest, "Failed event is not retryable.");
+            return ErrorResponse<object>(StatusCodes.Status400BadRequest, "Failed event is not retryable.");
         }
 
         return AcceptedResponse<object>(new { accepted = true });

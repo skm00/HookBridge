@@ -33,4 +33,18 @@ public abstract class ApiControllerBase : ControllerBase
             _ => StatusCode(statusCode, response),
         };
     }
+
+    protected ActionResult<ApiResponse<T>> ErrorResponse<T>(int statusCode, string message, Dictionary<string, string[]>? errors = null)
+        => statusCode switch
+        {
+            StatusCodes.Status400BadRequest => BadRequest(errors is null
+                ? ApiResponseFactory.Error(message, statusCode, TraceId)
+                : ApiResponseFactory.ValidationError(errors, TraceId)),
+            StatusCodes.Status401Unauthorized => Unauthorized(ApiResponseFactory.Error(message, statusCode, TraceId)),
+            StatusCodes.Status403Forbidden => StatusCode(StatusCodes.Status403Forbidden, ApiResponseFactory.Error(message, statusCode, TraceId)),
+            StatusCodes.Status404NotFound => NotFound(ApiResponseFactory.Error(message, statusCode, TraceId)),
+            StatusCodes.Status409Conflict => Conflict(ApiResponseFactory.Error(message, statusCode, TraceId)),
+            StatusCodes.Status429TooManyRequests => StatusCode(StatusCodes.Status429TooManyRequests, ApiResponseFactory.Error(message, statusCode, TraceId)),
+            _ => StatusCode(statusCode, ApiResponseFactory.Error(message, statusCode, TraceId)),
+        };
 }

@@ -33,7 +33,7 @@ public sealed class UsageController(
         var tenant = await tenantRepository.GetByIdAsync(tenantId, cancellationToken);
         if (tenant is null)
         {
-            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
+            return ErrorResponse<CurrentUsageResponseDto>(StatusCodes.Status404NotFound, "Not found.");
         }
 
         var usage = await usageService.GetCurrentMonthUsageAsync(tenantId, cancellationToken);
