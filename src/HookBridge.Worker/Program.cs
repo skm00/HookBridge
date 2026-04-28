@@ -12,6 +12,7 @@ builder.Services.AddInfrastructureServices(builder.Configuration, builder.Enviro
 builder.Services.AddApplicationServices();
 builder.Services.AddHostedService<WebhookEventConsumerWorker>();
 builder.Services.AddHostedService<WebhookRetryConsumerWorker>();
+builder.Services.AddHostedService<DataCleanupWorker>();
 builder.Services.AddSingleton<WorkerTransactionRunner>();
 
 builder.Services.AddSerilog((services, loggerConfiguration) =>
