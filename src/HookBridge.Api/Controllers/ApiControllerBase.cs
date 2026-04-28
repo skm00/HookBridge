@@ -16,7 +16,7 @@ public abstract class ApiControllerBase : ControllerBase
     protected ActionResult<ApiResponse<T>> AcceptedResponse<T>(T data, string? message = null)
         => Accepted(ApiResponseFactory.Success(data, message, TraceId));
 
-    protected ActionResult<ApiErrorResponse> ErrorResponse(int statusCode, string message, Dictionary<string, string[]>? errors = null)
+    protected IActionResult ErrorResponse(int statusCode, string message, Dictionary<string, string[]>? errors = null)
     {
         var response = errors is null
             ? ApiResponseFactory.Error(message, statusCode, TraceId)

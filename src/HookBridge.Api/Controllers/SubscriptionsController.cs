@@ -66,7 +66,7 @@ public sealed class SubscriptionsController(
         [FromQuery] int pageSize = 50,
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortDirection = "desc",
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
 

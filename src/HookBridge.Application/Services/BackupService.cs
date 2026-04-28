@@ -7,6 +7,7 @@ using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Models;
 using HookBridge.Domain.Entities;
+using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace HookBridge.Application.Services;

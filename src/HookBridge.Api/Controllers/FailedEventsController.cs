@@ -39,7 +39,7 @@ public sealed class FailedEventsController(
         [FromQuery] int pageSize = 50,
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortDirection = "desc",
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
         tenantId = currentUserContext.TenantId;
@@ -113,6 +113,6 @@ public sealed class FailedEventsController(
             return ErrorResponse(StatusCodes.Status400BadRequest, "Failed event is not retryable.");
         }
 
-        return AcceptedResponse(new { accepted = true });
+        return AcceptedResponse<object>(new { accepted = true });
     }
 }
