@@ -2,11 +2,11 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './auth/ProtectedRoute';
 import Layout from './components/Layout';
 import PublicLayout from './components/public/PublicLayout';
+import DocsShell from './components/public/docs/DocsShell';
 import ApiKeysPage from './pages/ApiKeysPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import BillingPage from './pages/BillingPage';
 import DeliveryLogsPage from './pages/DeliveryLogsPage';
-import DocsPublicPage from './pages/DocsPublicPage';
 import EventsPage from './pages/EventsPage';
 import FailedEventsPage from './pages/FailedEventsPage';
 import HealthPage from './pages/HealthPage';
@@ -19,6 +19,12 @@ import RegisterPage from './pages/RegisterPage';
 import SettingsPage from './pages/SettingsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import TenantsPage from './pages/TenantsPage';
+import DocsAuthenticationPage from './pages/docs/DocsAuthenticationPage';
+import DocsErrorsPage from './pages/docs/DocsErrorsPage';
+import DocsEventsPage from './pages/docs/DocsEventsPage';
+import DocsQuickstartPage from './pages/docs/DocsQuickstartPage';
+import DocsRetriesPage from './pages/docs/DocsRetriesPage';
+import DocsSubscriptionsPage from './pages/docs/DocsSubscriptionsPage';
 
 const App = (): JSX.Element => {
   return (
@@ -26,7 +32,15 @@ const App = (): JSX.Element => {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<LandingPage />} />
         <Route path="/pricing" element={<PricingPublicPage />} />
-        <Route path="/docs" element={<DocsPublicPage />} />
+        <Route path="/docs" element={<DocsShell />}>
+          <Route index element={<DocsQuickstartPage />} />
+          <Route path="quickstart" element={<DocsQuickstartPage />} />
+          <Route path="events" element={<DocsEventsPage />} />
+          <Route path="subscriptions" element={<DocsSubscriptionsPage />} />
+          <Route path="authentication" element={<DocsAuthenticationPage />} />
+          <Route path="retries" element={<DocsRetriesPage />} />
+          <Route path="errors" element={<DocsErrorsPage />} />
+        </Route>
       </Route>
 
       <Route path="/login" element={<LoginPage />} />
