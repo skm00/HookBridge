@@ -1,7 +1,9 @@
-import axios from 'axios';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { apiKeysApi } from '../api/apiKeysApi';
 import { authStorage } from '../auth/authStorage';
+import ErrorAlert from '../components/ErrorAlert';
+import FieldError from '../components/FieldError';
+import { getErrorMessage, getTraceId, getValidationErrors } from '../utils/errorUtils';
 import type { ApiKeyResponse } from '../types/apiKey';
 
 const formatDate = (value: string | null): string => {
@@ -24,17 +26,6 @@ const formatDate = (value: string | null): string => {
   }).format(date);
 };
 
-const getApiErrorMessage = (error: unknown, fallback: string): string => {
-  if (axios.isAxiosError(error)) {
-    const message = error.response?.data?.message;
-    if (typeof message === 'string' && message.trim()) {
-      return message;
-    }
-  }
-
-  return fallback;
-};
-
 const ApiKeysPage = (): JSX.Element => {
   const [apiKeys, setApiKeys] = useState<ApiKeyResponse[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -43,18 +34,23 @@ const ApiKeysPage = (): JSX.Element => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [successMessage, setSuccessMessage] = useState('');
   const [plainApiKey, setPlainApiKey] = useState<string | null>(null);
 
   const loadApiKeys = useCallback(async (currentTenantId: string): Promise<void> => {
     setIsLoading(true);
     setErrorMessage('');
+    setErrorTraceId(null);
+    setValidationErrors({});
 
     try {
       const items = await apiKeysApi.getApiKeys(currentTenantId);
       setApiKeys(items);
-    } catch {
-      setErrorMessage('Unable to load API keys.');
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +88,8 @@ const ApiKeysPage = (): JSX.Element => {
 
     setIsSubmitting(true);
     setErrorMessage('');
+    setErrorTraceId(null);
+    setValidationErrors({});
     setSuccessMessage('');
 
     try {
@@ -104,7 +102,9 @@ const ApiKeysPage = (): JSX.Element => {
       setSuccessMessage('API key created successfully.');
       await loadApiKeys(tenantId);
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Unable to create API key.'));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
+      setValidationErrors(getValidationErrors(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -134,14 +134,17 @@ const ApiKeysPage = (): JSX.Element => {
 
     setActiveRowId(key.id);
     setErrorMessage('');
+    setErrorTraceId(null);
+    setValidationErrors({});
     setSuccessMessage('');
 
     try {
       await apiKeysApi.revokeApiKey(tenantId, key.id);
       setSuccessMessage('API key revoked successfully.');
       await loadApiKeys(tenantId);
-    } catch {
-      setErrorMessage('Unable to revoke API key.');
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
     } finally {
       setActiveRowId(null);
     }
@@ -173,11 +176,16 @@ const ApiKeysPage = (): JSX.Element => {
             <input
               id="api-key-name"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                setName(event.target.value);
+                setValidationErrors((previous) => ({ ...previous, name: [], Name: [] }));
+              }}
               placeholder="e.g. Production Ingestion Key"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring"
             />
           </div>
+
+          <FieldError errors={validationErrors.name ?? validationErrors.Name} />
 
           <button
             type="submit"
@@ -189,7 +197,7 @@ const ApiKeysPage = (): JSX.Element => {
         </form>
 
         {successMessage ? <p className="mt-4 text-sm text-emerald-700">{successMessage}</p> : null}
-        {errorMessage ? <p className="mt-4 text-sm text-red-600">{errorMessage}</p> : null}
+        {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">

@@ -1,7 +1,10 @@
 import { FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { authStorage } from '../auth/authStorage';
 import { authApi } from '../api/authApi';
+import { authStorage } from '../auth/authStorage';
+import ErrorAlert from '../components/ErrorAlert';
+import FieldError from '../components/FieldError';
+import { getErrorMessage, getTraceId, getValidationErrors } from '../utils/errorUtils';
 
 type LoginLocationState = {
   from?: {
@@ -15,6 +18,8 @@ const LoginPage = (): JSX.Element => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   if (authStorage.isAuthenticated()) {
@@ -33,6 +38,8 @@ const LoginPage = (): JSX.Element => {
 
     setIsLoading(true);
     setErrorMessage('');
+    setErrorTraceId(null);
+    setValidationErrors({});
 
     try {
       const response = await authApi.login({
@@ -47,7 +54,9 @@ const LoginPage = (): JSX.Element => {
       authStorage.setToken(response.token);
       navigate(from, { replace: true });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Authentication failed. Please try again.');
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
+      setValidationErrors(getValidationErrors(error));
     } finally {
       setIsLoading(false);
     }
@@ -68,10 +77,14 @@ const LoginPage = (): JSX.Element => {
               id="email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setValidationErrors((previous) => ({ ...previous, email: [], Email: [] }));
+              }}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring"
               autoComplete="email"
             />
+            <FieldError errors={validationErrors.email ?? validationErrors.Email} />
           </div>
 
           <div>
@@ -82,13 +95,17 @@ const LoginPage = (): JSX.Element => {
               id="password"
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setValidationErrors((previous) => ({ ...previous, password: [], Password: [] }));
+              }}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring"
               autoComplete="current-password"
             />
+            <FieldError errors={validationErrors.password ?? validationErrors.Password} />
           </div>
 
-          {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+          {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
 
           <button
             type="submit"

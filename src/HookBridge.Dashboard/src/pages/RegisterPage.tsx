@@ -1,8 +1,11 @@
 import { FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { authStorage } from '../auth/authStorage';
 import { authApi } from '../api/authApi';
+import { authStorage } from '../auth/authStorage';
+import ErrorAlert from '../components/ErrorAlert';
+import FieldError from '../components/FieldError';
 import type { AdminRole } from '../types/auth';
+import { getErrorMessage, getTraceId, getValidationErrors } from '../utils/errorUtils';
 
 const roleOptions: AdminRole[] = ['Owner', 'Admin', 'Developer', 'Viewer'];
 
@@ -14,6 +17,8 @@ const RegisterPage = (): JSX.Element => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<AdminRole>('Owner');
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   if (authStorage.isAuthenticated()) {
@@ -30,6 +35,8 @@ const RegisterPage = (): JSX.Element => {
 
     setIsLoading(true);
     setErrorMessage('');
+    setErrorTraceId(null);
+    setValidationErrors({});
 
     try {
       const response = await authApi.register({
@@ -47,7 +54,9 @@ const RegisterPage = (): JSX.Element => {
       authStorage.setToken(response.token);
       navigate('/overview', { replace: true });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Authentication failed. Please try again.');
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
+      setValidationErrors(getValidationErrors(error));
     } finally {
       setIsLoading(false);
     }
@@ -68,9 +77,13 @@ const RegisterPage = (): JSX.Element => {
               id="tenantId"
               type="text"
               value={tenantId}
-              onChange={(event) => setTenantId(event.target.value)}
+              onChange={(event) => {
+                setTenantId(event.target.value);
+                setValidationErrors((previous) => ({ ...previous, tenantId: [], TenantId: [] }));
+              }}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring"
             />
+            <FieldError errors={validationErrors.tenantId ?? validationErrors.TenantId} />
           </div>
 
           <div>
@@ -81,10 +94,14 @@ const RegisterPage = (): JSX.Element => {
               id="fullName"
               type="text"
               value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
+              onChange={(event) => {
+                setFullName(event.target.value);
+                setValidationErrors((previous) => ({ ...previous, fullName: [], FullName: [] }));
+              }}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring"
               autoComplete="name"
             />
+            <FieldError errors={validationErrors.fullName ?? validationErrors.FullName} />
           </div>
 
           <div>
@@ -95,10 +112,14 @@ const RegisterPage = (): JSX.Element => {
               id="email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setValidationErrors((previous) => ({ ...previous, email: [], Email: [] }));
+              }}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring"
               autoComplete="email"
             />
+            <FieldError errors={validationErrors.email ?? validationErrors.Email} />
           </div>
 
           <div>
@@ -109,10 +130,14 @@ const RegisterPage = (): JSX.Element => {
               id="password"
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setValidationErrors((previous) => ({ ...previous, password: [], Password: [] }));
+              }}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring"
               autoComplete="new-password"
             />
+            <FieldError errors={validationErrors.password ?? validationErrors.Password} />
           </div>
 
           <div>
@@ -133,7 +158,7 @@ const RegisterPage = (): JSX.Element => {
             </select>
           </div>
 
-          {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+          {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
 
           <button
             type="submit"

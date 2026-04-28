@@ -1,7 +1,8 @@
-import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { failedEventsApi } from '../api/failedEventsApi';
 import { Pagination } from '../components/Pagination';
+import ErrorAlert from '../components/ErrorAlert';
+import { getErrorMessage, getTraceId } from '../utils/errorUtils';
 import { SortableHeader } from '../components/SortableHeader';
 import type { FailedEventResponse, FailedEventSearchRequest, FailedEventStatus } from '../types/failedEvent';
 import type { PagedResponse } from '../types/pagination';
@@ -49,18 +50,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
   second: '2-digit'
 });
-
-const getApiErrorMessage = (error: unknown, fallback: string): string => {
-  if (axios.isAxiosError(error)) {
-    const apiMessage = error.response?.data?.message;
-
-    if (typeof apiMessage === 'string' && apiMessage.length > 0) {
-      return apiMessage;
-    }
-  }
-
-  return fallback;
-};
 
 const formatDateTime = (value: string): string => {
   const date = new Date(value);
@@ -117,7 +106,9 @@ const FailedEventsPage = (): JSX.Element => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
   const [detailErrorMessage, setDetailErrorMessage] = useState('');
+  const [detailErrorTraceId, setDetailErrorTraceId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<FailedEventResponse | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
@@ -160,15 +151,17 @@ const FailedEventsPage = (): JSX.Element => {
   const loadFailedEvents = useCallback(async (activeFilters: FailedEventSearchRequest): Promise<void> => {
     setIsLoading(true);
     setErrorMessage('');
+    setErrorTraceId(null);
 
     try {
       const response = await failedEventsApi.searchFailedEvents(activeFilters);
       setFailedEvents(response.items);
       setPageData(response);
-    } catch {
+    } catch (error) {
       setFailedEvents([]);
       setPageData(defaultPagedResponse);
-      setErrorMessage('Unable to load failed events.');
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
     } finally {
       setIsLoading(false);
     }
@@ -215,12 +208,14 @@ const FailedEventsPage = (): JSX.Element => {
   const handleViewDetails = async (id: string): Promise<void> => {
     setIsDetailLoading(true);
     setDetailErrorMessage('');
+    setDetailErrorTraceId(null);
 
     try {
       const detail = await failedEventsApi.getFailedEventById(id);
       setSelectedEvent(detail);
     } catch (error) {
-      setDetailErrorMessage(getApiErrorMessage(error, 'Unable to load failed events.'));
+      setDetailErrorMessage(getErrorMessage(error));
+      setDetailErrorTraceId(getTraceId(error));
     } finally {
       setIsDetailLoading(false);
     }
@@ -229,6 +224,7 @@ const FailedEventsPage = (): JSX.Element => {
   const closeDetails = (): void => {
     setSelectedEvent(null);
     setDetailErrorMessage('');
+    setDetailErrorTraceId(null);
   };
 
   const handleRetry = async (failedEvent: FailedEventResponse): Promise<void> => {
@@ -326,7 +322,7 @@ const FailedEventsPage = (): JSX.Element => {
         </div>
       </div>
 
-      {errorMessage && <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div>}
+      {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} /> : null}
       {actionMessage && (
         <div
           className={`rounded-md border px-4 py-3 text-sm ${
@@ -500,7 +496,7 @@ const FailedEventsPage = (): JSX.Element => {
 
             <div className="space-y-4 p-5 text-sm text-slate-700">
               {isDetailLoading && <p>Loading details...</p>}
-              {detailErrorMessage && <p className="rounded-md bg-rose-50 px-3 py-2 text-rose-700">{detailErrorMessage}</p>}
+              {detailErrorMessage ? <ErrorAlert message={detailErrorMessage} traceId={detailErrorTraceId} /> : null}
 
               {!isDetailLoading && selectedEvent && (
                 <dl className="grid gap-3 sm:grid-cols-2">

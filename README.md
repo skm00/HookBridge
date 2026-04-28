@@ -1092,3 +1092,12 @@ HookBridge API responses now follow a consistent envelope for successful and err
 - `401`: `Unauthorized.`
 - `403`: `Forbidden.`
 - `429`: `Rate limit exceeded. Please try again later.`
+
+## Frontend Error Handling
+
+The React dashboard standardizes API error handling using the backend `ApiErrorResponse` contract (`success`, `message`, `statusCode`, `traceId`, `errors`).
+
+- Shared utility helpers parse backend errors and network failures into consistent user-facing messages.
+- `traceId` values from API errors are preserved and shown in shared error alerts for support/debugging.
+- Validation errors are surfaced at both form level and field level, with support for camelCase/PascalCase backend field names.
+- `401` responses clear auth and redirect to `/login`, while `403` and `429` show friendly inline messages without logging users out.

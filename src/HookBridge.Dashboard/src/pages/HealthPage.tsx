@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { healthApi } from '../api/healthApi';
+import ErrorAlert from '../components/ErrorAlert';
 import type { HealthResponse } from '../types/health';
 
 type HealthCardState = {
@@ -66,9 +67,11 @@ const formatLastChecked = (checkedAt: Date | null): string => {
 const HealthPage = (): JSX.Element => {
   const [healthCards, setHealthCards] = useState<HealthCardState[]>(defaultHealthCards);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const runHealthChecks = useCallback(async (): Promise<void> => {
     setIsLoading(true);
+    setErrorMessage('');
 
     const checks = await Promise.allSettled([
       healthApi.getMongoHealth(),
@@ -135,6 +138,12 @@ const HealthPage = (): JSX.Element => {
     ];
 
     setHealthCards(nextCards);
+
+    const failedChecks = checks.filter((item) => item.status === 'rejected').length;
+    if (failedChecks > 0) {
+      setErrorMessage('Some health checks failed. Please try again.');
+    }
+
     setIsLoading(false);
   }, []);
 
@@ -158,6 +167,8 @@ const HealthPage = (): JSX.Element => {
           {isLoading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
+
+      {errorMessage ? <ErrorAlert message={errorMessage} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {healthCards.map((card) => (
