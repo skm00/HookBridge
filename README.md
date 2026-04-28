@@ -925,3 +925,20 @@ Notes:
 - All notification APIs are tenant-scoped to the current JWT tenant.
 - Cross-tenant access is blocked.
 - Email delivery is not implemented yet; this is in-app notification persistence and retrieval only.
+
+## Notifications Dashboard Page
+
+The dashboard now includes a dedicated `/notifications` route with in-app notification management:
+
+- Notification table with tenant-scoped data: created time, severity, type, title, message, resource type/id, and read state.
+- Filter support for `type`, `severity`, `isRead`, `fromDate`, and `toDate`.
+- Server-driven pagination plus sortable headers for `createdAt`, `type`, `severity`, and `isRead`.
+- Detail modal (`View Details`) for full notification context including `TenantId`, `ReadAt`, and timestamps.
+- `Mark as Read` action for unread entries with success/error feedback and automatic list refresh.
+- Header notification indicator that shows `Notifications (N)` when unread items exist and navigates to `/notifications`.
+- Sidebar navigation now includes a direct Notifications link.
+
+Error-handling behavior:
+- Notification search failures show: `Unable to load notifications.`
+- Mark-as-read failures show: `Unable to mark notification as read.`
+- Header unread-count failures fail silently and show no unread badge count.
