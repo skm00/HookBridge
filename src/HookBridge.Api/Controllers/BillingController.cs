@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using HookBridge.Application.DTOs.Billing;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Features;
 using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces.Services;
@@ -15,6 +16,7 @@ namespace HookBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Authorize]
+[RequireFeature("EnableBilling")]
 public sealed class BillingController(
     IBillingService billingService,
     TenantAccessValidator tenantAccessValidator) : ApiControllerBase

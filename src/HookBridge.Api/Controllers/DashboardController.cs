@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using HookBridge.Api.Authorization;
+using HookBridge.Api.Features;
 using HookBridge.Api.RateLimiting;
 using HookBridge.Application.DTOs.Dashboard;
 using HookBridge.Application.Exceptions;
@@ -17,6 +18,7 @@ namespace HookBridge.Api.Controllers;
 [Authorize]
 [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
 [Route("api/v{version:apiVersion}/admin/dashboard")]
+[RequireFeature("EnableAdvancedDashboard")]
 public sealed class DashboardController(
     IDashboardService dashboardService,
     ICurrentUserContext currentUserContext) : ApiControllerBase

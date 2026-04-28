@@ -1,6 +1,7 @@
 using HookBridge.Application.DTOs.Notifications;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
+using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Services;
 using HookBridge.Domain.Constants;
 using HookBridge.Domain.Entities;
@@ -64,6 +65,25 @@ public sealed class NotificationServiceTests
         });
 
         Assert.Single(fixture.EmailSender.Sent);
+    }
+
+
+    [Fact]
+    public async Task EmailNotificationFeatureDisabled_DoesNotSendEmail()
+    {
+        var fixture = new Fixture();
+        fixture.FeatureFlagService.EnableEmailNotifications = false;
+
+        await fixture.Service.CreateAsync(new Notification
+        {
+            TenantId = "tenant-1",
+            Type = "Failure",
+            Severity = NotificationSeverities.Error,
+            Title = "error",
+            Message = "error",
+        });
+
+        Assert.Empty(fixture.EmailSender.Sent);
     }
 
     [Fact]
@@ -224,6 +244,7 @@ public sealed class NotificationServiceTests
         public InMemoryNotificationRepository Repository { get; } = new();
         public InMemoryTenantRepository TenantRepository { get; } = new();
         public RecordingEmailSender EmailSender { get; } = new();
+        public ToggleFeatureFlagService FeatureFlagService { get; } = new();
 
         public NotificationService Service => new(
             Repository,
@@ -231,6 +252,7 @@ public sealed class NotificationServiceTests
             new FixedDateTimeProvider(),
             TenantRepository,
             EmailSender,
+            FeatureFlagService,
             NullLogger<NotificationService>.Instance);
 
         public Fixture()
@@ -370,6 +392,16 @@ public sealed class NotificationServiceTests
 
         public Task DeleteAsync(string id, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+    }
+
+    private sealed class ToggleFeatureFlagService : IFeatureFlagService
+    {
+        public bool EnableEmailNotifications { get; set; } = true;
+
+        public bool IsEnabled(string flagName)
+            => !string.Equals(flagName, "EnableEmailNotifications", StringComparison.OrdinalIgnoreCase) || EnableEmailNotifications;
+
+        public bool IsEnabled(string flagName, string tenantId) => IsEnabled(flagName);
     }
 
     private sealed class RecordingEmailSender : IEmailSender

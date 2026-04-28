@@ -16,6 +16,7 @@ public sealed class NotificationService(
     IDateTimeProvider dateTimeProvider,
     IMongoRepository<Tenant> tenantRepository,
     IEmailSender emailSender,
+    IFeatureFlagService featureFlagService,
     ILogger<NotificationService> logger) : INotificationService
 {
     public async Task CreateAsync(Notification notification, CancellationToken cancellationToken = default)
@@ -72,6 +73,11 @@ public sealed class NotificationService(
 
     private async Task TrySendEmailAsync(Notification notification, CancellationToken cancellationToken)
     {
+        if (!featureFlagService.IsEnabled("EnableEmailNotifications", notification.TenantId))
+        {
+            return;
+        }
+
         if (notification.Severity is not (NotificationSeverities.Critical or NotificationSeverities.Error))
         {
             return;
