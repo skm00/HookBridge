@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
@@ -6,6 +5,7 @@ using HookBridge.Api.Authorization;
 using HookBridge.Api.Extensions;
 using HookBridge.Api.Health;
 using HookBridge.Api.Middleware;
+using HookBridge.Api.Swagger;
 using HookBridge.Api.Security;
 using HookBridge.Application.DependencyInjection;
 using HookBridge.Application.Interfaces;
@@ -42,6 +42,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddTransient<IConfigureOptions<Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions>, ConfigureSwaggerOptions>();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.OperationFilter<SwaggerSecurityOperationFilter>();
+    options.OperationFilter<SwaggerTagOperationFilter>();
+    options.OperationFilter<SwaggerExamplesOperationFilter>();
+    options.OperationFilter<SwaggerCommonResponsesOperationFilter>();
+    options.SchemaFilter<SwaggerSensitiveSchemaFilter>();
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -52,25 +58,16 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Enter JWT Bearer token.",
     });
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
     {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer",
-                },
-            },
-            Array.Empty<string>()
-        },
+        Name = "x-api-key",
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Description = "API key used for event ingestion.",
     });
 
-    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-
-    if (File.Exists(xmlPath))
+    var xmlPaths = Directory.GetFiles(AppContext.BaseDirectory, "HookBridge.*.xml", SearchOption.TopDirectoryOnly);
+    foreach (var xmlPath in xmlPaths)
     {
         options.IncludeXmlComments(xmlPath);
     }
@@ -164,7 +161,8 @@ internal sealed class ConfigureSwaggerOptions(IApiVersionDescriptionProvider pro
         {
             options.SwaggerDoc(description.GroupName, new OpenApiInfo
             {
-                Title = $"HookBridge API {description.GroupName}",
+                Title = "HookBridge API",
+                Description = "Multi-tenant webhook delivery platform with retry, DLQ, authentication, logs, and monitoring.",
                 Version = description.GroupName,
             });
         }

@@ -2,11 +2,14 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text.Json;
+using System.Linq;
 using System.Text.Encodings.Web;
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
 using HookBridge.Api.Controllers;
 using HookBridge.Api.Security;
+using HookBridge.Api.Swagger;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.DTOs.Subscriptions;
 using HookBridge.Application.Interfaces;
@@ -71,6 +74,81 @@ public sealed class ApiVersioningTests
     }
 
     [Fact]
+    public async Task SwaggerV1Document_ContainsBearerAndApiKeySecuritySchemes()
+    {
+        using var host = await BuildVersionedHostAsync();
+        var client = host.GetTestClient();
+        using var swagger = await GetSwaggerDocumentAsync(client);
+
+        var securitySchemes = swagger.RootElement
+            .GetProperty("components")
+            .GetProperty("securitySchemes");
+
+        Assert.True(securitySchemes.TryGetProperty("Bearer", out _));
+        Assert.True(securitySchemes.TryGetProperty("ApiKey", out _));
+    }
+
+    [Fact]
+    public async Task AdminEndpoint_DocumentsBearerSecurity()
+    {
+        using var host = await BuildVersionedHostAsync();
+        var client = host.GetTestClient();
+        using var swagger = await GetSwaggerDocumentAsync(client);
+
+        var createSubscription = swagger.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/v{version}/admin/subscriptions")
+            .GetProperty("post");
+
+        var securityItem = createSubscription.GetProperty("security")[0];
+        Assert.True(securityItem.TryGetProperty("Bearer", out _));
+    }
+
+    [Fact]
+    public async Task EventIngestionEndpoint_DocumentsApiKeySecurity()
+    {
+        using var host = await BuildVersionedHostAsync();
+        var client = host.GetTestClient();
+        using var swagger = await GetSwaggerDocumentAsync(client);
+
+        var ingestion = swagger.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/v{version}/events/{tenantId}")
+            .GetProperty("post");
+
+        var securityItem = ingestion.GetProperty("security")[0];
+        Assert.True(securityItem.TryGetProperty("ApiKey", out _));
+    }
+
+    [Fact]
+    public async Task SensitiveFields_AreNotExposedInSwaggerSchemas()
+    {
+        using var host = await BuildVersionedHostAsync();
+        var client = host.GetTestClient();
+        using var swagger = await GetSwaggerDocumentAsync(client);
+
+        var schemas = swagger.RootElement.GetProperty("components").GetProperty("schemas").EnumerateObject();
+        foreach (var schema in schemas)
+        {
+            if (!schema.Value.TryGetProperty("properties", out var properties))
+            {
+                continue;
+            }
+
+            var propertyNames = properties.EnumerateObject().Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            Assert.DoesNotContain("keyHash", propertyNames);
+            Assert.DoesNotContain("passwordHash", propertyNames);
+            Assert.DoesNotContain("clientSecret", propertyNames);
+            Assert.DoesNotContain("hmacSecret", propertyNames);
+            Assert.DoesNotContain("secretKey", propertyNames);
+            Assert.DoesNotContain("webhookSecret", propertyNames);
+            Assert.DoesNotContain("jwtSecret", propertyNames);
+            Assert.DoesNotContain("masterKey", propertyNames);
+            Assert.DoesNotContain("encryptionMasterKey", propertyNames);
+        }
+    }
+
+    [Fact]
     public async Task ApiReportsSupportedVersions()
     {
         using var host = await BuildVersionedHostAsync();
@@ -126,7 +204,10 @@ public sealed class ApiVersioningTests
                 services.AddTransient<IConfigureOptions<Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions>, TestConfigureSwaggerOptions>();
                 services.AddSwaggerGen(options =>
                 {
+                    options.OperationFilter<SwaggerSecurityOperationFilter>();
+                    options.SchemaFilter<SwaggerSensitiveSchemaFilter>();
                     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme { Type = SecuritySchemeType.Http, Scheme = "bearer" });
+                    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme { Type = SecuritySchemeType.ApiKey, Name = "x-api-key", In = ParameterLocation.Header });
                 });
 
                 services.AddAuthentication("Test")
@@ -150,6 +231,14 @@ public sealed class ApiVersioningTests
         var server = new TestServer(builder);
         await Task.CompletedTask;
         return server;
+    }
+
+    private static async Task<JsonDocument> GetSwaggerDocumentAsync(HttpClient client)
+    {
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonDocument.Parse(json);
     }
 
     private sealed class TestConfigureSwaggerOptions(IApiVersionDescriptionProvider provider)
