@@ -107,6 +107,33 @@ public sealed class TenantServiceTests
         result.ShouldHaveValidationErrorFor(x => x.Slug);
     }
 
+    [Fact]
+    public void InvalidNotificationEmailValidation_Fails()
+    {
+        var validator = new CreateTenantRequestDtoValidator();
+        var result = validator.TestValidate(new CreateTenantRequestDto
+        {
+            Name = "Acme",
+            Slug = "acme",
+            NotificationEmails = ["invalid-email"],
+        });
+
+        result.ShouldHaveValidationErrorFor("NotificationEmails[0]");
+    }
+
+    [Fact]
+    public void NotificationEmailsMoreThan10Validation_Fails()
+    {
+        var validator = new UpdateTenantRequestDtoValidator();
+        var emails = Enumerable.Range(1, 11).Select(index => $"n{index}@acme.com").ToList();
+        var result = validator.TestValidate(new UpdateTenantRequestDto
+        {
+            NotificationEmails = emails,
+        });
+
+        result.ShouldHaveValidationErrorFor(x => x.NotificationEmails);
+    }
+
     private static TenantService CreateService(InMemoryTenantRepository repo)
     {
         return new TenantService(

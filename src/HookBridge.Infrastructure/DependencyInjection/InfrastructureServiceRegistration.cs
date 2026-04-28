@@ -119,6 +119,17 @@ public static class InfrastructureServiceRegistration
                 isProduction ? MinLength(settings.MasterKey, "MasterKey", 32) : null,
             ]);
 
+        services.AddValidatedOptions<EmailSettings>(
+            configuration,
+            "Email",
+            settings =>
+            [
+                settings.Enabled ? Required(settings.Provider, "Provider") : null,
+                settings.Enabled ? Required(settings.SmtpHost, "SmtpHost") : null,
+                settings.Enabled ? Positive(settings.SmtpPort, "SmtpPort") : null,
+                settings.Enabled ? Required(settings.FromEmail, "FromEmail") : null,
+            ]);
+
         services.PostConfigure<SecuritySettings>(settings =>
         {
             if (string.IsNullOrWhiteSpace(configuration["Security:AllowPrivateNetworkTargetUrls"]))
@@ -158,6 +169,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IStripeGateway, StripeGateway>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
         services.AddScoped<IFailedEventRepository, FailedEventRepository>();

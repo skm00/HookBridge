@@ -36,6 +36,7 @@ public sealed class TenantService(
             Name = request.Name,
             Slug = request.Slug,
             ContactEmail = request.ContactEmail,
+            NotificationEmails = request.NotificationEmails.ToList(),
             Status = TenantStatus.Active,
             CreatedAt = now,
             UpdatedAt = null,
@@ -88,6 +89,7 @@ public sealed class TenantService(
         }
 
         tenant.ContactEmail = request.ContactEmail;
+        tenant.NotificationEmails = request.NotificationEmails.ToList();
         tenant.UpdatedAt = dateTimeProvider.UtcNow;
 
         await tenantRepository.UpdateAsync(tenant, cancellationToken);
@@ -103,6 +105,7 @@ public sealed class TenantService(
                 {
                     ["name"] = tenant.Name,
                     ["contactEmail"] = tenant.ContactEmail,
+                    ["notificationEmails"] = tenant.NotificationEmails,
                 },
             },
             cancellationToken);
@@ -141,6 +144,7 @@ public sealed class TenantService(
         Slug = tenant.Slug,
         Status = tenant.Status,
         ContactEmail = tenant.ContactEmail,
+        NotificationEmails = tenant.NotificationEmails.ToList(),
         CreatedAt = tenant.CreatedAt,
         UpdatedAt = tenant.UpdatedAt,
     };

@@ -10,4 +10,6 @@ public sealed class CreateTenantRequestDto
     public string Slug { get; set; } = string.Empty;
 
     public string? ContactEmail { get; set; }
+
+    public List<string> NotificationEmails { get; set; } = [];
 }

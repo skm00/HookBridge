@@ -62,4 +62,9 @@ public sealed class Tenant : BaseEntity
     /// Gets or sets the optional tenant contact email.
     /// </summary>
     public string? ContactEmail { get; set; }
+
+    /// <summary>
+    /// Gets or sets the notification destination emails for important alerts.
+    /// </summary>
+    public List<string> NotificationEmails { get; set; } = [];
 }
