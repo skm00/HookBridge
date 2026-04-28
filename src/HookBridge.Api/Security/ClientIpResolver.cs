@@ -10,7 +10,7 @@ public sealed class ClientIpResolver : IClientIpResolver
         {
             var firstValid = forwardedFor
                 .SelectMany(value => value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-                .FirstOrDefault(IPAddress.TryParse);
+                .FirstOrDefault(value => IPAddress.TryParse(value, out _));
 
             if (!string.IsNullOrWhiteSpace(firstValid))
             {
