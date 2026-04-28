@@ -1,6 +1,7 @@
-import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dashboardApi } from '../api/dashboardApi';
+import ErrorAlert from '../components/ErrorAlert';
+import { getErrorMessage, getTraceId } from '../utils/errorUtils';
 import type { DashboardOverviewResponse } from '../types/dashboard';
 
 type MetricCardProps = {
@@ -39,28 +40,23 @@ const isUnlimitedPlan = (plan: string, monthlyEventLimit: number): boolean => {
   return plan.toLowerCase() === 'enterprise' || monthlyEventLimit >= Number.MAX_SAFE_INTEGER;
 };
 
-const extractErrorMessage = (error: unknown): string => {
-  if (axios.isAxiosError(error) && error.response?.status !== 401) {
-    return 'Unable to load dashboard overview.';
-  }
-
-  return 'Unable to load dashboard overview.';
-};
-
 const OverviewPage = (): JSX.Element => {
   const [overview, setOverview] = useState<DashboardOverviewResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
 
   const loadOverview = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     setErrorMessage('');
+    setErrorTraceId(null);
 
     try {
       const response = await dashboardApi.getOverview();
       setOverview(response);
     } catch (error) {
-      setErrorMessage(extractErrorMessage(error));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +105,7 @@ const OverviewPage = (): JSX.Element => {
             Refresh
           </button>
         </div>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-sm">{errorMessage}</div>
+        <ErrorAlert message={errorMessage} traceId={errorTraceId} />
       </section>
     );
   }

@@ -18,16 +18,64 @@ type ApiErrorResponse = {
   errors?: Record<string, string[]>;
 };
 
+type NormalizedError = {
+  message: string;
+  statusCode: number;
+  traceId?: string | null;
+  errors?: Record<string, string[]>;
+};
+
+type ErrorWithNormalizedData = Error & {
+  normalizedError?: NormalizedError;
+};
+
 const isApiResponse = <T>(payload: unknown): payload is ApiResponse<T> => {
   return typeof payload === 'object' && payload !== null && 'success' in payload;
 };
 
-const formatApiError = (payload: ApiErrorResponse): string => {
-  const validationErrors = payload.errors
-    ? Object.values(payload.errors).flat().join(' ')
-    : '';
+const isApiErrorResponse = (payload: unknown): payload is ApiErrorResponse => {
+  if (!isApiResponse(payload) || payload.success !== false) {
+    return false;
+  }
 
-  return [payload.message, validationErrors].filter(Boolean).join(' ').trim();
+  const statusCode = (payload as ApiErrorResponse).statusCode;
+  const message = (payload as ApiErrorResponse).message;
+
+  return typeof statusCode === 'number' && typeof message === 'string';
+};
+
+const getMessageForStatus = (statusCode: number, fallback: string): string => {
+  if (statusCode === 403) {
+    return 'You do not have permission to perform this action.';
+  }
+
+  if (statusCode === 429) {
+    return 'Rate limit exceeded. Please try again later.';
+  }
+
+  return fallback;
+};
+
+const buildNormalizedError = (payload: ApiErrorResponse): NormalizedError => ({
+  message: getMessageForStatus(payload.statusCode, payload.message),
+  statusCode: payload.statusCode,
+  traceId: payload.traceId ?? null,
+  errors: payload.errors
+});
+
+export const createApiClientError = (normalizedError: NormalizedError): ErrorWithNormalizedData => {
+  const error = new Error(normalizedError.message) as ErrorWithNormalizedData;
+  error.normalizedError = normalizedError;
+  return error;
+};
+
+export const handleAuthErrorStatus = (statusCode: number): void => {
+  if (statusCode !== 401) {
+    return;
+  }
+
+  authStorage.clearToken();
+  window.location.href = '/login';
 };
 
 export const apiClient = axios.create({
@@ -57,20 +105,33 @@ apiClient.interceptors.response.use(
         };
       }
 
+      if (isApiErrorResponse(response.data)) {
+        const normalizedError = buildNormalizedError(response.data);
+        if (normalizedError.statusCode === 401) {
+          handleAuthErrorStatus(normalizedError.statusCode);
+        }
+
+        return Promise.reject(createApiClientError(normalizedError));
+      }
+
       return Promise.reject(new Error(response.data.message ?? 'Request failed.'));
     }
 
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      authStorage.clearToken();
-      window.location.href = '/login';
+    if (isApiErrorResponse(error.response?.data)) {
+      const normalizedError = buildNormalizedError(error.response.data);
+
+      if (normalizedError.statusCode === 401) {
+        handleAuthErrorStatus(normalizedError.statusCode);
+      }
+
+      return Promise.reject(createApiClientError(normalizedError));
     }
 
-    if (isApiResponse(error.response?.data)) {
-      const payload = error.response.data as ApiErrorResponse;
-      return Promise.reject(new Error(formatApiError(payload)));
+    if (error.response?.status) {
+      handleAuthErrorStatus(error.response.status);
     }
 
     return Promise.reject(error);

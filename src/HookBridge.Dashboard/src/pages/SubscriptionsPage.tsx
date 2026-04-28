@@ -1,7 +1,9 @@
-import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { subscriptionsApi } from '../api/subscriptionsApi';
+import ErrorAlert from '../components/ErrorAlert';
+import { getErrorMessage, getTraceId, getValidationErrors } from '../utils/errorUtils';
 import { Pagination } from '../components/Pagination';
+import FieldError from '../components/FieldError';
 import { SortableHeader } from '../components/SortableHeader';
 import type { PagedResponse } from '../types/pagination';
 import type {
@@ -218,17 +220,6 @@ const authenticationSummary = (authentication?: Authentication): string => {
   return `OAuth2 (${authentication.oauth2?.clientId ?? '-'}, secret: ${maskSecret(authentication.oauth2?.clientSecret ?? '')})`;
 };
 
-const getApiErrorMessage = (error: unknown, fallback: string): string => {
-  if (axios.isAxiosError(error)) {
-    const apiMessage = error.response?.data?.message;
-    if (typeof apiMessage === 'string' && apiMessage.length > 0) {
-      return apiMessage;
-    }
-  }
-
-  return fallback;
-};
-
 const SubscriptionsPage = (): JSX.Element => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [pageData, setPageData] = useState<PagedResponse<Subscription>>(defaultPagedResponse);
@@ -242,8 +233,10 @@ const SubscriptionsPage = (): JSX.Element => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [formMode, setFormMode] = useState<FormMode>('create');
   const [editingSubscriptionId, setEditingSubscriptionId] = useState<string | null>(null);
   const [form, setForm] = useState<SubscriptionFormState>(defaultFormState);
@@ -289,6 +282,7 @@ const SubscriptionsPage = (): JSX.Element => {
   const loadSubscriptions = useCallback(async (activeFilters?: SubscriptionListFilters): Promise<void> => {
     setIsLoading(true);
     setErrorMessage('');
+    setErrorTraceId(null);
 
     try {
       const response = await subscriptionsApi.getSubscriptions(activeFilters);
@@ -296,7 +290,8 @@ const SubscriptionsPage = (): JSX.Element => {
       setPageData(response);
     } catch (error) {
       setPageData(defaultPagedResponse);
-      setErrorMessage(getApiErrorMessage(error, 'Unable to load subscriptions.'));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
     } finally {
       setIsLoading(false);
     }
@@ -316,6 +311,7 @@ const SubscriptionsPage = (): JSX.Element => {
   const resetForm = (): void => {
     setForm(defaultFormState);
     setValidationMessage('');
+    setValidationErrors({});
     setEditingSubscriptionId(null);
     setFormMode('create');
   };
@@ -375,6 +371,7 @@ const SubscriptionsPage = (): JSX.Element => {
   const handleCreateOrUpdate = async (): Promise<void> => {
     setSuccessMessage('');
     setValidationMessage('');
+    setValidationErrors({});
 
     const validationError = validateForm();
     if (validationError) {
@@ -384,6 +381,8 @@ const SubscriptionsPage = (): JSX.Element => {
 
     setIsSubmitting(true);
     setErrorMessage('');
+    setValidationErrors({});
+    setErrorTraceId(null);
 
     const retryPolicy = {
       maxAttempts: Number(form.maxAttempts),
@@ -417,7 +416,9 @@ const SubscriptionsPage = (): JSX.Element => {
       resetForm();
       await loadSubscriptions(requestFilters);
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Unable to save subscription.'));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
+      setValidationErrors(getValidationErrors(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -426,6 +427,7 @@ const SubscriptionsPage = (): JSX.Element => {
   const handleEdit = async (id: string): Promise<void> => {
     setActiveRowId(id);
     setErrorMessage('');
+    setErrorTraceId(null);
     setSuccessMessage('');
 
     try {
@@ -434,8 +436,11 @@ const SubscriptionsPage = (): JSX.Element => {
       setFormMode('edit');
       setEditingSubscriptionId(id);
       setValidationMessage('');
+    setValidationErrors({});
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Unable to load subscription details.'));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
+      setValidationErrors(getValidationErrors(error));
     } finally {
       setActiveRowId(null);
     }
@@ -449,6 +454,7 @@ const SubscriptionsPage = (): JSX.Element => {
 
     setActiveRowId(id);
     setErrorMessage('');
+    setErrorTraceId(null);
     setSuccessMessage('');
 
     try {
@@ -459,7 +465,9 @@ const SubscriptionsPage = (): JSX.Element => {
       }
       await loadSubscriptions(requestFilters);
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Unable to delete subscription.'));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
+      setValidationErrors(getValidationErrors(error));
     } finally {
       setActiveRowId(null);
     }
@@ -468,6 +476,7 @@ const SubscriptionsPage = (): JSX.Element => {
   const handleToggleStatus = async (subscription: Subscription): Promise<void> => {
     setActiveRowId(subscription.id);
     setErrorMessage('');
+    setErrorTraceId(null);
     setSuccessMessage('');
 
     try {
@@ -481,7 +490,9 @@ const SubscriptionsPage = (): JSX.Element => {
 
       await loadSubscriptions(requestFilters);
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Unable to update subscription status.'));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
+      setValidationErrors(getValidationErrors(error));
     } finally {
       setActiveRowId(null);
     }
@@ -527,7 +538,7 @@ const SubscriptionsPage = (): JSX.Element => {
       </div>
 
       {successMessage ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{successMessage}</div> : null}
-      {errorMessage ? <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</div> : null}
+      {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">Filters</h3>
@@ -544,6 +555,7 @@ const SubscriptionsPage = (): JSX.Element => {
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
               placeholder="order.created"
             />
+            <FieldError errors={validationErrors.eventType ?? validationErrors.EventType} />
           </label>
 
           <label className="text-sm text-slate-700">
@@ -759,11 +771,15 @@ const SubscriptionsPage = (): JSX.Element => {
             <input
               type="text"
               value={form.tenantId}
-              onChange={(event) => setFormField('tenantId', event.target.value)}
+              onChange={(event) => {
+                setFormField('tenantId', event.target.value);
+                setValidationErrors((previous) => ({ ...previous, tenantId: [], TenantId: [] }));
+              }}
               disabled={formMode === 'edit'}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100"
               placeholder="tenant_123"
             />
+            <FieldError errors={validationErrors.tenantId ?? validationErrors.TenantId} />
           </label>
 
           <label className="text-sm text-slate-700">
@@ -771,10 +787,14 @@ const SubscriptionsPage = (): JSX.Element => {
             <input
               type="text"
               value={form.eventType}
-              onChange={(event) => setFormField('eventType', event.target.value)}
+              onChange={(event) => {
+                setFormField('eventType', event.target.value);
+                setValidationErrors((previous) => ({ ...previous, eventType: [], EventType: [] }));
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
               placeholder="order.created"
             />
+            <FieldError errors={validationErrors.eventType ?? validationErrors.EventType} />
           </label>
 
           <label className="text-sm text-slate-700 md:col-span-2">
@@ -782,10 +802,14 @@ const SubscriptionsPage = (): JSX.Element => {
             <input
               type="url"
               value={form.targetUrl}
-              onChange={(event) => setFormField('targetUrl', event.target.value)}
+              onChange={(event) => {
+                setFormField('targetUrl', event.target.value);
+                setValidationErrors((previous) => ({ ...previous, targetUrl: [], TargetUrl: [] }));
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
               placeholder="https://example.com/webhooks/orders"
             />
+            <FieldError errors={validationErrors.targetUrl ?? validationErrors.TargetUrl} />
           </label>
 
           <label className="text-sm text-slate-700">

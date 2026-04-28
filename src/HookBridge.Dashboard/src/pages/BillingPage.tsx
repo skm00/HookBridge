@@ -1,6 +1,7 @@
-import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { billingApi } from '../api/billingApi';
+import ErrorAlert from '../components/ErrorAlert';
+import { getErrorMessage, getTraceId } from '../utils/errorUtils';
 import { authStorage } from '../auth/authStorage';
 import type { BillingPlan, BillingStatusResponse } from '../types/billing';
 
@@ -96,24 +97,13 @@ const getStatusBadgeClasses = (status: string): string => {
   }
 };
 
-const extractApiErrorMessage = (error: unknown, fallback: string): string => {
-  if (axios.isAxiosError(error)) {
-    const apiMessage = error.response?.data?.message;
-
-    if (typeof apiMessage === 'string' && apiMessage.trim()) {
-      return apiMessage;
-    }
-  }
-
-  return fallback;
-};
-
 const BillingPage = (): JSX.Element => {
   const [billingStatus, setBillingStatus] = useState<BillingStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
   const [activeCheckoutPlan, setActiveCheckoutPlan] = useState<BillingPlan | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState('');
 
   const tenantId = authStorage.getTenantId();
@@ -127,12 +117,14 @@ const BillingPage = (): JSX.Element => {
 
     setIsLoading(true);
     setErrorMessage('');
+    setErrorTraceId(null);
 
     try {
       const response = await billingApi.getBillingStatus(tenantId);
       setBillingStatus(response);
     } catch (error) {
-      setErrorMessage(extractApiErrorMessage(error, 'Unable to load billing status.'));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
     } finally {
       setIsLoading(false);
     }
@@ -156,6 +148,7 @@ const BillingPage = (): JSX.Element => {
     }
 
     setErrorMessage('');
+    setErrorTraceId(null);
     setCheckoutMessage('Redirecting to checkout...');
     setIsCreatingCheckout(true);
     setActiveCheckoutPlan(plan);
@@ -165,7 +158,8 @@ const BillingPage = (): JSX.Element => {
       window.location.href = checkout.checkoutUrl;
     } catch (error) {
       setCheckoutMessage('');
-      setErrorMessage(extractApiErrorMessage(error, 'Unable to start checkout.'));
+      setErrorMessage(getErrorMessage(error));
+      setErrorTraceId(getTraceId(error));
     } finally {
       setIsCreatingCheckout(false);
       setActiveCheckoutPlan(null);
@@ -198,7 +192,7 @@ const BillingPage = (): JSX.Element => {
         </button>
       </div>
 
-      {errorMessage ? <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{errorMessage}</div> : null}
+      {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} /> : null}
       {checkoutMessage ? (
         <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-700">{checkoutMessage}</div>
       ) : null}
