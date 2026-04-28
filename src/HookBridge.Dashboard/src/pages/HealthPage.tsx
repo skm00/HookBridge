@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { healthApi } from '../api/healthApi';
 import ErrorAlert from '../components/ErrorAlert';
+import PageHeader from '../components/PageHeader';
+import SkeletonCard from '../components/SkeletonCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 import type { HealthResponse } from '../types/health';
 
 type HealthCardState = {
@@ -67,10 +70,16 @@ const formatLastChecked = (checkedAt: Date | null): string => {
 const HealthPage = (): JSX.Element => {
   const [healthCards, setHealthCards] = useState<HealthCardState[]>(defaultHealthCards);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   const runHealthChecks = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
+    if (hasLoadedOnce) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
     setErrorMessage('');
 
     const checks = await Promise.allSettled([
@@ -145,7 +154,9 @@ const HealthPage = (): JSX.Element => {
     }
 
     setIsLoading(false);
-  }, []);
+    setIsRefreshing(false);
+    setHasLoadedOnce(true);
+  }, [hasLoadedOnce]);
 
   useEffect(() => {
     void runHealthChecks();
@@ -153,24 +164,35 @@ const HealthPage = (): JSX.Element => {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Health Status</h2>
-          <p className="mt-1 text-sm text-slate-600">System health checks across core HookBridge services.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void runHealthChecks()}
-          disabled={isLoading}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isLoading ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </div>
+      <PageHeader
+        title="Health Status"
+        description="System health checks across core HookBridge services."
+        actions={(
+          <>
+            {isRefreshing ? <LoadingSpinner size="sm" label="Refreshing" /> : null}
+            <button
+              type="button"
+              onClick={() => void runHealthChecks()}
+              disabled={isLoading || isRefreshing}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isLoading || isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </>
+        )}
+      />
 
       {errorMessage ? <ErrorAlert message={errorMessage} /> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+          {Array.from({ length: 4 }, (_, index) => (
+            <SkeletonCard key={index} />
+          ))}
+        </div>
+      ) : null}
+
+      {!isLoading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {healthCards.map((card) => (
           <article key={card.key} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between gap-2">
@@ -188,7 +210,7 @@ const HealthPage = (): JSX.Element => {
             <p className="mt-3 text-xs text-slate-500">Last checked: {formatLastChecked(card.checkedAt)}</p>
           </article>
         ))}
-      </div>
+      </div> : null}
     </section>
   );
 };

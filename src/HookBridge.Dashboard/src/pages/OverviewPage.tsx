@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dashboardApi } from '../api/dashboardApi';
 import ErrorAlert from '../components/ErrorAlert';
+import SkeletonCard from '../components/SkeletonCard';
+import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/PageHeader';
 import { getErrorMessage, getTraceId } from '../utils/errorUtils';
 import type { DashboardOverviewResponse } from '../types/dashboard';
 
@@ -43,11 +46,17 @@ const isUnlimitedPlan = (plan: string, monthlyEventLimit: number): boolean => {
 const OverviewPage = (): JSX.Element => {
   const [overview, setOverview] = useState<DashboardOverviewResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
 
-  const loadOverview = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
+  const loadOverview = useCallback(async (refresh = false): Promise<void> => {
+    if (refresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+
     setErrorMessage('');
     setErrorTraceId(null);
 
@@ -59,6 +68,7 @@ const OverviewPage = (): JSX.Element => {
       setErrorTraceId(getTraceId(error));
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -83,10 +93,12 @@ const OverviewPage = (): JSX.Element => {
 
   if (isLoading) {
     return (
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold text-slate-900">Overview</h2>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
-          Loading dashboard overview...
+      <section className="space-y-6">
+        <PageHeader title="Overview" description="Loading dashboard overview..." />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+          {Array.from({ length: 8 }, (_, index) => (
+            <SkeletonCard key={index} />
+          ))}
         </div>
       </section>
     );
@@ -95,16 +107,19 @@ const OverviewPage = (): JSX.Element => {
   if (errorMessage) {
     return (
       <section className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-2xl font-semibold text-slate-900">Overview</h2>
-          <button
-            type="button"
-            onClick={() => void loadOverview()}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            Refresh
-          </button>
-        </div>
+        <PageHeader
+          title="Overview"
+          actions={(
+            <button
+              type="button"
+              onClick={() => void loadOverview(true)}
+              disabled={isRefreshing}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              Refresh
+            </button>
+          )}
+        />
         <ErrorAlert message={errorMessage} traceId={errorTraceId} />
       </section>
     );
@@ -116,19 +131,23 @@ const OverviewPage = (): JSX.Element => {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Overview</h2>
-          <p className="mt-1 text-sm text-slate-600">{formatDateRange(overview.fromDate, overview.toDate)}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void loadOverview()}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-        >
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Overview"
+        description={formatDateRange(overview.fromDate, overview.toDate)}
+        actions={(
+          <>
+            {isRefreshing ? <LoadingSpinner size="sm" label="Refreshing" /> : null}
+            <button
+              type="button"
+              onClick={() => void loadOverview(true)}
+              disabled={isRefreshing}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              Refresh
+            </button>
+          </>
+        )}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
