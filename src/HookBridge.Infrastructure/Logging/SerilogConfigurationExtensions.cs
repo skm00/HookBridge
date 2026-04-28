@@ -38,8 +38,8 @@ public static class SerilogConfigurationExtensions
                 [endpoint],
                 options =>
                 {
-                    options.DataStream = new DataStreamName("logs", serviceName.ToLowerInvariant(), environment.ToLowerInvariant());
-                    options.BootstrapMethod = BootstrapMethod.Silent;
+                    // Keep sink configuration minimal to remain compatible across Elastic.Serilog.Sinks versions.
+                    // Data stream and bootstrapping use package defaults unless explicitly required.
                 });
         }
 
