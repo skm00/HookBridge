@@ -7,6 +7,7 @@ using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -21,12 +22,12 @@ public sealed class FailedEventsController(
     IFailedEventService failedEventService,
     ICurrentUserContext currentUserContext,
     TenantAccessValidator tenantAccessValidator,
-    ILogger<FailedEventsController> logger) : ControllerBase
+    ILogger<FailedEventsController> logger) : ApiControllerBase
 {
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(PagedResponseDto<FailedEventResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResponseDto<FailedEventResponseDto>>> SearchAsync(
+    [ProducesResponseType(typeof(ApiResponse<PagedResponseDto<FailedEventResponseDto>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<PagedResponseDto<FailedEventResponseDto>>>> SearchAsync(
         [FromQuery] string? tenantId,
         [FromQuery] string? eventId,
         [FromQuery] string? subscriptionId,
@@ -67,23 +68,23 @@ public sealed class FailedEventsController(
         };
 
         var result = await failedEventService.SearchAsync(request, cancellationToken);
-        return Ok(result);
+        return OkResponse(result);
     }
 
     [HttpGet("{id}")]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(FailedEventResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<FailedEventResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<FailedEventResponseDto>> GetByIdAsync(string id, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<FailedEventResponseDto>>> GetByIdAsync(string id, CancellationToken cancellationToken)
     {
         var result = await failedEventService.GetByIdAsync(id, cancellationToken);
         if (result is null)
         {
-            return NotFound();
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(result.TenantId);
-        return Ok(result);
+        return OkResponse(result);
     }
 
     [HttpPost("{id}/retry")]
@@ -91,27 +92,27 @@ public sealed class FailedEventsController(
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RetryAsync(string id, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<object>>> RetryAsync(string id, CancellationToken cancellationToken)
     {
         var failedEvent = await failedEventService.GetByIdAsync(id, cancellationToken);
         if (failedEvent is null)
         {
-            return NotFound();
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
         }
 
         tenantAccessValidator.EnsureTenantAccess(failedEvent.TenantId);
 
         if (!string.Equals(failedEvent.Status, "DLQ", StringComparison.OrdinalIgnoreCase))
         {
-            return BadRequest(new { message = "Failed event is not retryable." });
+            return ErrorResponse(StatusCodes.Status400BadRequest, "Failed event is not retryable.");
         }
 
         var retryRequested = await failedEventService.RetryAsync(id, cancellationToken);
         if (!retryRequested)
         {
-            return BadRequest(new { message = "Failed event is not retryable." });
+            return ErrorResponse(StatusCodes.Status400BadRequest, "Failed event is not retryable.");
         }
 
-        return Accepted();
+        return AcceptedResponse(new { accepted = true });
     }
 }

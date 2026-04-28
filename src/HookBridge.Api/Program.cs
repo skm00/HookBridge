@@ -14,7 +14,9 @@ using HookBridge.Infrastructure.DependencyInjection;
 using Elastic.Apm.NetCoreAll;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Logging;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -26,6 +28,21 @@ builder.Host.UseSerilog((context, _, loggerConfiguration) =>
     loggerConfiguration.ConfigureHookBridgeEcsLogging(context.Configuration, "hookbridge-api"));
 
 builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(x => x.Value?.Errors.Count > 0)
+            .ToDictionary(
+                x => x.Key,
+                x => x.Value!.Errors.Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage) ? "The input was not valid." : e.ErrorMessage).ToArray());
+
+        var response = ApiResponseFactory.ValidationError(errors, context.HttpContext.TraceIdentifier);
+        return new BadRequestObjectResult(response);
+    };
+});
+
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
@@ -99,6 +116,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
             ClockSkew = TimeSpan.Zero,
             RoleClaimType = "role",
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(
+                    ApiResponseFactory.Error("Unauthorized.", StatusCodes.Status401Unauthorized, context.HttpContext.TraceIdentifier));
+            },
+            OnForbidden = async context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(
+                    ApiResponseFactory.Error("Forbidden.", StatusCodes.Status403Forbidden, context.HttpContext.TraceIdentifier));
+            },
         };
     });
 

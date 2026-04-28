@@ -5,6 +5,7 @@ using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -17,33 +18,33 @@ namespace HookBridge.Api.Controllers;
 [Route("api/v{version:apiVersion}/admin/tenants/{tenantId}/api-keys")]
 public sealed class ApiKeysController(
     IApiKeyService apiKeyService,
-    TenantAccessValidator tenantAccessValidator) : ControllerBase
+    TenantAccessValidator tenantAccessValidator) : ApiControllerBase
 {
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
-    [ProducesResponseType(typeof(CreateApiKeyResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<CreateApiKeyResponseDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<CreateApiKeyResponseDto>> CreateAsync(
+    public async Task<ActionResult<ApiResponse<CreateApiKeyResponseDto>>> CreateAsync(
         string tenantId,
         [FromBody] CreateApiKeyRequestDto request,
         CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(tenantId);
         var created = await apiKeyService.CreateAsync(tenantId, request, cancellationToken);
-        return CreatedAtAction(nameof(GetByTenantAsync), new { tenantId }, created);
+        return CreatedResponse(nameof(GetByTenantAsync), new { tenantId }, created);
     }
 
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(IReadOnlyList<ApiKeyResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ApiKeyResponseDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<ApiKeyResponseDto>>> GetByTenantAsync(string tenantId, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<ApiKeyResponseDto>>>> GetByTenantAsync(string tenantId, CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(tenantId);
         var keys = await apiKeyService.GetByTenantAsync(tenantId, cancellationToken);
-        return Ok(keys);
+        return OkResponse(keys);
     }
 
     [HttpDelete("{keyId}")]
@@ -56,7 +57,7 @@ public sealed class ApiKeysController(
         var revoked = await apiKeyService.RevokeAsync(tenantId, keyId, cancellationToken);
         if (!revoked)
         {
-            return NotFound();
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
         }
 
         return NoContent();

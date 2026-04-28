@@ -4,6 +4,7 @@ using HookBridge.Api.RateLimiting;
 using HookBridge.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
+using HookBridge.Shared.Api;
 
 namespace HookBridge.Api.Extensions;
 
@@ -46,12 +47,12 @@ public static class RateLimitingServiceCollectionExtensions
                     httpContext.Request.Path);
 
                 httpContext.Response.ContentType = "application/json";
-                await httpContext.Response.WriteAsJsonAsync(new
-                {
-                    message = "Rate limit exceeded. Please try again later.",
-                    traceId = httpContext.TraceIdentifier,
-                    statusCode = StatusCodes.Status429TooManyRequests,
-                }, cancellationToken: token);
+                await httpContext.Response.WriteAsJsonAsync(
+                    ApiResponseFactory.Error(
+                        "Rate limit exceeded. Please try again later.",
+                        StatusCodes.Status429TooManyRequests,
+                        httpContext.TraceIdentifier),
+                    cancellationToken: token);
             };
 
             options.AddPolicy<string>(RateLimitingPolicyNames.EventIngestionPolicy, context =>

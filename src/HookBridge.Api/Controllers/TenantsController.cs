@@ -6,6 +6,7 @@ using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -19,7 +20,7 @@ namespace HookBridge.Api.Controllers;
 public sealed class TenantsController(
     ITenantService tenantService,
     ICurrentUserContext currentUserContext,
-    TenantAccessValidator tenantAccessValidator) : ControllerBase
+    TenantAccessValidator tenantAccessValidator) : ApiControllerBase
 {
     /// <summary>
     /// Creates a new tenant.
@@ -32,15 +33,15 @@ public sealed class TenantsController(
     /// <response code="409">A tenant with the same slug already exists.</response>
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
-    [ProducesResponseType(typeof(TenantResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResponseDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<TenantResponseDto>> CreateAsync(
+    public async Task<ActionResult<ApiResponse<TenantResponseDto>>> CreateAsync(
         [FromBody] CreateTenantRequestDto request,
         CancellationToken cancellationToken)
     {
         var created = await tenantService.CreateAsync(request, cancellationToken);
-        return CreatedAtAction(nameof(GetByIdAsync), new { id = created.Id }, created);
+        return CreatedResponse(nameof(GetByIdAsync), new { id = created.Id }, created);
     }
 
     /// <summary>
@@ -51,18 +52,18 @@ public sealed class TenantsController(
     /// <response code="200">Returned the list of tenants.</response>
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(IReadOnlyList<TenantResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<TenantResponseDto>>> GetAllAsync(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<TenantResponseDto>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<TenantResponseDto>>>> GetAllAsync(CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
 
         var tenant = await tenantService.GetByIdAsync(currentUserContext.TenantId!, cancellationToken);
         if (tenant is null)
         {
-            return Ok(Array.Empty<TenantResponseDto>());
+            return OkResponse((IReadOnlyList<TenantResponseDto>)Array.Empty<TenantResponseDto>());
         }
 
-        return Ok(new[] { tenant });
+        return OkResponse((IReadOnlyList<TenantResponseDto>)new[] { tenant });
     }
 
     /// <summary>
@@ -75,18 +76,18 @@ public sealed class TenantsController(
     /// <response code="404">Tenant not found.</response>
     [HttpGet("{id}")]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(TenantResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<TenantResponseDto>> GetByIdAsync(string id, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<TenantResponseDto>>> GetByIdAsync(string id, CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(id);
         var tenant = await tenantService.GetByIdAsync(id, cancellationToken);
         if (tenant is null)
         {
-            return NotFound();
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
         }
 
-        return Ok(tenant);
+        return OkResponse(tenant);
     }
 
     /// <summary>
@@ -101,10 +102,10 @@ public sealed class TenantsController(
     /// <response code="404">Tenant not found.</response>
     [HttpPut("{id}")]
     [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
-    [ProducesResponseType(typeof(TenantResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<TenantResponseDto>> UpdateAsync(
+    public async Task<ActionResult<ApiResponse<TenantResponseDto>>> UpdateAsync(
         string id,
         [FromBody] UpdateTenantRequestDto request,
         CancellationToken cancellationToken)
@@ -113,10 +114,10 @@ public sealed class TenantsController(
         var updated = await tenantService.UpdateAsync(id, request, cancellationToken);
         if (updated is null)
         {
-            return NotFound();
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
         }
 
-        return Ok(updated);
+        return OkResponse(updated);
     }
 
     /// <summary>
@@ -136,7 +137,7 @@ public sealed class TenantsController(
         var disabled = await tenantService.DisableAsync(id, cancellationToken);
         if (!disabled)
         {
-            return NotFound();
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
         }
 
         return NoContent();

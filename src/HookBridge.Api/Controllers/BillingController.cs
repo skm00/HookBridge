@@ -5,6 +5,7 @@ using HookBridge.Api.RateLimiting;
 using HookBridge.Api.Security;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Stripe;
@@ -16,67 +17,67 @@ namespace HookBridge.Api.Controllers;
 [Authorize]
 public sealed class BillingController(
     IBillingService billingService,
-    TenantAccessValidator tenantAccessValidator) : ControllerBase
+    TenantAccessValidator tenantAccessValidator) : ApiControllerBase
 {
     [HttpPost("api/v{version:apiVersion}/admin/tenants/{tenantId}/billing/checkout")]
     [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
     [Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
-    [ProducesResponseType(typeof(CheckoutSessionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<CheckoutSessionResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<CheckoutSessionResponseDto>> CreateCheckoutAsync(
+    public async Task<ActionResult<ApiResponse<CheckoutSessionResponseDto>>> CreateCheckoutAsync(
         string tenantId,
         [FromBody] CreateCheckoutSessionRequestDto request,
         CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(tenantId);
         var checkout = await billingService.CreateCheckoutSessionAsync(tenantId, request, cancellationToken);
-        return Ok(checkout);
+        return OkResponse(checkout);
     }
 
     [HttpGet("api/v{version:apiVersion}/admin/tenants/{tenantId}/billing/status")]
     [EnableRateLimiting(RateLimitingPolicyNames.AdminApiPolicy)]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
-    [ProducesResponseType(typeof(BillingStatusResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<BillingStatusResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<BillingStatusResponseDto>> GetStatusAsync(string tenantId, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<BillingStatusResponseDto>>> GetStatusAsync(string tenantId, CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(tenantId);
         var status = await billingService.GetBillingStatusAsync(tenantId, cancellationToken);
         if (status is null)
         {
-            return NotFound();
+            return ErrorResponse(StatusCodes.Status404NotFound, "Not found.");
         }
 
-        return Ok(status);
+        return OkResponse(status);
     }
 
     [AllowAnonymous]
     [HttpPost("api/v{version:apiVersion}/billing/stripe/webhook")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> HandleStripeWebhookAsync(CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<object>>> HandleStripeWebhookAsync(CancellationToken cancellationToken)
     {
         using var reader = new StreamReader(Request.Body);
         var jsonPayload = await reader.ReadToEndAsync(cancellationToken);
 
         if (!Request.Headers.TryGetValue("Stripe-Signature", out var stripeSignature) || string.IsNullOrWhiteSpace(stripeSignature))
         {
-            return BadRequest(new { message = "Missing Stripe signature." });
+            return ErrorResponse(StatusCodes.Status400BadRequest, "Missing Stripe signature.");
         }
 
         try
         {
             await billingService.HandleStripeWebhookAsync(jsonPayload, stripeSignature.ToString(), cancellationToken);
-            return Ok(new { received = true });
+            return OkResponse((object)new { received = true });
         }
         catch (StripeException)
         {
-            return BadRequest(new { message = "Invalid Stripe webhook signature." });
+            return ErrorResponse(StatusCodes.Status400BadRequest, "Invalid Stripe webhook signature.");
         }
         catch (Exception)
         {
-            return Ok(new { received = true });
+            return OkResponse((object)new { received = true });
         }
     }
 }

@@ -6,6 +6,7 @@ using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -18,14 +19,14 @@ namespace HookBridge.Api.Controllers;
 [Route("api/v{version:apiVersion}/admin/dashboard")]
 public sealed class DashboardController(
     IDashboardService dashboardService,
-    ICurrentUserContext currentUserContext) : ControllerBase
+    ICurrentUserContext currentUserContext) : ApiControllerBase
 {
     [HttpGet("overview")]
     [Authorize(Policy = AuthorizationPolicies.ViewerOrAbove)]
-    [ProducesResponseType(typeof(DashboardOverviewResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<DashboardOverviewResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<DashboardOverviewResponseDto>> GetOverviewAsync(CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<DashboardOverviewResponseDto>>> GetOverviewAsync(CancellationToken cancellationToken)
     {
         var tenantId = currentUserContext.TenantId;
         if (string.IsNullOrWhiteSpace(tenantId))
@@ -34,6 +35,6 @@ public sealed class DashboardController(
         }
 
         var overview = await dashboardService.GetOverviewAsync(tenantId, cancellationToken);
-        return Ok(overview);
+        return OkResponse(overview);
     }
 }
