@@ -26,6 +26,31 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var appEnvironment = builder.Environment;
+
+var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? (appEnvironment.IsDevelopment()
+        ? ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"]
+        : []);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DashboardCors", policy =>
+    {
+        if (allowedCorsOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedCorsOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+            return;
+        }
+
+        policy.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Host.UseSerilog((context, _, loggerConfiguration) =>
     HookBridge.Infrastructure.Logging.SerilogConfigurationExtensions.ConfigureHookBridgeEcsLogging(
         loggerConfiguration,
@@ -187,6 +212,8 @@ if (app.Environment.IsDevelopment())
         }
     });
 }
+
+app.UseCors("DashboardCors");
 
 app.UseAuthentication();
 app.UseRateLimiter();
