@@ -1108,7 +1108,7 @@ npm run dev
 The app expects an API base URL in `.env` (see `.env.example`):
 
 ```bash
-VITE_API_BASE_URL=http://localhost:5000
+VITE_API_BASE_URL=http://localhost:52865
 ```
 
 ## Dashboard Subscriptions Page
