@@ -17,11 +17,21 @@ const routeTitles: Record<string, string> = {
   '/failed-events': 'Failed Events',
   '/billing': 'Billing',
   '/settings': 'Settings',
-  '/health': 'Health'
+  '/health': 'Health',
+  '/kafka': 'Kafka',
+  '/usage': 'Usage',
+  '/production-readiness': 'Production Readiness'
 };
 
 type HeaderProps = {
   onOpenMenu: () => void;
+};
+
+const getEnvironmentLabel = (): 'Dev' | 'QA' | 'Prod' => {
+  const env = (import.meta.env.VITE_APP_ENV ?? import.meta.env.MODE ?? 'development').toLowerCase();
+  if (env.includes('prod')) return 'Prod';
+  if (env.includes('qa') || env.includes('stage')) return 'QA';
+  return 'Dev';
 };
 
 const Header = ({ onOpenMenu }: HeaderProps): JSX.Element => {
@@ -31,6 +41,7 @@ const Header = ({ onOpenMenu }: HeaderProps): JSX.Element => {
 
   const pageTitle = useMemo(() => routeTitles[location.pathname] ?? 'HookBridge Dashboard', [location.pathname]);
   const userProfile = useMemo(() => authStorage.getUserProfile(), []);
+  const environmentLabel = useMemo(() => getEnvironmentLabel(), []);
 
   const loadUnreadCount = useCallback(async (): Promise<void> => {
     try {
@@ -76,8 +87,9 @@ const Header = ({ onOpenMenu }: HeaderProps): JSX.Element => {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => navigate('/notifications')}>
-            {unreadCount && unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications'}
+          <span className="rounded-full border border-border bg-background px-2 py-1 text-xs font-semibold text-text-muted">{environmentLabel}</span>
+          <Button variant="secondary" size="sm" onClick={() => navigate('/notifications')} aria-label="Open notifications">
+            🔔 {unreadCount && unreadCount > 0 ? unreadCount : ''}
           </Button>
           <Button variant="danger" size="sm" onClick={onLogout}>Logout</Button>
         </div>
