@@ -592,7 +592,7 @@ Event ingestion remains API-key based (`x-api-key`) and is intentionally not JWT
 ## Dashboard Authentication Flow
 
 The React dashboard now includes end-to-end authentication screens and route protection:
-- Register at `/register` by providing tenant id, full name, email, password, and role.
+- Register at `/register` by providing email, password, and optional organization name. TenantId is generated automatically and the first user becomes Owner.
 - Login at `/login` with email and password.
 - On successful login/registration, the JWT is stored in browser local storage.
 - Protected dashboard routes (for example `/overview`) require a stored token and redirect unauthenticated users to `/login`.
