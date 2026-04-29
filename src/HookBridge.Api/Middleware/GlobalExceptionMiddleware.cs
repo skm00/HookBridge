@@ -56,6 +56,11 @@ public sealed class GlobalExceptionMiddleware(RequestDelegate next)
             await WriteErrorResponseAsync(context, StatusCodes.Status429TooManyRequests,
                 ApiResponseFactory.Error(tooManyRequestsException.Message, StatusCodes.Status429TooManyRequests, context.TraceIdentifier));
         }
+        catch (InvalidOperationException invalidOperationException)
+        {
+            await WriteErrorResponseAsync(context, StatusCodes.Status500InternalServerError,
+                ApiResponseFactory.Error(invalidOperationException.Message, StatusCodes.Status500InternalServerError, context.TraceIdentifier));
+        }
         catch (Exception)
         {
             await WriteErrorResponseAsync(context, StatusCodes.Status500InternalServerError,
