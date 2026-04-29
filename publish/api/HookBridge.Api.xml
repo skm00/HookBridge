@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>HookBridge.Api</name>
+    </assembly>
+    <members>
+        <member name="M:HookBridge.Api.Controllers.TenantsController.CreateAsync(HookBridge.Application.DTOs.Tenants.CreateTenantRequestDto,System.Threading.CancellationToken)">
+            <summary>
+            Creates a new tenant.
+            </summary>
+            <param name="request">Tenant creation payload.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>The created tenant.</returns>
+            <response code="201">Tenant created successfully.</response>
+            <response code="400">Validation error in request payload.</response>
+            <response code="409">A tenant with the same slug already exists.</response>
+        </member>
+        <member name="M:HookBridge.Api.Controllers.TenantsController.GetAllAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets all tenants.
+            </summary>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>A list of tenants.</returns>
+            <response code="200">Returned the list of tenants.</response>
+        </member>
+        <member name="M:HookBridge.Api.Controllers.TenantsController.GetByIdAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets a tenant by identifier.
+            </summary>
+            <param name="id">Tenant id.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>The tenant when found.</returns>
+            <response code="200">Tenant found.</response>
+            <response code="404">Tenant not found.</response>
+        </member>
+        <member name="M:HookBridge.Api.Controllers.TenantsController.UpdateAsync(System.String,HookBridge.Application.DTOs.Tenants.UpdateTenantRequestDto,System.Threading.CancellationToken)">
+            <summary>
+            Updates tenant mutable fields.
+            </summary>
+            <param name="id">Tenant id.</param>
+            <param name="request">Tenant update payload.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>The updated tenant when found.</returns>
+            <response code="200">Tenant updated successfully.</response>
+            <response code="400">Validation error in request payload.</response>
+            <response code="404">Tenant not found.</response>
+        </member>
+        <member name="M:HookBridge.Api.Controllers.TenantsController.DisableAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Disables a tenant.
+            </summary>
+            <param name="id">Tenant id.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <response code="204">Tenant disabled successfully.</response>
+            <response code="404">Tenant not found.</response>
+        </member>
+        <member name="T:HookBridge.Api.Middleware.GlobalExceptionMiddleware">
+            <summary>
+            Global exception handling middleware that returns a standardized JSON payload.
+            </summary>
+        </member>
+        <member name="M:HookBridge.Api.Middleware.GlobalExceptionMiddleware.#ctor(Microsoft.AspNetCore.Http.RequestDelegate)">
+            <summary>
+            Global exception handling middleware that returns a standardized JSON payload.
+            </summary>
+        </member>
+        <member name="M:HookBridge.Api.Middleware.GlobalExceptionMiddleware.InvokeAsync(Microsoft.AspNetCore.Http.HttpContext)">
+            <summary>
+            Invokes the middleware pipeline and handles unhandled exceptions.
+            </summary>
+            <param name="context">The current HTTP context.</param>
+        </member>
+    </members>
+</doc>

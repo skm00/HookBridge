@@ -1,0 +1,239 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>HookBridge.Application</name>
+    </assembly>
+    <members>
+        <member name="T:HookBridge.Application.Common.ApplicationAssemblyMarker">
+            <summary>
+            Marker type for the application assembly.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DependencyInjection.ApplicationServiceRegistration">
+            <summary>
+            Registers application-layer services.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Auth.RegisterAdminRequestDto">
+            <summary>
+            Request payload used to register the first admin or invite another admin.
+            </summary>
+        </member>
+        <member name="P:HookBridge.Application.DTOs.Auth.RegisterAdminRequestDto.TenantId">
+            <summary>
+            Tenant identifier the admin belongs to.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Auth.LoginRequestDto">
+            <summary>
+            Request payload used to exchange credentials for an access token.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Auth.AuthResponseDto">
+            <summary>
+            Authentication response that includes a JWT and current user details.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Subscriptions.CreateSubscriptionRequestDto">
+            <summary>
+            Request payload used to create a webhook subscription.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Subscriptions.SubscriptionResponseDto">
+            <summary>
+            Response payload for webhook subscriptions.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Subscriptions.AuthenticationDto">
+            <summary>
+            Outbound authentication configuration for webhook delivery.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Subscriptions.OAuth2ClientCredentialsDto">
+            <summary>
+            OAuth2 client credentials configuration.
+            </summary>
+        </member>
+        <member name="P:HookBridge.Application.DTOs.Subscriptions.OAuth2ClientCredentialsDto.ClientSecret">
+            <summary>
+            OAuth2 client secret. Sensitive value is masked by API responses.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Subscriptions.HmacSignatureDto">
+            <summary>
+            HMAC signature configuration for outbound webhooks.
+            </summary>
+        </member>
+        <member name="P:HookBridge.Application.DTOs.Subscriptions.HmacSignatureDto.Secret">
+            <summary>
+            HMAC shared secret. Sensitive value is masked by API responses.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Tenants.CreateTenantRequestDto">
+            <summary>
+            Request payload to create a tenant.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Tenants.TenantResponseDto">
+            <summary>
+            Tenant response payload.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.DTOs.Tenants.UpdateTenantRequestDto">
+            <summary>
+            Request payload to update mutable tenant fields.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.Exceptions.ConflictException">
+            <summary>
+            Represents a conflict in a requested operation.
+            </summary>
+        </member>
+        <member name="M:HookBridge.Application.Exceptions.ConflictException.#ctor(System.String)">
+            <summary>
+            Represents a conflict in a requested operation.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.Interfaces.IDateTimeProvider">
+            <summary>
+            Abstraction for retrieving current UTC date and time.
+            </summary>
+        </member>
+        <member name="P:HookBridge.Application.Interfaces.IDateTimeProvider.UtcNow">
+            <summary>
+            Gets the current UTC date and time.
+            </summary>
+        </member>
+        <member name="T:HookBridge.Application.Interfaces.IGuidGenerator">
+            <summary>
+            Abstraction for creating unique identifiers.
+            </summary>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.IGuidGenerator.NewGuid">
+            <summary>
+            Creates a new GUID string.
+            </summary>
+            <returns>A newly generated GUID represented as a string.</returns>
+        </member>
+        <member name="T:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1">
+            <summary>
+            Defines a generic repository contract for MongoDB-backed entities.
+            </summary>
+            <typeparam name="T">The entity type.</typeparam>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1.GetByIdAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Retrieves an entity by identifier.
+            </summary>
+            <param name="id">The entity identifier.</param>
+            <param name="cancellationToken">The cancellation token.</param>
+            <returns>The matched entity, or <c>null</c> when not found.</returns>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1.FindAsync(System.Linq.Expressions.Expression{System.Func{`0,System.Boolean}},System.Threading.CancellationToken)">
+            <summary>
+            Finds entities matching a predicate.
+            </summary>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1.QueryAsync(System.Linq.Expressions.Expression{System.Func{`0,System.Boolean}},MongoDB.Driver.SortDefinition{`0},System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Executes a filtered paged query and returns items and total count.
+            </summary>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1.FirstOrDefaultAsync(System.Linq.Expressions.Expression{System.Func{`0,System.Boolean}},System.Threading.CancellationToken)">
+            <summary>
+            Finds the first entity matching a predicate or null if no match exists.
+            </summary>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1.GetAllAsync(System.Threading.CancellationToken)">
+            <summary>
+            Retrieves all entities from the collection.
+            </summary>
+            <param name="cancellationToken">The cancellation token.</param>
+            <returns>A read-only list of entities.</returns>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1.AddAsync(`0,System.Threading.CancellationToken)">
+            <summary>
+            Adds a new entity.
+            </summary>
+            <param name="entity">The entity to add.</param>
+            <param name="cancellationToken">The cancellation token.</param>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1.UpdateAsync(`0,System.Threading.CancellationToken)">
+            <summary>
+            Updates an existing entity.
+            </summary>
+            <param name="entity">The entity to update.</param>
+            <param name="cancellationToken">The cancellation token.</param>
+        </member>
+        <member name="M:HookBridge.Application.Interfaces.Persistence.IMongoRepository`1.DeleteAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Deletes an entity by identifier.
+            </summary>
+            <param name="id">The entity identifier.</param>
+            <param name="cancellationToken">The cancellation token.</param>
+        </member>
+        <member name="T:HookBridge.Application.Interfaces.Services.ITenantService">
+            <summary>
+            Tenant business operations.
+            </summary>
+        </member>
+        <member name="M:HookBridge.Application.Validation.Events.EventIngestionRequestDtoValidator.EventTypeRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>^[A-Za-z0-9._-]+$</code><br/>
+            Options:<br/>
+            <code>RegexOptions.Compiled | RegexOptions.CultureInvariant</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match if at the beginning of the string.<br/>
+            ○ Match a character in the set [-.0-9A-Z_a-z] atomically at least once.<br/>
+            ○ Match if at the end of the string or if before an ending newline.<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.EventTypeRegex_0">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the EventTypeRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.EventTypeRegex_0.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.EventTypeRegex_0.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.EventTypeRegex_0.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.EventTypeRegex_0.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.EventTypeRegex_0.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.EventTypeRegex_0.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.EventTypeRegex_0.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.EventTypeRegex_0.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.Utilities">
+            <summary>Helper methods used by generated <see cref="T:System.Text.RegularExpressions.Regex"/>-derived implementations.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout">
+            <summary>Default timeout value set in <see cref="T:System.AppContext"/>, or <see cref="F:System.Text.RegularExpressions.Regex.InfiniteMatchTimeout"/> if none was set.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_hasTimeout">
+            <summary>Whether <see cref="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout"/> is non-infinite.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_ascii_60FF03FEFFFF87FEFFFF07">
+            <summary>Supports searching for characters in or not in "-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz".</summary>
+        </member>
+    </members>
+</doc>
