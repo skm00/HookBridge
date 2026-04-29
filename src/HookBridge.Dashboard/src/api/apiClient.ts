@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { authStorage } from '../auth/authStorage';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || 'https://localhost:52864';
 
 type ApiResponse<T> = {
   success: boolean;
