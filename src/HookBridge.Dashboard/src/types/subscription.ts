@@ -48,7 +48,6 @@ export type Authentication = {
 
 export type Subscription = {
   id: string;
-  tenantId: string;
   eventType: string;
   targetUrl: string;
   headers: KeyValue[];
@@ -68,7 +67,6 @@ export type SubscriptionListFilters = PagedRequest & {
 };
 
 export type CreateSubscriptionRequest = {
-  tenantId: string;
   eventType: string;
   targetUrl: string;
   headers: KeyValue[];

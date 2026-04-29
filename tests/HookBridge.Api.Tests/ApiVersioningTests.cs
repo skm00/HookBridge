@@ -291,7 +291,7 @@ public sealed class ApiVersioningTests
 
     private sealed class FakeSubscriptionService : ISubscriptionService
     {
-        public Task<SubscriptionResponseDto> CreateAsync(CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
+        public Task<SubscriptionResponseDto> CreateAsync(string tenantId, CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(new SubscriptionResponseDto
             {
                 Id = "sub_1",
@@ -301,12 +301,12 @@ public sealed class ApiVersioningTests
                 CreatedAt = DateTime.UtcNow,
             });
 
-        public Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<bool> DisableAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<bool> EnableAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<SubscriptionResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionResponseDto?>(null);
+        public Task<bool> DeleteAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> DisableAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> EnableAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<SubscriptionResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionResponseDto?>(null);
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<SubscriptionResponseDto>.Create([], 1, 50, 0));
-        public Task<SubscriptionResponseDto?> UpdateAsync(string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionResponseDto?>(null);
+        public Task<SubscriptionResponseDto?> UpdateAsync(string tenantId, string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionResponseDto?>(null);
     }
 
     private sealed class FakeCurrentUserContext : ICurrentUserContext

@@ -25,9 +25,8 @@ public sealed class SubscriptionServiceTests
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 
-        var result = await service.CreateAsync(new CreateSubscriptionRequestDto
+        var result = await service.CreateAsync("tenant-1", new CreateSubscriptionRequestDto
         {
-            TenantId = "tenant-1",
             EventType = "order.created",
             TargetUrl = "https://example.com/hooks",
             RetryPolicy = new RetryPolicyDto
@@ -52,7 +51,7 @@ public sealed class SubscriptionServiceTests
         var audit = new RecordingAuditLogService();
         var service = CreateService(subscriptionRepo, tenantRepo, auditLogService: audit);
 
-        await service.CreateAsync(BuildValidRequest());
+        await service.CreateAsync("tenant-1", BuildValidRequest());
 
         Assert.Equal("SubscriptionCreated", Assert.Single(audit.Logged).Action);
     }
@@ -64,10 +63,10 @@ public sealed class SubscriptionServiceTests
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var audit = new RecordingAuditLogService();
         var service = CreateService(subscriptionRepo, tenantRepo, auditLogService: audit);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
         audit.Logged.Clear();
 
-        await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto { EventType = "order.updated" });
+        await service.UpdateAsync("tenant-1", created.Id, new UpdateSubscriptionRequestDto { EventType = "order.updated" });
 
         Assert.Equal("SubscriptionUpdated", Assert.Single(audit.Logged).Action);
     }
@@ -79,10 +78,10 @@ public sealed class SubscriptionServiceTests
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var audit = new RecordingAuditLogService();
         var service = CreateService(subscriptionRepo, tenantRepo, auditLogService: audit);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
         audit.Logged.Clear();
 
-        await service.DeleteAsync(created.Id);
+        await service.DeleteAsync("tenant-1", created.Id);
 
         Assert.Equal("SubscriptionDeleted", Assert.Single(audit.Logged).Action);
     }
@@ -94,7 +93,7 @@ public sealed class SubscriptionServiceTests
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.CreateAsync(BuildValidRequest()));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.CreateAsync("tenant-1", BuildValidRequest()));
     }
 
     [Fact]
@@ -104,7 +103,7 @@ public sealed class SubscriptionServiceTests
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 
-        await Assert.ThrowsAsync<ConflictException>(() => service.CreateAsync(BuildValidRequest()));
+        await Assert.ThrowsAsync<ConflictException>(() => service.CreateAsync("tenant-1", BuildValidRequest()));
     }
 
     [Fact]
@@ -117,7 +116,7 @@ public sealed class SubscriptionServiceTests
         var request = BuildValidRequest();
         request.TargetUrl = "/not-absolute";
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync("tenant-1", request));
     }
 
     [Fact]
@@ -134,7 +133,7 @@ public sealed class SubscriptionServiceTests
             new KeyValueDto { Name = "X-Signature", Value = "2" },
         ];
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync("tenant-1", request));
     }
 
 
@@ -148,7 +147,7 @@ public sealed class SubscriptionServiceTests
         var request = BuildValidRequest();
         request.TargetUrl = "ftp://example.com/hook";
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync("tenant-1", request));
     }
 
     [Fact]
@@ -167,7 +166,7 @@ public sealed class SubscriptionServiceTests
         var request = BuildValidRequest();
         request.TargetUrl = "http://127.0.0.1:8080/hook";
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync("tenant-1", request));
     }
 
     [Fact]
@@ -180,7 +179,7 @@ public sealed class SubscriptionServiceTests
         var request = BuildValidRequest();
         request.Headers = [new KeyValueDto { Name = "x-test", Value = "ok\r\nmalicious:true" }];
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync("tenant-1", request));
     }
 
     [Fact]
@@ -195,7 +194,7 @@ public sealed class SubscriptionServiceTests
             .Select(index => new KeyValueDto { Name = $"x-test-{index}", Value = "value" })
             .ToList();
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync("tenant-1", request));
     }
 
     [Fact]
@@ -208,7 +207,7 @@ public sealed class SubscriptionServiceTests
         var request = BuildValidRequest();
         request.Headers = [new KeyValueDto { Name = "Host", Value = "example.com" }];
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync("tenant-1", request));
     }
 
     [Fact]
@@ -236,7 +235,7 @@ public sealed class SubscriptionServiceTests
             },
         };
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync("tenant-1", request));
     }
 
     [Fact]
@@ -250,7 +249,7 @@ public sealed class SubscriptionServiceTests
         request.RetryPolicy = null;
         request.TimeoutSeconds = null;
 
-        var result = await service.CreateAsync(request);
+        var result = await service.CreateAsync("tenant-1", request);
 
         Assert.Equal(3, result.RetryPolicy.MaxAttempts);
         Assert.Equal(30, result.RetryPolicy.InitialDelaySeconds);
@@ -264,9 +263,9 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
 
-        var fetched = await service.GetByIdAsync(created.Id);
+        var fetched = await service.GetByIdAsync("tenant-1", created.Id);
 
         Assert.NotNull(fetched);
         Assert.Equal(created.Id, fetched!.Id);
@@ -280,13 +279,13 @@ public sealed class SubscriptionServiceTests
 
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        await service.CreateAsync(BuildValidRequest());
+        await service.CreateAsync("tenant-1", BuildValidRequest());
 
         var second = BuildValidRequest();
         second.TenantId = "tenant-2";
         second.TargetUrl = "https://example.com/two";
         second.EventType = "order.updated";
-        await service.CreateAsync(second);
+        await service.CreateAsync("tenant-1", second);
 
         var results = await service.SearchAsync(new SubscriptionSearchRequestDto { TenantId = "tenant-1" });
 
@@ -301,12 +300,12 @@ public sealed class SubscriptionServiceTests
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 
-        await service.CreateAsync(BuildValidRequest());
+        await service.CreateAsync("tenant-1", BuildValidRequest());
 
         var second = BuildValidRequest();
         second.EventType = "order.cancelled";
         second.TargetUrl = "https://example.com/cancel";
-        await service.CreateAsync(second);
+        await service.CreateAsync("tenant-1", second);
 
         var results = await service.SearchAsync(new SubscriptionSearchRequestDto { EventType = "order.cancelled" });
 
@@ -332,7 +331,7 @@ public sealed class SubscriptionServiceTests
             },
         };
 
-        var created = await service.CreateAsync(request);
+        var created = await service.CreateAsync("tenant-1", request);
 
         Assert.NotNull(created.Authentication);
         Assert.Equal("********", created.Authentication!.Basic!.Password);
@@ -344,9 +343,9 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
 
-        var updated = await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        var updated = await service.UpdateAsync("tenant-1", created.Id, new UpdateSubscriptionRequestDto
         {
             EventType = "order.updated",
             TargetUrl = "https://example.com/updated",
@@ -366,9 +365,9 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
 
-        var updated = await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        var updated = await service.UpdateAsync("tenant-1", created.Id, new UpdateSubscriptionRequestDto
         {
             TargetUrl = "https://example.com/new-target",
         });
@@ -386,7 +385,7 @@ public sealed class SubscriptionServiceTests
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 
-        var updated = await service.UpdateAsync("missing", new UpdateSubscriptionRequestDto
+        var updated = await service.UpdateAsync("tenant-1", "missing", new UpdateSubscriptionRequestDto
         {
             EventType = "order.updated",
         });
@@ -400,9 +399,9 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateAsync("tenant-1", created.Id, new UpdateSubscriptionRequestDto
         {
             TargetUrl = "/invalid",
         }));
@@ -414,9 +413,9 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
 
-        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateAsync("tenant-1", created.Id, new UpdateSubscriptionRequestDto
         {
             Headers =
             [
@@ -432,10 +431,10 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
 
-        var deleted = await service.DeleteAsync(created.Id);
-        var fetched = await service.GetByIdAsync(created.Id);
+        var deleted = await service.DeleteAsync("tenant-1", created.Id);
+        var fetched = await service.GetByIdAsync("tenant-1", created.Id);
 
         Assert.True(deleted);
         Assert.Null(fetched);
@@ -448,7 +447,7 @@ public sealed class SubscriptionServiceTests
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 
-        var deleted = await service.DeleteAsync("missing");
+        var deleted = await service.DeleteAsync("tenant-1", "missing");
 
         Assert.False(deleted);
     }
@@ -459,10 +458,10 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
 
-        var disabled = await service.DisableAsync(created.Id);
-        var fetched = await service.GetByIdAsync(created.Id);
+        var disabled = await service.DisableAsync("tenant-1", created.Id);
+        var fetched = await service.GetByIdAsync("tenant-1", created.Id);
 
         Assert.True(disabled);
         Assert.NotNull(fetched);
@@ -477,11 +476,11 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
-        await service.DisableAsync(created.Id);
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
+        await service.DisableAsync("tenant-1", created.Id);
 
-        var enabled = await service.EnableAsync(created.Id);
-        var fetched = await service.GetByIdAsync(created.Id);
+        var enabled = await service.EnableAsync("tenant-1", created.Id);
+        var fetched = await service.GetByIdAsync("tenant-1", created.Id);
 
         Assert.True(enabled);
         Assert.NotNull(fetched);
@@ -496,9 +495,9 @@ public sealed class SubscriptionServiceTests
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
-        var created = await service.CreateAsync(BuildValidRequest());
+        var created = await service.CreateAsync("tenant-1", BuildValidRequest());
 
-        var updated = await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        var updated = await service.UpdateAsync("tenant-1", created.Id, new UpdateSubscriptionRequestDto
         {
             Authentication = new AuthenticationDto
             {
@@ -532,7 +531,7 @@ public sealed class SubscriptionServiceTests
             Basic = new BasicAuthDto { Username = "user", Password = "plain-password" },
         };
 
-        var created = await service.CreateAsync(request);
+        var created = await service.CreateAsync("tenant-1", request);
         var stored = await subscriptionRepo.GetByIdAsync(created.Id);
 
         Assert.True(encryption.IsEncrypted(stored!.Authentication!.Basic!.Password));
@@ -558,7 +557,7 @@ public sealed class SubscriptionServiceTests
             },
         };
 
-        var created = await service.CreateAsync(request);
+        var created = await service.CreateAsync("tenant-1", request);
         var stored = await subscriptionRepo.GetByIdAsync(created.Id);
 
         Assert.True(encryption.IsEncrypted(stored!.Authentication!.OAuth2!.ClientSecret));
@@ -579,7 +578,7 @@ public sealed class SubscriptionServiceTests
             ApiKeyHeader = new ApiKeyHeaderDto { HeaderName = "x-api-key", HeaderValue = "api-secret" },
         };
 
-        var created = await service.CreateAsync(request);
+        var created = await service.CreateAsync("tenant-1", request);
         var stored = await subscriptionRepo.GetByIdAsync(created.Id);
 
         Assert.True(encryption.IsEncrypted(stored!.Authentication!.ApiKeyHeader!.HeaderValue));
@@ -600,7 +599,7 @@ public sealed class SubscriptionServiceTests
             HmacSignature = new HmacSignatureDto { Secret = "hmac-secret", HeaderName = "x-sign", Algorithm = "HMACSHA256" },
         };
 
-        var created = await service.CreateAsync(request);
+        var created = await service.CreateAsync("tenant-1", request);
         var stored = await subscriptionRepo.GetByIdAsync(created.Id);
 
         Assert.True(encryption.IsEncrypted(stored!.Authentication!.HmacSignature!.Secret));
@@ -614,9 +613,8 @@ public sealed class SubscriptionServiceTests
         var encryption = new FakeSecretEncryptionService();
         var service = CreateService(subscriptionRepo, tenantRepo, encryptionService: encryption);
 
-        var created = await service.CreateAsync(new CreateSubscriptionRequestDto
+        var created = await service.CreateAsync("tenant-1", new CreateSubscriptionRequestDto
         {
-            TenantId = "tenant-1",
             EventType = "order.created",
             TargetUrl = "https://example.com/hooks",
             RetryPolicy = new RetryPolicyDto { MaxAttempts = 3, InitialDelaySeconds = 30, BackoffType = "Exponential" },
@@ -630,7 +628,7 @@ public sealed class SubscriptionServiceTests
 
         var before = (await subscriptionRepo.GetByIdAsync(created.Id))!.Authentication!.Basic!.Password;
 
-        await service.UpdateAsync(created.Id, new UpdateSubscriptionRequestDto
+        await service.UpdateAsync("tenant-1", created.Id, new UpdateSubscriptionRequestDto
         {
             Authentication = new AuthenticationDto
             {
@@ -645,7 +643,6 @@ public sealed class SubscriptionServiceTests
 
     private static CreateSubscriptionRequestDto BuildValidRequest() => new()
     {
-        TenantId = "tenant-1",
         EventType = "order.created",
         TargetUrl = "https://example.com/hooks",
         RetryPolicy = new RetryPolicyDto
@@ -688,7 +685,7 @@ public sealed class SubscriptionServiceTests
 
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>.Create([], 1, 50, 0));
-        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
     }
 
@@ -757,7 +754,7 @@ public sealed class SubscriptionServiceTests
     {
         private readonly List<T> _items = [];
 
-        public Task<T?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<T?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
 
         public Task<IReadOnlyList<T>> FindAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
@@ -800,7 +797,7 @@ public sealed class SubscriptionServiceTests
             return Task.CompletedTask;
         }
 
-        public Task DeleteAsync(string id, CancellationToken cancellationToken = default)
+        public Task DeleteAsync(string tenantId, string id, CancellationToken cancellationToken = default)
         {
             _items.RemoveAll(x => x.Id == id);
             return Task.CompletedTask;

@@ -26,27 +26,27 @@ public sealed class SubscriptionService(
     private const string DefaultBackoffType = "Exponential";
     private const string MaskedValue = "********";
 
-    public async Task<SubscriptionResponseDto> CreateAsync(CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<SubscriptionResponseDto> CreateAsync(string tenantId, CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
     {
         ApplyDefaults(request);
         await createValidator.ValidateAndThrowAsync(request, cancellationToken);
 
-        var tenant = await tenantRepository.GetByIdAsync(request.TenantId, cancellationToken);
+        var tenant = await tenantRepository.GetByIdAsync(tenantId, cancellationToken);
         if (tenant is null)
         {
-            throw new KeyNotFoundException($"Tenant '{request.TenantId}' not found.");
+            throw new KeyNotFoundException($"Tenant '{tenantId}' not found.");
         }
 
         if (tenant.Status != TenantStatus.Active)
         {
-            throw new ConflictException($"Tenant '{request.TenantId}' is not active.");
+            throw new ConflictException($"Tenant '{tenantId}' is not active.");
         }
 
         var now = dateTimeProvider.UtcNow;
         var subscription = new Subscription
         {
             Id = guidGenerator.NewGuid(),
-            TenantId = request.TenantId,
+            TenantId = tenantId,
             EventType = request.EventType,
             TargetUrl = request.TargetUrl,
             Headers = request.Headers.Select(Map).ToList(),
@@ -63,8 +63,7 @@ public sealed class SubscriptionService(
         await TryAuditAsync(
             new AuditLog
             {
-                TenantId = subscription.TenantId,
-                Action = "SubscriptionCreated",
+                    Action = "SubscriptionCreated",
                 ResourceType = nameof(Subscription),
                 ResourceId = subscription.Id,
                 Description = $"Subscription created for event '{subscription.EventType}'.",
@@ -82,10 +81,10 @@ public sealed class SubscriptionService(
         return Map(subscription);
     }
 
-    public async Task<SubscriptionResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<SubscriptionResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
     {
         var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
-        if (subscription is null)
+        if (subscription is null || !string.Equals(subscription.TenantId, tenantId, StringComparison.Ordinal))
         {
             return null;
         }
@@ -108,7 +107,7 @@ public sealed class SubscriptionService(
 
         var subscriptions = await subscriptionRepository.QueryAsync(
             subscription =>
-                (string.IsNullOrWhiteSpace(request.TenantId) || subscription.TenantId == request.TenantId)
+                subscription.TenantId == request.TenantId
                 && (string.IsNullOrWhiteSpace(request.EventType) || subscription.EventType == request.EventType)
                 && (string.IsNullOrWhiteSpace(request.TargetUrl) || subscription.TargetUrl.Contains(request.TargetUrl))
                 && (!request.IsActive.HasValue || subscription.IsActive == request.IsActive.Value),
@@ -141,12 +140,12 @@ public sealed class SubscriptionService(
         };
     }
 
-    public async Task<SubscriptionResponseDto?> UpdateAsync(string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<SubscriptionResponseDto?> UpdateAsync(string tenantId, string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
     {
         await updateValidator.ValidateAndThrowAsync(request, cancellationToken);
 
         var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
-        if (subscription is null)
+        if (subscription is null || !string.Equals(subscription.TenantId, tenantId, StringComparison.Ordinal))
         {
             return null;
         }
@@ -187,8 +186,7 @@ public sealed class SubscriptionService(
         await TryAuditAsync(
             new AuditLog
             {
-                TenantId = subscription.TenantId,
-                Action = "SubscriptionUpdated",
+                    Action = "SubscriptionUpdated",
                 ResourceType = nameof(Subscription),
                 ResourceId = subscription.Id,
                 Description = $"Subscription '{subscription.Id}' updated.",
@@ -205,10 +203,10 @@ public sealed class SubscriptionService(
         return Map(subscription);
     }
 
-    public async Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteAsync(string tenantId, string id, CancellationToken cancellationToken = default)
     {
         var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
-        if (subscription is null)
+        if (subscription is null || !string.Equals(subscription.TenantId, tenantId, StringComparison.Ordinal))
         {
             return false;
         }
@@ -217,8 +215,7 @@ public sealed class SubscriptionService(
         await TryAuditAsync(
             new AuditLog
             {
-                TenantId = subscription.TenantId,
-                Action = "SubscriptionDeleted",
+                    Action = "SubscriptionDeleted",
                 ResourceType = nameof(Subscription),
                 ResourceId = subscription.Id,
                 Description = $"Subscription '{subscription.Id}' deleted.",
@@ -239,10 +236,10 @@ public sealed class SubscriptionService(
         return true;
     }
 
-    public async Task<bool> EnableAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<bool> EnableAsync(string tenantId, string id, CancellationToken cancellationToken = default)
     {
         var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
-        if (subscription is null)
+        if (subscription is null || !string.Equals(subscription.TenantId, tenantId, StringComparison.Ordinal))
         {
             return false;
         }
@@ -255,8 +252,7 @@ public sealed class SubscriptionService(
         await TryAuditAsync(
             new AuditLog
             {
-                TenantId = subscription.TenantId,
-                Action = "SubscriptionEnabled",
+                    Action = "SubscriptionEnabled",
                 ResourceType = nameof(Subscription),
                 ResourceId = subscription.Id,
                 Description = $"Subscription '{subscription.Id}' enabled.",
@@ -273,7 +269,7 @@ public sealed class SubscriptionService(
         return true;
     }
 
-    public async Task<bool> DisableAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<bool> DisableAsync(string tenantId, string id, CancellationToken cancellationToken = default)
     {
         var subscription = await subscriptionRepository.GetByIdAsync(id, cancellationToken);
         if (subscription is null)
@@ -290,8 +286,7 @@ public sealed class SubscriptionService(
         await TryAuditAsync(
             new AuditLog
             {
-                TenantId = subscription.TenantId,
-                Action = "SubscriptionDisabled",
+                    Action = "SubscriptionDisabled",
                 ResourceType = nameof(Subscription),
                 ResourceId = subscription.Id,
                 Description = $"Subscription '{subscription.Id}' disabled.",
@@ -323,7 +318,6 @@ public sealed class SubscriptionService(
         => new()
         {
             Id = subscription.Id,
-            TenantId = subscription.TenantId,
             EventType = subscription.EventType,
             TargetUrl = subscription.TargetUrl,
             Headers = subscription.Headers.Select(Map).ToList(),

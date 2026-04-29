@@ -39,7 +39,6 @@ type PageRequest = {
 };
 
 type SubscriptionFormState = {
-  tenantId: string;
   eventType: string;
   targetUrl: string;
   timeoutSeconds: string;
@@ -62,7 +61,6 @@ type SubscriptionFormState = {
 };
 
 const defaultFormState: SubscriptionFormState = {
-  tenantId: '',
   eventType: '',
   targetUrl: '',
   timeoutSeconds: '30',
@@ -132,7 +130,6 @@ const mapSubscriptionToForm = (subscription: Subscription): SubscriptionFormStat
   const authentication = subscription.authentication;
 
   return {
-    tenantId: subscription.tenantId,
     eventType: subscription.eventType,
     targetUrl: subscription.targetUrl,
     timeoutSeconds: `${subscription.timeoutSeconds}`,
@@ -324,11 +321,7 @@ const SubscriptionsPage = (): JSX.Element => {
   };
 
   const validateForm = (): string => {
-    if (formMode === 'create' && !form.tenantId.trim()) {
-      return 'tenantId is required.';
-    }
-
-    if (!form.eventType.trim()) {
+      if (!form.eventType.trim()) {
       return 'eventType is required.';
     }
 
@@ -407,7 +400,6 @@ const SubscriptionsPage = (): JSX.Element => {
       } else {
         const createRequest: CreateSubscriptionRequest = {
           ...commonPayload,
-          tenantId: form.tenantId.trim()
         };
         await subscriptionsApi.createSubscription(createRequest);
         setSuccessMessage('Subscription created successfully.');
@@ -773,7 +765,6 @@ const SubscriptionsPage = (): JSX.Element => {
               value={form.tenantId}
               onChange={(event) => {
                 setFormField('tenantId', event.target.value);
-                setValidationErrors((previous) => ({ ...previous, tenantId: [], TenantId: [] }));
               }}
               disabled={formMode === 'edit'}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-slate-100"
