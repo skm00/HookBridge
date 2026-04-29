@@ -69,6 +69,7 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<SwaggerExamplesOperationFilter>();
     options.OperationFilter<SwaggerCommonResponsesOperationFilter>();
     options.SchemaFilter<SwaggerSensitiveSchemaFilter>();
+    options.CustomSchemaIds(type => type.FullName?.Replace("+", ".") ?? type.Name);
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
