@@ -227,10 +227,10 @@ public sealed class TenantIsolationControllerTests
 
         public SubscriptionResponseDto? GetByIdResult { get; set; } = new() { Id = "sub-1", TenantId = "tenant-1" };
 
-        public Task<SubscriptionResponseDto> CreateAsync(CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
+        public Task<SubscriptionResponseDto> CreateAsync(string tenantId, CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(new SubscriptionResponseDto { Id = "sub-1", TenantId = request.TenantId });
 
-        public Task<SubscriptionResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<SubscriptionResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult(GetByIdResult);
 
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default)
@@ -239,14 +239,14 @@ public sealed class TenantIsolationControllerTests
             return Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<SubscriptionResponseDto>.Create([], 1, 50, 0));
         }
 
-        public Task<SubscriptionResponseDto?> UpdateAsync(string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
+        public Task<SubscriptionResponseDto?> UpdateAsync(string tenantId, string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(GetByIdResult);
 
-        public Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> DeleteAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
-        public Task<bool> EnableAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> EnableAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
-        public Task<bool> DisableAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> DisableAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 
     private sealed class FakeDeliveryAttemptService : IDeliveryAttemptService
@@ -259,7 +259,7 @@ public sealed class TenantIsolationControllerTests
             return Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<DeliveryAttemptResponseDto>.Create([], 1, 50, 0));
         }
 
-        public Task<DeliveryAttemptResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<DeliveryAttemptResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult<DeliveryAttemptResponseDto?>(null);
     }
 
@@ -272,7 +272,7 @@ public sealed class TenantIsolationControllerTests
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>> SearchAsync(FailedEventSearchRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>.Create([], 1, 50, 0));
 
-        public Task<FailedEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<FailedEventResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult(Item);
 
         public Task<bool> RetryAsync(string failedEventId, CancellationToken cancellationToken = default) => Task.FromResult(true);
@@ -294,7 +294,7 @@ public sealed class TenantIsolationControllerTests
             return Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<NotificationResponseDto>.Create([], 1, 50, 0));
         }
 
-        public Task<NotificationResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<NotificationResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult(Item);
 
         public Task<bool> MarkAsReadAsync(string id, CancellationToken cancellationToken = default)
@@ -311,7 +311,7 @@ public sealed class TenantIsolationControllerTests
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<IncomingEventResponseDto>> SearchAsync(IncomingEventSearchRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<IncomingEventResponseDto>.Create([], 1, 50, 0));
 
-        public Task<IncomingEventResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<IncomingEventResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult(Item);
     }
 
@@ -320,7 +320,7 @@ public sealed class TenantIsolationControllerTests
         public Task<TenantResponseDto> CreateAsync(CreateTenantRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(new TenantResponseDto());
 
-        public Task<TenantResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<TenantResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult<TenantResponseDto?>(null);
 
         public Task<IReadOnlyList<TenantResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -329,7 +329,7 @@ public sealed class TenantIsolationControllerTests
         public Task<TenantResponseDto?> UpdateAsync(string id, UpdateTenantRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult<TenantResponseDto?>(null);
 
-        public Task<bool> DisableAsync(string id, CancellationToken cancellationToken = default)
+        public Task<bool> DisableAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
     }
 
@@ -360,7 +360,7 @@ public sealed class TenantIsolationControllerTests
             return Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<AuditLogResponseDto>.Create([], 1, 50, 0));
         }
 
-        public Task<AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<AuditLogResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult(GetByIdResult);
     }
 }

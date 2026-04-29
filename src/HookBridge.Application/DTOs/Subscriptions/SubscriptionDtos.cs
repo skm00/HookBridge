@@ -7,8 +7,6 @@ namespace HookBridge.Application.DTOs.Subscriptions;
 /// </summary>
 public sealed class CreateSubscriptionRequestDto
 {
-    public string TenantId { get; set; } = string.Empty;
-
     public string EventType { get; set; } = string.Empty;
 
     public string TargetUrl { get; set; } = string.Empty;
@@ -44,8 +42,6 @@ public sealed class SubscriptionResponseDto
 {
     public string Id { get; set; } = string.Empty;
 
-    public string TenantId { get; set; } = string.Empty;
-
     public string EventType { get; set; } = string.Empty;
 
     public string TargetUrl { get; set; } = string.Empty;
@@ -69,7 +65,7 @@ public sealed class SubscriptionResponseDto
 
 public sealed class SubscriptionSearchRequestDto : PagedRequestDto
 {
-    public string? TenantId { get; set; }
+    public string TenantId { get; set; } = string.Empty;
 
     public string? EventType { get; set; }
 
