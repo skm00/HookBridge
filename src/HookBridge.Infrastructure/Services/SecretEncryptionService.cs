@@ -82,6 +82,11 @@ public sealed class SecretEncryptionService(IOptions<EncryptionSettings> encrypt
 
     private static byte[] BuildKey(string masterKey)
     {
+        if (string.IsNullOrWhiteSpace(masterKey))
+        {
+            throw new InvalidOperationException("Encryption:MasterKey is required to encrypt/decrypt secrets.");
+        }
+
         var source = Encoding.UTF8.GetBytes(masterKey);
         var keyBytes = new byte[32];
 
