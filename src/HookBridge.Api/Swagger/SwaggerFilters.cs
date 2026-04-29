@@ -224,7 +224,7 @@ public sealed class SwaggerSensitiveSchemaFilter : ISchemaFilter
 
     public void Apply(OpenApiSchema schema, SchemaFilterContext context)
     {
-        if (schema.Properties.Count == 0)
+        if (schema.Properties is null || schema.Properties.Count == 0)
         {
             return;
         }
