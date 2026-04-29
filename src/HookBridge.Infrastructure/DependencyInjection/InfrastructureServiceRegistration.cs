@@ -190,7 +190,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<ITracingService, ElasticApmTracingService>();
         services.AddSingleton<IKafkaProducer, KafkaProducer>();
         services.AddSingleton<IKafkaConsumer, KafkaConsumer>();
-        services.AddSingleton<IKafkaAdminService, KafkaAdminServicePlaceholder>();
+        services.AddSingleton<IKafkaAdminService, KafkaAdminService>();
         services.AddHttpClient();
         services.AddSingleton<IOAuthTokenService, OAuthTokenService>();
         services.AddScoped<IWebhookAuthenticationHandler, WebhookAuthenticationHandler>();
