@@ -7,9 +7,6 @@ public sealed class RegisterAdminRequestDtoValidator : AbstractValidator<Registe
 {
     public RegisterAdminRequestDtoValidator()
     {
-        RuleFor(x => x.TenantId)
-            .NotEmpty();
-
         RuleFor(x => x.Email)
             .NotEmpty()
             .EmailAddress();
@@ -18,11 +15,5 @@ public sealed class RegisterAdminRequestDtoValidator : AbstractValidator<Registe
             .NotEmpty()
             .MinimumLength(8);
 
-        RuleFor(x => x.FullName)
-            .NotEmpty();
-
-        RuleFor(x => x.Role)
-            .IsInEnum()
-            .When(x => x.Role.HasValue);
     }
 }

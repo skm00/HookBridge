@@ -2,22 +2,15 @@ using HookBridge.Domain.Enums;
 namespace HookBridge.Application.DTOs.Auth;
 
 /// <summary>
-/// Request payload used to register the first admin or invite another admin.
+/// Request payload used to register a new tenant workspace owner/admin.
 /// </summary>
 public sealed class RegisterAdminRequestDto
 {
-    /// <summary>
-    /// Tenant identifier the admin belongs to.
-    /// </summary>
-    public string TenantId { get; set; } = string.Empty;
-
     public string Email { get; set; } = string.Empty;
 
     public string Password { get; set; } = string.Empty;
 
-    public string FullName { get; set; } = string.Empty;
-
-    public AdminRole? Role { get; set; }
+    public string? OrganizationName { get; set; }
 }
 
 /// <summary>
@@ -45,6 +38,8 @@ public sealed class AdminUserResponseDto
     public DateTime? LastLoginAt { get; set; }
 
     public AdminRole Role { get; set; }
+
+    public string OrganizationName { get; set; } = string.Empty;
 }
 
 /// <summary>

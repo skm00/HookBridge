@@ -6,11 +6,9 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
-  tenantId: string;
-  fullName: string;
   email: string;
   password: string;
-  role: AdminRole;
+  organizationName?: string;
 }
 
 export interface AdminUser {
@@ -19,6 +17,7 @@ export interface AdminUser {
   email: string;
   fullName: string;
   role: AdminRole;
+  organizationName: string;
 }
 
 export interface AuthResponse {
