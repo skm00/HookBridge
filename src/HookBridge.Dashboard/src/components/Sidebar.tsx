@@ -15,31 +15,35 @@ const navGroups: NavGroup[] = [
     title: 'Product',
     items: [
       { to: '/overview', label: 'Overview' },
-      { to: '/subscriptions', label: 'Subscriptions' },
       { to: '/events', label: 'Events' },
-      { to: '/delivery-logs', label: 'Delivery Logs' },
-      { to: '/failed-events', label: 'Failed Events' }
+      { to: '/subscriptions', label: 'Subscriptions' },
+      { to: '/api-keys', label: 'API Keys' }
     ]
   },
   {
     title: 'Monitoring',
     items: [
-      { to: '/notifications', label: 'Notifications' },
-      { to: '/audit-logs', label: 'Audit Logs' },
+      { to: '/delivery-logs', label: 'Delivery Logs' },
+      { to: '/failed-events', label: 'Failed Events / DLQ' },
+      { to: '/kafka', label: 'Kafka' },
       { to: '/health', label: 'Health' }
     ]
   },
   {
     title: 'Administration',
     items: [
-      { to: '/tenants', label: 'Tenants' },
-      { to: '/api-keys', label: 'API Keys' },
-      { to: '/billing', label: 'Billing' }
+      { to: '/billing', label: 'Billing' },
+      { to: '/usage', label: 'Usage' },
+      { to: '/audit-logs', label: 'Audit Logs' },
+      { to: '/notifications', label: 'Notifications' }
     ]
   },
   {
     title: 'System',
-    items: [{ to: '/settings', label: 'Settings' }]
+    items: [
+      { to: '/production-readiness', label: 'Production Readiness' },
+      { to: '/settings', label: 'Settings' }
+    ]
   }
 ];
 
