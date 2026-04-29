@@ -111,7 +111,7 @@ public sealed class SwaggerExamplesOperationFilter : IOperationFilter
 
         if (controller == "Auth" && method == "RegisterAsync")
         {
-            SetJsonBodyExample(operation, "{\"email\":\"owner@acme.com\",\"password\":\"StrongPassword123!\",\"fullName\":\"Acme Owner\",\"tenantName\":\"Acme Inc\",\"tenantSlug\":\"acme\"}");
+            SetJsonBodyExample(operation, "{\"email\":\"owner@acme.com\",\"password\":\"StrongPassword123!\",\"organizationName\":\"Acme Inc\"}");
         }
 
         if (controller == "Auth" && method == "LoginAsync")

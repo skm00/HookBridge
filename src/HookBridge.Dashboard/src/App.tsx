@@ -19,6 +19,7 @@ import RegisterPage from './pages/RegisterPage';
 import SettingsPage from './pages/SettingsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import TenantsPage from './pages/TenantsPage';
+import PagePlaceholder from './pages/PagePlaceholder';
 import DocsAuthenticationPage from './pages/docs/DocsAuthenticationPage';
 import DocsErrorsPage from './pages/docs/DocsErrorsPage';
 import DocsEventsPage from './pages/docs/DocsEventsPage';
@@ -60,6 +61,9 @@ const App = (): JSX.Element => {
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/health" element={<HealthPage />} />
+          <Route path="/kafka" element={<PagePlaceholder title="Kafka Monitoring" description="Track topics, consumer groups, lag, and broker health from one view." />} />
+          <Route path="/usage" element={<PagePlaceholder title="Usage" description="Monitor event ingestion and delivery consumption across billing cycles." />} />
+          <Route path="/production-readiness" element={<PagePlaceholder title="Production Readiness" description="Validate release checklists with pass/warn/fail controls before going live." />} />
         </Route>
       </Route>
 

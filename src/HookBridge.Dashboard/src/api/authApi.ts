@@ -32,7 +32,8 @@ const toAuthResponse = (payload: Record<string, unknown>): AuthResponse => {
       tenantId: String(userPayload.tenantId ?? ''),
       email: String(userPayload.email ?? ''),
       fullName: String(userPayload.fullName ?? ''),
-      role: normalizeRole(userPayload.role)
+      role: normalizeRole(userPayload.role),
+      organizationName: String(userPayload.organizationName ?? '')
     }
   };
 };
@@ -67,19 +68,9 @@ const login = async (request: LoginRequest): Promise<AuthResponse> => {
   }
 };
 
-const roleToNumber: Record<AdminRole, number> = {
-  Owner: 0,
-  Admin: 1,
-  Developer: 2,
-  Viewer: 3
-};
-
 const register = async (request: RegisterRequest): Promise<AuthResponse> => {
   try {
-    const response = await apiClient.post('/api/v1/auth/register', {
-      ...request,
-      role: roleToNumber[request.role]
-    });
+    const response = await apiClient.post('/api/v1/auth/register', request);
     return toAuthResponse(response.data as Record<string, unknown>);
   } catch (error) {
     throw new Error(extractErrorMessage(error));

@@ -8,6 +8,7 @@ using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Security;
 using HookBridge.Application.Interfaces.Services;
+using HookBridge.Domain.Configuration;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
 using HookBridge.Infrastructure.Configuration;
@@ -34,31 +35,42 @@ public sealed class AuthService(
     {
         await registerValidator.ValidateAndThrowAsync(request, cancellationToken);
 
-        var tenant = await tenantRepository.GetByIdAsync(request.TenantId, cancellationToken);
-        if (tenant is null || tenant.Status != TenantStatus.Active)
-        {
-            throw new KeyNotFoundException($"Active tenant '{request.TenantId}' not found.");
-        }
-
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var existingAdmin = await adminUserRepository.FirstOrDefaultAsync(
-            x => x.TenantId == request.TenantId && x.Email == normalizedEmail,
+            x => x.Email == normalizedEmail,
             cancellationToken);
 
         if (existingAdmin is not null)
         {
-            throw new ConflictException("An admin user with this email already exists for the tenant.");
+            throw new ConflictException("An admin user with this email already exists.");
         }
 
         var now = dateTimeProvider.UtcNow;
+        var organizationName = string.IsNullOrWhiteSpace(request.OrganizationName)
+            ? DeriveOrganizationNameFromEmail(normalizedEmail)
+            : request.OrganizationName.Trim();
+
+        var tenant = new Tenant
+        {
+            Id = guidGenerator.NewGuid(),
+            Name = organizationName,
+            Slug = BuildSlug(organizationName),
+            Status = TenantStatus.Active,
+            Plan = BillingPlan.Free,
+            MonthlyEventLimit = BillingPlanLimits.Free,
+            CreatedAt = now,
+        };
+
+        await tenantRepository.AddAsync(tenant, cancellationToken);
+
         var adminUser = new AdminUser
         {
             Id = guidGenerator.NewGuid(),
-            TenantId = request.TenantId,
+            TenantId = tenant.Id,
             Email = normalizedEmail,
             PasswordHash = passwordHasher.HashPassword(request.Password),
-            FullName = request.FullName.Trim(),
-            Role = request.Role ?? AdminRole.Viewer,
+            FullName = organizationName,
+            Role = AdminRole.Owner,
             IsActive = true,
             LastLoginAt = now,
             CreatedAt = now,
@@ -66,7 +78,7 @@ public sealed class AuthService(
 
         await adminUserRepository.AddAsync(adminUser, cancellationToken);
 
-        return BuildAuthResponse(adminUser);
+        return BuildAuthResponse(adminUser, tenant.Name);
     }
 
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -90,7 +102,7 @@ public sealed class AuthService(
         return BuildAuthResponse(adminUser);
     }
 
-    private AuthResponseDto BuildAuthResponse(AdminUser adminUser)
+    private AuthResponseDto BuildAuthResponse(AdminUser adminUser, string? organizationName = null)
     {
         var expiresAt = dateTimeProvider.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes);
 
@@ -128,7 +140,24 @@ public sealed class AuthService(
                 IsActive = adminUser.IsActive,
                 LastLoginAt = adminUser.LastLoginAt,
                 Role = adminUser.Role,
+                OrganizationName = organizationName ?? string.Empty,
             },
         };
+    }
+
+    private static string DeriveOrganizationNameFromEmail(string email)
+    {
+        var atIndex = email.IndexOf("@", StringComparison.Ordinal);
+        if (atIndex < 0 || atIndex == email.Length - 1) return "My Organization";
+        var domain = email[(atIndex + 1)..];
+        var root = domain.Split('.', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return string.IsNullOrWhiteSpace(root) ? "My Organization" : char.ToUpperInvariant(root[0]) + root[1..];
+    }
+
+    private static string BuildSlug(string name)
+    {
+        var slug = new string(name.Trim().ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray());
+        slug = string.Join("-", slug.Split('-', StringSplitOptions.RemoveEmptyEntries));
+        return string.IsNullOrWhiteSpace(slug) ? "my-organization" : slug;
     }
 }
