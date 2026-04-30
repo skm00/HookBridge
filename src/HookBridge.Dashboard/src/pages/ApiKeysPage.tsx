@@ -139,6 +139,15 @@ const ApiKeysPage = (): JSX.Element => {
     setPlainApiKey(null);
   };
 
+  const handleCopyKeyPrefix = async (keyPrefix: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(keyPrefix);
+      setSuccessMessage('API key copied to clipboard.');
+    } catch {
+      setErrorMessage('Copy failed. Please copy the key manually.');
+    }
+  };
+
   const handleRevoke = async (key: ApiKeyResponse): Promise<void> => {
     if (!tenantId || !key.isActive || !window.confirm(`Revoke API key "${key.name}"?`)) {
       return;
@@ -255,14 +264,23 @@ const ApiKeysPage = (): JSX.Element => {
                     <td className="px-4 py-3">{formatDate(key.createdAt)}</td>
                     <td className="px-4 py-3">{formatDate(key.revokedAt)}</td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => void handleRevoke(key)}
-                        disabled={!key.isActive || activeRowId === key.id}
-                        className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-border disabled:text-slate-400"
-                      >
-                        {activeRowId === key.id ? 'Revoking...' : 'Revoke'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyKeyPrefix(key.keyPrefix)}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleRevoke(key)}
+                          disabled={!key.isActive || activeRowId === key.id}
+                          className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-border disabled:text-slate-400"
+                        >
+                          {activeRowId === key.id ? 'Revoking...' : 'Revoke'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
