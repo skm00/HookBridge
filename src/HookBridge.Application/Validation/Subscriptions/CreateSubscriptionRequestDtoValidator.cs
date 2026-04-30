@@ -25,8 +25,6 @@ public sealed class CreateSubscriptionRequestDtoValidator : AbstractValidator<Cr
         var isProduction = hostEnvironment?.IsProduction() ?? false;
         var allowPrivateNetworkTargetUrls = securitySettings?.Value.AllowPrivateNetworkTargetUrls ?? true;
 
-        RuleFor(x => x.TenantId).NotEmpty();
-
         RuleFor(x => x.EventType)
             .NotEmpty()
             .MaximumLength(ValidationLimits.MaxEventTypeLength);
