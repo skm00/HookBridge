@@ -151,10 +151,6 @@ const EventsPage = (): JSX.Element => {
   const requestFilters = useMemo<IncomingEventSearchRequest>(() => {
     const mappedFilters: IncomingEventSearchRequest = {};
 
-    if (filters.eventId.trim()) {
-      mappedFilters.eventId = filters.eventId.trim();
-    }
-
     if (filters.eventType.trim()) {
       mappedFilters.eventType = filters.eventType.trim();
     }
