@@ -1,4 +1,5 @@
 using FluentValidation;
+using HookBridge.Application.Common;
 using HookBridge.Application.DTOs.Events;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces;
@@ -57,7 +58,7 @@ public sealed class EventIngestionService(
                 "Duplicate event accepted for tenant {TenantId}. EventId: {EventId}. EventType: {EventType}. CorrelationId: {CorrelationId}",
                 tenantId,
                 effectiveEventId,
-                request.EventType,
+                string.IsNullOrWhiteSpace(request.EventType) ? "default" : request.EventType,
                 correlationId);
 
             return new EventIngestionResponseDto
@@ -79,10 +80,10 @@ public sealed class EventIngestionService(
         {
             Id = guidGenerator.NewGuid(),
             TenantId = tenantId,
-            EventType = request.EventType,
+            EventType = string.IsNullOrWhiteSpace(request.EventType) ? "default" : request.EventType,
             EventId = effectiveEventId,
             SourceTimestamp = request.Timestamp,
-            Payload = NormalizePayload(request.Data),
+            Payload = AuditMetadataSanitizer.Sanitize(NormalizePayload(request.Data)),
             Status = "Accepted",
             ReceivedAt = now,
             ApiKeyId = validationResult.ApiKeyId,
@@ -111,7 +112,7 @@ public sealed class EventIngestionService(
                 "Event accepted and queued for tenant {TenantId}. EventId: {EventId}. EventType: {EventType}. CorrelationId: {CorrelationId}",
                 tenantId,
                 effectiveEventId,
-                request.EventType,
+                string.IsNullOrWhiteSpace(request.EventType) ? "default" : request.EventType,
                 correlationId);
 
             return new EventIngestionResponseDto

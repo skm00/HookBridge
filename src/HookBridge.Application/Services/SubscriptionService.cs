@@ -47,7 +47,7 @@ public sealed class SubscriptionService(
         {
             Id = guidGenerator.NewGuid(),
             TenantId = tenantId,
-            EventType = request.EventType,
+            EventType = string.IsNullOrWhiteSpace(request.EventType) ? "*" : request.EventType,
             TargetUrl = request.TargetUrl,
             Headers = request.Headers.Select(Map).ToList(),
             Authentication = request.Authentication is null ? null : MapAndEncrypt(request.Authentication, null, secretEncryptionService),
@@ -152,7 +152,7 @@ public sealed class SubscriptionService(
 
         if (request.EventType is not null)
         {
-            subscription.EventType = request.EventType;
+            subscription.EventType = string.IsNullOrWhiteSpace(request.EventType) ? "*" : request.EventType;
         }
 
         if (request.TargetUrl is not null)

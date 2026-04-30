@@ -7,7 +7,7 @@ namespace HookBridge.Application.DTOs.Subscriptions;
 /// </summary>
 public sealed class CreateSubscriptionRequestDto
 {
-    public string EventType { get; set; } = string.Empty;
+    public string? EventType { get; set; }
 
     public string TargetUrl { get; set; } = string.Empty;
 
@@ -42,7 +42,7 @@ public sealed class SubscriptionResponseDto
 {
     public string Id { get; set; } = string.Empty;
 
-    public string EventType { get; set; } = string.Empty;
+    public string? EventType { get; set; }
 
     public string TargetUrl { get; set; } = string.Empty;
 

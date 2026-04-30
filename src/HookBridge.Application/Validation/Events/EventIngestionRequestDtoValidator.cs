@@ -11,11 +11,12 @@ public sealed partial class EventIngestionRequestDtoValidator : AbstractValidato
     public EventIngestionRequestDtoValidator()
     {
         RuleFor(x => x.EventType)
-            .NotEmpty()
-            .WithMessage("EventType is required.")
+            .MaximumLength(ValidationLimits.MaxEventTypeLength)
+            .When(x => !string.IsNullOrWhiteSpace(x.EventType))
             .MaximumLength(ValidationLimits.MaxEventTypeLength)
             .WithMessage($"EventType must be {ValidationLimits.MaxEventTypeLength} characters or fewer.")
             .Matches(EventTypeRegex())
+            .When(x => !string.IsNullOrWhiteSpace(x.EventType))
             .WithMessage("EventType may contain only letters, numbers, dot (.), dash (-), and underscore (_).");
 
         RuleFor(x => x.EventId)
@@ -25,9 +26,18 @@ public sealed partial class EventIngestionRequestDtoValidator : AbstractValidato
 
         RuleFor(x => x.Data)
             .NotNull()
-            .WithMessage("Data is required.")
+            .WithMessage("Payload is required.")
+            .Must(BeJsonObject)
+            .WithMessage("Payload must be a JSON object.")
             .Must(BeWithinPayloadLimit)
             .WithMessage($"Data payload exceeds {ValidationLimits.MaxPayloadSizeBytes} bytes.");
+    }
+
+    private static bool BeJsonObject(object? data)
+    {
+        return data is JsonElement element
+            ? element.ValueKind == JsonValueKind.Object
+            : data is not null;
     }
 
     private static bool BeWithinPayloadLimit(object? data)
