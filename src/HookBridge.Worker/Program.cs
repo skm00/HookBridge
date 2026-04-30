@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting;
 using HookBridge.Application.DependencyInjection;
 using HookBridge.Application.Interfaces;
 using HookBridge.Infrastructure.DependencyInjection;
@@ -6,6 +7,12 @@ using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Logging;
 using HookBridge.Worker;
 using Serilog;
+
+if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT"))
+    && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")))
+{
+    Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", Environments.Development);
+}
 
 var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(args);
 
