@@ -11,6 +11,7 @@ var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(args);
 
 builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment, requireKafkaConsumerGroupId: true);
 builder.Services.AddApplicationServices();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, WorkerCurrentUserContext>();
 builder.Services.AddHostedService<WebhookEventConsumerWorker>();
 builder.Services.AddHostedService<WebhookRetryConsumerWorker>();
