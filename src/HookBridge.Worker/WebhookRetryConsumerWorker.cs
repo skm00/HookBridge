@@ -1,6 +1,7 @@
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using HookBridge.Shared.Constants;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -8,7 +9,7 @@ namespace HookBridge.Worker;
 
 public class WebhookRetryConsumerWorker(
     IKafkaConsumer kafkaConsumer,
-    IWebhookDeliveryService webhookDeliveryService,
+    IServiceScopeFactory scopeFactory,
     ILogger<WebhookRetryConsumerWorker> logger,
     WorkerTransactionRunner transactionRunner) : BackgroundService
 {
@@ -51,6 +52,9 @@ public class WebhookRetryConsumerWorker(
                         message.CorrelationId);
                     await DelayUntilAsync(delay, stoppingToken);
                 }
+
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var webhookDeliveryService = scope.ServiceProvider.GetRequiredService<IWebhookDeliveryService>();
 
                 await transactionRunner.RunAsync(
                     "Process webhook retry",
