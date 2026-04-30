@@ -77,9 +77,6 @@ public sealed class UsageMetricRepository(IMongoDatabase database) : IUsageMetri
             Builders<UsageMetric>.Update.SetOnInsert(x => x.TenantId, tenantId),
             Builders<UsageMetric>.Update.SetOnInsert(x => x.Year, year),
             Builders<UsageMetric>.Update.SetOnInsert(x => x.Month, month),
-            Builders<UsageMetric>.Update.SetOnInsert(x => x.EventsReceived, 0),
-            Builders<UsageMetric>.Update.SetOnInsert(x => x.EventsDelivered, 0),
-            Builders<UsageMetric>.Update.SetOnInsert(x => x.EventsFailed, 0),
             Builders<UsageMetric>.Update.SetOnInsert(x => x.CreatedAt, nowUtc),
             update);
 
