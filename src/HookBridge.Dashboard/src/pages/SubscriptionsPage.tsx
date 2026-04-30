@@ -228,11 +228,14 @@ const SubscriptionsPage = (): JSX.Element => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorTraceId, setErrorTraceId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
+  const [endpointValidationMessage, setEndpointValidationMessage] = useState('');
+  const [endpointValidationSuccess, setEndpointValidationSuccess] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [formMode, setFormMode] = useState<FormMode>('create');
   const [editingSubscriptionId, setEditingSubscriptionId] = useState<string | null>(null);
@@ -361,6 +364,44 @@ const SubscriptionsPage = (): JSX.Element => {
     }))
     .filter((item) => item.name.length > 0 && item.value.length > 0);
 
+
+  const handleTestEndpoint = async (): Promise<void> => {
+    setEndpointValidationMessage('');
+    setEndpointValidationSuccess(false);
+    setErrorMessage('');
+
+    if (!form.targetUrl.trim()) {
+      setEndpointValidationMessage('targetUrl is required.');
+      return;
+    }
+
+    setIsTestingEndpoint(true);
+
+    try {
+      const result = await subscriptionsApi.validateEndpoint({
+        targetUrl: form.targetUrl.trim(),
+        headers: buildHeaders(),
+        authentication: buildAuthentication(form),
+        samplePayload: { test: true },
+        timeoutSeconds: Number(form.timeoutSeconds)
+      });
+
+      if (result.isSuccess) {
+        setEndpointValidationSuccess(true);
+        setEndpointValidationMessage(`Endpoint is reachable. Status: ${result.statusCode ?? '-'} . Duration: ${result.durationMs} ms.`);
+      } else {
+        setEndpointValidationSuccess(false);
+        setEndpointValidationMessage(result.message.includes('timed out')
+          ? result.message
+          : `Endpoint validation failed. Status: ${result.statusCode ?? '-'} . Duration: ${result.durationMs} ms.`);
+      }
+    } catch (error) {
+      setEndpointValidationSuccess(false);
+      setEndpointValidationMessage(getErrorMessage(error));
+    } finally {
+      setIsTestingEndpoint(false);
+    }
+  };
   const handleCreateOrUpdate = async (): Promise<void> => {
     setSuccessMessage('');
     setValidationMessage('');
@@ -531,6 +572,11 @@ const SubscriptionsPage = (): JSX.Element => {
 
       {successMessage ? <div className="rounded-xl border border-success-border bg-success-bg p-3 text-sm text-success">{successMessage}</div> : null}
       {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
+      {endpointValidationMessage ? (
+        <div className={`rounded-xl border p-3 text-sm ${endpointValidationSuccess ? 'border-success-border bg-success-bg text-success' : 'border-danger-border bg-danger-bg text-danger'}`}>
+          {endpointValidationMessage}
+        </div>
+      ) : null}
 
       <div className="hb-card p-4">
         <h3 className="text-lg font-semibold text-slate-900">Filters</h3>

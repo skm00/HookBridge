@@ -206,6 +206,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
         services.AddScoped<IDataCleanupService, DataCleanupService>();
+        services.AddScoped<IEndpointValidationService, EndpointValidationService>();
         services.AddScoped(typeof(IMongoRepository<>), typeof(MongoRepository<>));
         services.AddScoped<IDeliveryAttemptRepository, DeliveryAttemptRepository>();
         services.AddScoped<IFailedEventRepository, FailedEventRepository>();

@@ -11,6 +11,8 @@ using HookBridge.Application.Validation.Events;
 using HookBridge.Application.Validation.Tenants;
 using HookBridge.Application.Validation.Subscriptions;
 using HookBridge.Application.Validation.Billing;
+using HookBridge.Application.DTOs.EndpointValidation;
+using HookBridge.Application.Validation.EndpointValidation;
 using HookBridge.Application.DTOs.Auth;
 using HookBridge.Application.Validation.Auth;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,6 +40,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IRetryPolicyService, RetryPolicyService>();
         services.AddScoped<IProductionReadinessService, ProductionReadinessService>();
         services.AddScoped<IBackupService, BackupService>();
+        services.AddScoped<IValidator<EndpointValidationRequestDto>, EndpointValidationRequestDtoValidator>();
         services.AddScoped<IValidator<RegisterAdminRequestDto>, RegisterAdminRequestDtoValidator>();
         services.AddScoped<IValidator<LoginRequestDto>, LoginRequestDtoValidator>();
         services.AddScoped<IValidator<CreateTenantRequestDto>, CreateTenantRequestDtoValidator>();

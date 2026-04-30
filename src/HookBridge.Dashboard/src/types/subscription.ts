@@ -83,3 +83,20 @@ export type UpdateSubscriptionRequest = {
   retryPolicy: RetryPolicy;
   timeoutSeconds: number;
 };
+
+export type EndpointValidationRequest = {
+  targetUrl: string;
+  method?: string;
+  samplePayload?: Record<string, unknown>;
+  headers?: KeyValue[];
+  authentication?: Authentication;
+  timeoutSeconds: number;
+};
+
+export type EndpointValidationResponse = {
+  isSuccess: boolean;
+  statusCode?: number;
+  message: string;
+  durationMs: number;
+  responseBody?: string;
+};

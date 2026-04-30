@@ -3,7 +3,9 @@ import type {
   CreateSubscriptionRequest,
   Subscription,
   SubscriptionListFilters,
-  UpdateSubscriptionRequest
+  UpdateSubscriptionRequest,
+  EndpointValidationRequest,
+  EndpointValidationResponse
 } from '../types/subscription';
 import type { PagedResponse } from '../types/pagination';
 
@@ -42,6 +44,11 @@ const disableSubscription = async (id: string): Promise<void> => {
   await apiClient.post(`/api/v1/admin/subscriptions/${id}/disable`);
 };
 
+const validateEndpoint = async (request: EndpointValidationRequest): Promise<EndpointValidationResponse> => {
+  const response = await apiClient.post<EndpointValidationResponse>('/api/v1/admin/endpoint-validation', request);
+  return response.data;
+};
+
 export const subscriptionsApi = {
   getSubscriptions,
   getSubscriptionById,
@@ -49,5 +56,6 @@ export const subscriptionsApi = {
   updateSubscription,
   deleteSubscription,
   enableSubscription,
-  disableSubscription
+  disableSubscription,
+  validateEndpoint
 };
