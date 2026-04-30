@@ -30,6 +30,10 @@ public sealed class EventIngestionService(
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
 
+        var effectiveEventId = string.IsNullOrWhiteSpace(request.EventId)
+            ? guidGenerator.NewGuid()
+            : request.EventId;
+
         var validationResult = await apiKeyService.ValidateAsync(tenantId, apiKey, cancellationToken);
         if (!validationResult.IsValid)
         {
@@ -43,7 +47,7 @@ public sealed class EventIngestionService(
         }
 
         var duplicate = await incomingEventRepository.FirstOrDefaultAsync(
-            x => x.TenantId == tenantId && x.EventId == request.EventId,
+            x => x.TenantId == tenantId && x.EventId == effectiveEventId,
             cancellationToken);
 
         if (duplicate is not null)
@@ -51,14 +55,14 @@ public sealed class EventIngestionService(
             logger.LogInformation(
                 "Duplicate event accepted for tenant {TenantId}. EventId: {EventId}. EventType: {EventType}. CorrelationId: {CorrelationId}",
                 tenantId,
-                request.EventId,
+                effectiveEventId,
                 request.EventType,
                 correlationId);
 
             return new EventIngestionResponseDto
             {
                 Status = "accepted",
-                EventId = request.EventId,
+                EventId = effectiveEventId,
                 Message = "Event already accepted.",
             };
         }
@@ -75,7 +79,7 @@ public sealed class EventIngestionService(
             Id = guidGenerator.NewGuid(),
             TenantId = tenantId,
             EventType = request.EventType,
-            EventId = request.EventId,
+            EventId = effectiveEventId,
             SourceTimestamp = request.Timestamp,
             Payload = request.Data,
             Status = "Accepted",
@@ -105,14 +109,14 @@ public sealed class EventIngestionService(
             logger.LogInformation(
                 "Event accepted and queued for tenant {TenantId}. EventId: {EventId}. EventType: {EventType}. CorrelationId: {CorrelationId}",
                 tenantId,
-                request.EventId,
+                effectiveEventId,
                 request.EventType,
                 correlationId);
 
             return new EventIngestionResponseDto
             {
                 Status = "accepted",
-                EventId = request.EventId,
+                EventId = effectiveEventId,
                 Message = "Event accepted for delivery.",
             };
         }
@@ -122,13 +126,13 @@ public sealed class EventIngestionService(
                 ex,
                 "Event accepted but Kafka publishing failed for tenant {TenantId}. EventId: {EventId}. CorrelationId: {CorrelationId}",
                 tenantId,
-                request.EventId,
+                effectiveEventId,
                 correlationId);
 
             return new EventIngestionResponseDto
             {
                 Status = "accepted",
-                EventId = request.EventId,
+                EventId = effectiveEventId,
                 Message = "Event accepted but publishing is delayed.",
             };
         }
