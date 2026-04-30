@@ -9,6 +9,7 @@ using HookBridge.Application.Interfaces.Services;
 using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace HookBridge.Api.Controllers;
@@ -38,7 +39,16 @@ public sealed class EndpointValidationController(
         var validationResult = await validator.ValidateAsync(request, cancellationToken);
         if (!validationResult.IsValid)
         {
-            return ValidationProblem(validationResult.ToDictionary());
+            var modelState = new ModelStateDictionary();
+            foreach (var (key, errors) in validationResult.ToDictionary())
+            {
+                foreach (var error in errors)
+                {
+                    modelState.AddModelError(key, error);
+                }
+            }
+
+            return ValidationProblem(modelState);
         }
 
         var response = await endpointValidationService.ValidateAsync(request, cancellationToken);
