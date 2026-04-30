@@ -8,6 +8,7 @@ using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
 
 namespace HookBridge.Application.Services;
 
@@ -64,7 +65,16 @@ public sealed class ApiKeyService(
             UpdatedAt = null,
         };
 
-        await apiKeyRepository.AddAsync(apiKey, cancellationToken);
+        try
+        {
+            await apiKeyRepository.AddAsync(apiKey, cancellationToken);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            logger.LogWarning(ex, "Duplicate API key hash encountered while creating key for tenant {TenantId}.", tenantId);
+            throw new ConflictException("Unable to create API key right now. Please retry.");
+        }
+
         await TryAuditAsync(
             new AuditLog
             {
