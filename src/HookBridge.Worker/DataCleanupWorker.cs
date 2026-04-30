@@ -1,5 +1,6 @@
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Infrastructure.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace HookBridge.Worker;
 
 public class DataCleanupWorker(
-    IDataCleanupService dataCleanupService,
+    IServiceScopeFactory scopeFactory,
     IOptions<DataRetentionSettings> dataRetentionOptions,
     ILogger<DataCleanupWorker> logger) : BackgroundService
 {
@@ -39,6 +40,9 @@ public class DataCleanupWorker(
             logger.LogInformation("Data retention cleanup is disabled. Skipping cleanup cycle.");
             return;
         }
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var dataCleanupService = scope.ServiceProvider.GetRequiredService<IDataCleanupService>();
 
         await CleanupWithLoggingAsync("IncomingEvent", settings.IncomingEventsDays, dataCleanupService.CleanupIncomingEventsAsync, cancellationToken);
         await CleanupWithLoggingAsync("DeliveryAttempt", settings.DeliveryLogsDays, dataCleanupService.CleanupDeliveryLogsAsync, cancellationToken);

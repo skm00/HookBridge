@@ -2,6 +2,7 @@ using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Shared.Constants;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,20 +12,20 @@ namespace HookBridge.Worker;
 public class WebhookEventConsumerWorker : BackgroundService
 {
     private readonly IKafkaConsumer _kafkaConsumer;
-    private readonly IWebhookDeliveryService _webhookDeliveryService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<WebhookEventConsumerWorker> _logger;
     private readonly KafkaSettings _kafkaSettings;
     private readonly WorkerTransactionRunner _transactionRunner;
 
     public WebhookEventConsumerWorker(
         IKafkaConsumer kafkaConsumer,
-        IWebhookDeliveryService webhookDeliveryService,
+        IServiceScopeFactory scopeFactory,
         IOptions<KafkaSettings> kafkaOptions,
         ILogger<WebhookEventConsumerWorker> logger,
         WorkerTransactionRunner transactionRunner)
     {
         _kafkaConsumer = kafkaConsumer;
-        _webhookDeliveryService = webhookDeliveryService;
+        _scopeFactory = scopeFactory;
         _logger = logger;
         _kafkaSettings = kafkaOptions.Value;
         _transactionRunner = transactionRunner;
@@ -51,6 +52,9 @@ public class WebhookEventConsumerWorker : BackgroundService
 
             try
             {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var webhookDeliveryService = scope.ServiceProvider.GetRequiredService<IWebhookDeliveryService>();
+
                 await _transactionRunner.RunAsync(
                     "Process webhook event",
                     transaction =>
@@ -60,7 +64,7 @@ public class WebhookEventConsumerWorker : BackgroundService
                         transaction.SetLabel("eventType", message.EventType);
                         transaction.SetLabel("correlationId", message.CorrelationId);
                     },
-                    token => _webhookDeliveryService.ProcessEventAsync(message, token),
+                    token => webhookDeliveryService.ProcessEventAsync(message, token),
                     stoppingToken);
 
                 _logger.LogInformation(
