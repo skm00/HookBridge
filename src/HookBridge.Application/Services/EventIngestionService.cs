@@ -8,6 +8,7 @@ using HookBridge.Application.Messaging;
 using HookBridge.Domain.Entities;
 using HookBridge.Shared.Constants;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace HookBridge.Application.Services;
 
@@ -81,7 +82,7 @@ public sealed class EventIngestionService(
             EventType = request.EventType,
             EventId = effectiveEventId,
             SourceTimestamp = request.Timestamp,
-            Payload = request.Data,
+            Payload = NormalizePayload(request.Data),
             Status = "Accepted",
             ReceivedAt = now,
             ApiKeyId = validationResult.ApiKeyId,
@@ -137,4 +138,33 @@ public sealed class EventIngestionService(
             };
         }
     }
+
+    private static object? NormalizePayload(object? payload)
+    {
+        if (payload is JsonElement element)
+        {
+            return NormalizeJsonElement(element);
+        }
+
+        return payload;
+    }
+
+    private static object? NormalizeJsonElement(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.Object => element.EnumerateObject()
+                .ToDictionary(property => property.Name, property => NormalizeJsonElement(property.Value)),
+            JsonValueKind.Array => element.EnumerateArray().Select(NormalizeJsonElement).ToList(),
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number when element.TryGetInt64(out var longValue) => longValue,
+            JsonValueKind.Number when element.TryGetDecimal(out var decimalValue) => decimalValue,
+            JsonValueKind.Number => element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            _ => element.GetRawText(),
+        };
+    }
+
 }
