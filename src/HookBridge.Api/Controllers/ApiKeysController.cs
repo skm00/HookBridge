@@ -33,7 +33,8 @@ public sealed class ApiKeysController(
     {
         tenantAccessValidator.EnsureTenantAccess(tenantId);
         var created = await apiKeyService.CreateAsync(tenantId, request, cancellationToken);
-        return CreatedResponse(nameof(GetByTenantAsync), new { tenantId }, created);
+        var requestedVersion = HttpContext.GetRequestedApiVersion()?.ToString() ?? "1.0";
+        return CreatedResponse(nameof(GetByTenantAsync), new { tenantId, version = requestedVersion }, created);
     }
 
     [HttpGet]
