@@ -33,9 +33,7 @@ public sealed class ApiKeysController(
     {
         tenantAccessValidator.EnsureTenantAccess(tenantId);
         var created = await apiKeyService.CreateAsync(tenantId, request, cancellationToken);
-        var requestedApiVersion = HttpContext.GetRequestedApiVersion();
-        var routeVersion = requestedApiVersion?.MajorVersion?.ToString() ?? "1";
-        return CreatedResponse(nameof(GetByTenantAsync), new { tenantId, version = routeVersion }, created);
+        return StatusCode(StatusCodes.Status201Created, ApiResponseFactory.Success(created, traceId: TraceId));
     }
 
     [HttpGet]
