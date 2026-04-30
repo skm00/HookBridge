@@ -33,12 +33,16 @@ public static class InfrastructureServiceRegistration
     /// <param name="configuration">The application configuration.</param>
     /// <param name="environment">The host environment.</param>
     /// <param name="requireKafkaConsumerGroupId">Whether Kafka ConsumerGroupId is required for startup.</param>
+    /// <param name="requireJwtSettings">Whether Jwt settings are required for startup.</param>
+    /// <param name="requireStripeSettings">Whether Stripe settings are required for startup.</param>
     /// <returns>The updated service collection.</returns>
     public static IServiceCollection AddInfrastructureServices(
         this IServiceCollection services,
         IConfiguration configuration,
         IHostEnvironment environment,
-        bool requireKafkaConsumerGroupId = false)
+        bool requireKafkaConsumerGroupId = false,
+        bool requireJwtSettings = false,
+        bool requireStripeSettings = false)
     {
         var isProduction = environment.IsProduction();
 
@@ -66,11 +70,11 @@ public static class InfrastructureServiceRegistration
             "Jwt",
             settings =>
             [
-                Required(settings.Issuer, "Issuer"),
-                Required(settings.Audience, "Audience"),
-                Required(settings.Secret, "Secret"),
-                MinLength(settings.Secret, "Secret", 32),
-                Positive(settings.ExpiryMinutes, "ExpiryMinutes"),
+                requireJwtSettings ? Required(settings.Issuer, "Issuer") : null,
+                requireJwtSettings ? Required(settings.Audience, "Audience") : null,
+                requireJwtSettings ? Required(settings.Secret, "Secret") : null,
+                requireJwtSettings ? MinLength(settings.Secret, "Secret", 32) : null,
+                requireJwtSettings ? Positive(settings.ExpiryMinutes, "ExpiryMinutes") : null,
             ]);
 
         services.AddValidatedOptions<StripeSettings>(
@@ -82,8 +86,8 @@ public static class InfrastructureServiceRegistration
                 isProduction ? Required(settings.WebhookSecret, "WebhookSecret") : null,
                 isProduction ? Required(settings.StarterPriceId, "StarterPriceId") : null,
                 isProduction ? Required(settings.ProPriceId, "ProPriceId") : null,
-                Required(settings.SuccessUrl, "SuccessUrl"),
-                Required(settings.CancelUrl, "CancelUrl"),
+                requireStripeSettings ? Required(settings.SuccessUrl, "SuccessUrl") : null,
+                requireStripeSettings ? Required(settings.CancelUrl, "CancelUrl") : null,
             ]);
 
         services.AddValidatedOptions<ElasticSettings>(

@@ -122,7 +122,11 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddApplicationServices();
-builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment);
+builder.Services.AddInfrastructureServices(
+    builder.Configuration,
+    builder.Environment,
+    requireJwtSettings: true,
+    requireStripeSettings: true);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
