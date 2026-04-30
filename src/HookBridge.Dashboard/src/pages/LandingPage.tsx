@@ -1,6 +1,9 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import { createPublicInbox, getPublicInbox, type PublicInboxState } from '../api/publicInboxApi';
 
 const featureCards = [
   'Retry failed webhooks',
@@ -14,6 +17,33 @@ const featureCards = [
 ];
 
 const LandingPage = (): JSX.Element => {
+  const [inbox, setInbox] = useState<PublicInboxState | null>(null);
+  const [webhookUrl, setWebhookUrl] = useState('');
+
+  const loadInbox = async (token: string): Promise<void> => {
+    const data = await getPublicInbox(token);
+    setInbox(data);
+  };
+
+  const createInbox = async (): Promise<void> => {
+    const created = await createPublicInbox();
+    setWebhookUrl(created.webhookUrl);
+    await loadInbox(created.token);
+  };
+
+  useEffect(() => {
+    if (!inbox?.token) return;
+    const handle = window.setInterval(() => {
+      void loadInbox(inbox.token);
+    }, 3000);
+    return () => window.clearInterval(handle);
+  }, [inbox?.token]);
+
+  const secondsLeft = useMemo(() => {
+    if (!inbox) return 0;
+    return Math.max(0, Math.floor((new Date(inbox.expiresAt).getTime() - Date.now()) / 1000));
+  }, [inbox]);
+
   return (
     <div>
       <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
@@ -25,9 +55,30 @@ const LandingPage = (): JSX.Element => {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link to="/register" className="hb-btn-primary">Start Free</Link>
             <Link to="/docs" className="hb-btn-secondary">View Docs</Link>
+            <Button onClick={() => void createInbox()}>Try without signup</Button>
           </div>
         </div>
       </section>
+
+      {inbox && (
+        <section className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6 lg:px-8">
+          <Card>
+            <p className="text-sm text-text-muted">Webhook URL</p>
+            <p className="mt-1 break-all font-mono text-sm">{webhookUrl}</p>
+            <p className="mt-2 text-sm">Expires in: {secondsLeft}s</p>
+            <p className="text-sm">Remaining requests: {inbox.remainingRequests}</p>
+            {inbox.remainingRequests <= 0 && <p className="mt-2 text-sm font-semibold text-amber-600">Limit reached. Upgrade to continue with persistent inboxes.</p>}
+            <div className="mt-4 space-y-3">
+              {inbox.requests.map((request, index) => (
+                <Card key={`${request.receivedAt}-${index}`} className="bg-slate-50">
+                  <p className="text-sm font-semibold">{request.method} · {new Date(request.receivedAt).toLocaleTimeString()}</p>
+                  <pre className="mt-2 overflow-x-auto text-xs">{request.body || '(empty body)'}</pre>
+                </Card>
+              ))}
+            </div>
+          </Card>
+        </section>
+      )}
 
       <section className="border-y border-border bg-surface/80">
         <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">

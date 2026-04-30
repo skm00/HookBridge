@@ -100,6 +100,27 @@ public static class RateLimitingServiceCollectionExtensions
                         QueueLimit = 0,
                     });
             });
+
+
+            options.AddPolicy<string>(RateLimitingPolicyNames.PublicInboxCreationPolicy, context =>
+            {
+                if (!settings.Enabled)
+                {
+                    return RateLimitPartition.GetNoLimiter("disabled");
+                }
+
+                var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    $"public-inbox:{ipAddress}",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                    });
+            });
         });
 
         return services;
