@@ -686,6 +686,47 @@ The `/health` dashboard route now integrates with service health endpoints and i
 - Refresh action that reruns all health checks with loading feedback.
 - Partial-failure handling where one failing endpoint marks only that service unhealthy while the rest still render.
 
+### Troubleshooting: Kafka and Worker are healthy, but no webhook reaches target URL
+
+If the incoming event is accepted but your endpoint never receives a webhook, verify these in order:
+
+1. Confirm at least one **enabled subscription** exists for the same tenant and event type.
+   - If no subscription matches, the incoming event is stored but delivery is skipped (status can become `NoSubscriptions`).
+2. Confirm the subscription `targetUrl` is reachable from the worker container/pod network.
+   - Test from inside the worker runtime, not just from your laptop.
+3. Confirm worker logs show `WebhookEventConsumerWorker` consumption activity after ingestion.
+   - A healthy worker endpoint only confirms process availability, not per-message delivery success.
+4. Confirm Kafka topic and consumer-group settings are aligned between API and worker.
+   - Topic should be `webhook-events`.
+   - Consumer group should match your deployed configuration (`Kafka:ConsumerGroupId`).
+5. Check delivery attempts and failed events in admin APIs/UI.
+   - `GET /api/v1/admin/delivery-logs`
+   - `GET /api/v1/admin/failed-events`
+6. Check whether first delivery failed and was moved into retry flow.
+   - Retry messages are produced to `webhook-retry` and later consumed by `WebhookRetryConsumerWorker`.
+
+#### Exactly where to check (copy/paste)
+
+Use these admin endpoints to see the full path from ingestion to delivery:
+
+```bash
+# 1) Incoming event record and status (Accepted/Delivered/Failed/NoSubscriptions/PartiallyFailed)
+curl "http://localhost:5000/api/v1/admin/events?eventId=<your-event-id>&pageNumber=1&pageSize=20"
+
+# 2) Delivery attempts (HTTP response code, error, duration, target URL)
+curl "http://localhost:5000/api/v1/admin/delivery-logs?eventId=<your-event-id>&pageNumber=1&pageSize=20"
+
+# 3) Failed-event/DLQ record if retries were exhausted
+curl "http://localhost:5000/api/v1/admin/failed-events?eventId=<your-event-id>&pageNumber=1&pageSize=20"
+```
+
+And filter logs by correlation id or event id in both API and worker services:
+
+- API logs to confirm ingestion + Kafka publish.
+- Worker logs to confirm Kafka consume + webhook send attempt.
+
+If you only see API logs (like `GET /api/v1/admin/subscriptions`) but no worker consume/delivery logs, the event is likely not being consumed by the worker consumer group yet.
+
 ## Admin API Tenant Security
 
 - Admin JWTs include a `tenantId` claim and admin endpoints resolve the current tenant from the JWT on every request.

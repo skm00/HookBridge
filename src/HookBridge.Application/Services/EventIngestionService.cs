@@ -123,6 +123,10 @@ public sealed class EventIngestionService(
         }
         catch (Exception ex)
         {
+            incomingEvent.Status = "QueuePublishFailed";
+            incomingEvent.UpdatedAt = dateTimeProvider.UtcNow;
+            await incomingEventRepository.UpdateAsync(incomingEvent, cancellationToken);
+
             logger.LogError(
                 ex,
                 "Event accepted but Kafka publishing failed for tenant {TenantId}. EventId: {EventId}. CorrelationId: {CorrelationId}",

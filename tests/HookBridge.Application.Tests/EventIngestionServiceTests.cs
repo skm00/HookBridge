@@ -149,6 +149,7 @@ public sealed class EventIngestionServiceTests
         Assert.Equal("Event accepted but publishing is delayed.", response.Message);
         var stored = (await repository.FindAsync(x => x.EventId == "evt-5")).SingleOrDefault();
         Assert.NotNull(stored);
+        Assert.Equal("QueuePublishFailed", stored.Status);
     }
 
     [Fact]
