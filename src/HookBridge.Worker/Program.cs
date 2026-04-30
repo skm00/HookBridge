@@ -1,4 +1,5 @@
 using HookBridge.Application.DependencyInjection;
+using HookBridge.Application.Interfaces;
 using HookBridge.Infrastructure.DependencyInjection;
 using Elastic.Apm.DiagnosticSource;
 using HookBridge.Infrastructure.Configuration;
@@ -10,6 +11,7 @@ var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(args);
 
 builder.Services.AddInfrastructureServices(builder.Configuration, builder.Environment, requireKafkaConsumerGroupId: true);
 builder.Services.AddApplicationServices();
+builder.Services.AddScoped<ICurrentUserContext, WorkerCurrentUserContext>();
 builder.Services.AddHostedService<WebhookEventConsumerWorker>();
 builder.Services.AddHostedService<WebhookRetryConsumerWorker>();
 builder.Services.AddHostedService<DataCleanupWorker>();
