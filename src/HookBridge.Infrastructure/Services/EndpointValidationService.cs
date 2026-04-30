@@ -22,9 +22,20 @@ public sealed class EndpointValidationService(
         }
 
         var method = HttpMethod.Post;
-        if (!string.IsNullOrWhiteSpace(request.Method) && HttpMethod.TryParse(request.Method, out var parsedMethod))
+        if (!string.IsNullOrWhiteSpace(request.Method))
         {
-            method = parsedMethod;
+            try
+            {
+                method = new HttpMethod(request.Method.Trim().ToUpperInvariant());
+            }
+            catch (FormatException)
+            {
+                return new EndpointValidationResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Method is invalid."
+                };
+            }
         }
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
