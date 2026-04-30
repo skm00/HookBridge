@@ -95,6 +95,16 @@ public static class HealthEndpointRouteBuilderExtensions
             .WithTags("Health")
             .WithSummary("Reports Elastic APM feature state.");
 
+        app.MapGet("/api/v{version:apiVersion}/health/worker", () => Results.Ok(new
+        {
+            service = "Worker",
+            isHealthy = true,
+            message = "Worker health endpoint is reachable.",
+        }))
+            .AllowAnonymous()
+            .WithTags("Health")
+            .WithSummary("Reports worker health endpoint availability.");
+
         app.MapGet("/api/v{version:apiVersion}/health/elasticsearch", async (IElasticsearchHealthService elasticsearchHealthService, CancellationToken cancellationToken) =>
         {
             var response = await elasticsearchHealthService.CheckHealthAsync(cancellationToken);

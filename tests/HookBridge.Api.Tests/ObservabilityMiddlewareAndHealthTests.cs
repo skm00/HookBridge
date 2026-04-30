@@ -171,6 +171,20 @@ public sealed class ObservabilityMiddlewareAndHealthTests
         Assert.StartsWith("Elasticsearch connection failed.", response.Message);
     }
 
+    [Fact]
+    public async Task WorkerHealthEndpoint_ReturnsHealthy()
+    {
+        using var host = await BuildHealthHostAsync("http://127.0.0.1:1");
+        var client = host.GetTestClient();
+
+        var response = await client.GetFromJsonAsync<WorkerHealthResponse>("/api/v1/health/worker");
+
+        Assert.NotNull(response);
+        Assert.Equal("Worker", response.Service);
+        Assert.True(response.IsHealthy);
+        Assert.Equal("Worker health endpoint is reachable.", response.Message);
+    }
+
     private static async Task<TestServer> BuildMiddlewareHostAsync(InMemoryLogSink? sink = null)
     {
         var builder = new WebHostBuilder()
@@ -272,4 +286,6 @@ public sealed class ObservabilityMiddlewareAndHealthTests
         public bool IsHealthy { get; set; }
         public string Message { get; set; } = string.Empty;
     }
+
+    private sealed record WorkerHealthResponse(string Service, bool IsHealthy, string Message);
 }
