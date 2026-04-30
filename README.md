@@ -1474,3 +1474,9 @@ Examples in this repository:
 - `BillingController` is gated by `EnableBilling`.
 - `DashboardController` is gated by `EnableAdvancedDashboard`.
 - Notification email dispatch is gated by `EnableEmailNotifications` in `NotificationService`.
+
+## Endpoint Validation
+
+Use `POST /api/v1/admin/endpoint-validation` to test webhook target connectivity before saving a subscription. The endpoint requires JWT auth with `DeveloperOrAbove` policy, validates HTTP/HTTPS URLs, enforces timeout range (1-30s), and blocks localhost/private network targets in Production unless `Security:AllowPrivateNetworkTargetUrls=true`.
+
+The response includes success/failure, status code, duration, and a truncated response body (up to 2000 chars). This action is non-persistent and does not create or update subscriptions.
