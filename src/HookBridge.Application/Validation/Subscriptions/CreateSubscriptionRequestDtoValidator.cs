@@ -26,8 +26,8 @@ public sealed class CreateSubscriptionRequestDtoValidator : AbstractValidator<Cr
         var allowPrivateNetworkTargetUrls = securitySettings?.Value.AllowPrivateNetworkTargetUrls ?? true;
 
         RuleFor(x => x.EventType)
-            .NotEmpty()
-            .MaximumLength(ValidationLimits.MaxEventTypeLength);
+            .MaximumLength(ValidationLimits.MaxEventTypeLength)
+            .When(x => !string.IsNullOrWhiteSpace(x.EventType));
 
         RuleFor(x => x.TargetUrl)
             .NotEmpty()

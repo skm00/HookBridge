@@ -50,10 +50,28 @@ public sealed class EventsController(
         EventIngestionRequestDto? request;
         try
         {
-            request = JsonSerializer.Deserialize<EventIngestionRequestDto>(rawPayload, new JsonSerializerOptions
+            var element = JsonSerializer.Deserialize<JsonElement>(rawPayload, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
             });
+
+            if (element.ValueKind != JsonValueKind.Object)
+            {
+                return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status400BadRequest, "Invalid request payload.");
+            }
+
+            if (element.TryGetProperty("eventType", out _) || element.TryGetProperty("payload", out _) || element.TryGetProperty("data", out _))
+            {
+                request = JsonSerializer.Deserialize<EventIngestionRequestDto>(rawPayload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            else
+            {
+                request = new EventIngestionRequestDto
+                {
+                    EventType = null,
+                    Data = element,
+                };
+            }
         }
         catch (JsonException)
         {

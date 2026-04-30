@@ -28,4 +28,6 @@ public sealed class FailedEvent : BaseEntity
     public DateTime FailedAt { get; set; }
 
     public string? CorrelationId { get; set; }
+
+    public object? InternalEvent { get; set; }
 }

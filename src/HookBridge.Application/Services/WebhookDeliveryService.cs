@@ -53,12 +53,12 @@ public sealed class WebhookDeliveryService(
             "db.mongodb",
             () => subscriptionRepository.FindAsync(
                 x => x.TenantId == message.TenantId
-                    && x.EventType == message.EventType
+                    && (x.EventType == message.EventType || x.EventType == "*")
                     && x.IsActive,
                 cancellationToken))
             ?? subscriptionRepository.FindAsync(
                 x => x.TenantId == message.TenantId
-                    && x.EventType == message.EventType
+                    && (x.EventType == message.EventType || x.EventType == "*")
                     && x.IsActive,
                 cancellationToken));
 
@@ -380,6 +380,13 @@ public sealed class WebhookDeliveryService(
             Status = "DLQ",
             FailedAt = failedAt,
             CorrelationId = correlationId,
+            InternalEvent = new
+            {
+                id = incomingEvent.EventId,
+                eventType = incomingEvent.EventType,
+                timestamp = incomingEvent.SourceTimestamp ?? incomingEvent.ReceivedAt,
+                payload = incomingEvent.Payload,
+            },
             CreatedAt = failedAt,
             UpdatedAt = null,
         };
