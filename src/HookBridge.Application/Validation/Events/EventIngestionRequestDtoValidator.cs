@@ -19,9 +19,8 @@ public sealed partial class EventIngestionRequestDtoValidator : AbstractValidato
             .WithMessage("EventType may contain only letters, numbers, dot (.), dash (-), and underscore (_).");
 
         RuleFor(x => x.EventId)
-            .NotEmpty()
-            .WithMessage("EventId is required.")
             .MaximumLength(ValidationLimits.MaxEventIdLength)
+            .When(x => !string.IsNullOrWhiteSpace(x.EventId))
             .WithMessage($"EventId must be {ValidationLimits.MaxEventIdLength} characters or fewer.");
 
         RuleFor(x => x.Data)
