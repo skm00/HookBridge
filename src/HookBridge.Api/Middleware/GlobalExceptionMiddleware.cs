@@ -8,7 +8,7 @@ namespace HookBridge.Api.Middleware;
 /// <summary>
 /// Global exception handling middleware that returns a standardized JSON payload.
 /// </summary>
-public sealed class GlobalExceptionMiddleware(RequestDelegate next)
+public sealed class GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExceptionMiddleware> logger)
 {
     /// <summary>
     /// Invokes the middleware pipeline and handles unhandled exceptions.
@@ -61,8 +61,9 @@ public sealed class GlobalExceptionMiddleware(RequestDelegate next)
             await WriteErrorResponseAsync(context, StatusCodes.Status500InternalServerError,
                 ApiResponseFactory.Error(invalidOperationException.Message, StatusCodes.Status500InternalServerError, context.TraceIdentifier));
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            logger.LogError(exception, "Unhandled exception for {Method} {Path}. TraceId: {TraceId}", context.Request.Method, context.Request.Path, context.TraceIdentifier);
             await WriteErrorResponseAsync(context, StatusCodes.Status500InternalServerError,
                 ApiResponseFactory.Error("An unexpected error occurred.", StatusCodes.Status500InternalServerError, context.TraceIdentifier));
         }
