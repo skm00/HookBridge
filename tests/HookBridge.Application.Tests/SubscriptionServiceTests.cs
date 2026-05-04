@@ -308,7 +308,7 @@ public sealed class SubscriptionServiceTests
         second.TargetUrl = "https://example.com/cancel";
         await service.CreateAsync("tenant-2", second);
 
-        var results = await service.SearchAsync(new SubscriptionSearchRequestDto { EventType = "order.cancelled" });
+        var results = await service.SearchAsync(new SubscriptionSearchRequestDto { TenantId = "tenant-2", EventType = "order.cancelled" });
 
         Assert.Single(results.Items);
         Assert.Equal("order.cancelled", results.Items[0].EventType);
