@@ -50,7 +50,7 @@ public sealed class TenantIsolationControllerTests
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
             TenantIsolationTestHelpers.CreateValidator());
 
-        var result = await controller.SearchAsync("tenant-2", null, null, true, 1, 50, null, "desc", CancellationToken.None);
+        var result = await controller.SearchAsync(null, null, true, 1, 50, null, "desc", CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.Equal("tenant-1", service.LastSearchRequest?.TenantId);
@@ -61,7 +61,7 @@ public sealed class TenantIsolationControllerTests
     {
         var service = new FakeSubscriptionService
         {
-            GetByIdResult = new SubscriptionResponseDto { Id = "sub-1", TenantId = "tenant-2" },
+            GetByIdResult = new SubscriptionResponseDto { Id = "sub-1" },
         };
         var controller = new SubscriptionsController(
             service,

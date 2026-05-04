@@ -413,7 +413,7 @@ public sealed class WebhookDeliveryServiceTests
         {
             TenantId = "tenant-1",
             EventId = "evt-1",
-            EventType = eventType,
+            EventType = "order.created",
             CorrelationId = "corr-1",
             ReceivedAt = new DateTime(2026, 4, 27, 10, 0, 0, DateTimeKind.Utc),
         };
@@ -447,7 +447,7 @@ public sealed class WebhookDeliveryServiceTests
                 Id = "incoming-1",
                 TenantId = "tenant-1",
                 EventId = "evt-1",
-                EventType = eventType,
+                EventType = "order.created",
                 Payload = new { orderId = "1001" },
                 Status = "Accepted",
                 ReceivedAt = new DateTime(2026, 4, 27, 10, 0, 0, DateTimeKind.Utc),
@@ -469,7 +469,7 @@ public sealed class WebhookDeliveryServiceTests
             {
                 Id = id,
                 TenantId = "tenant-1",
-                EventType = eventType,
+                EventType = "order.created",
                 TargetUrl = url,
                 IsActive = isActive,
                 TimeoutSeconds = timeoutSeconds,

@@ -29,7 +29,7 @@ public sealed class ApiResponseShapeTests
     [Fact]
     public async Task UnhandledException_ReturnsStandardErrorShape()
     {
-        using var server = BuildExceptionServer(app => app.MapGet("/boom", () => throw new InvalidOperationException("boom")));
+        using var server = BuildExceptionServer(app => app.MapGet("/boom", (HttpContext _) => throw new InvalidOperationException("boom")));
         using var client = server.CreateClient();
 
         var response = await client.GetFromJsonAsync<ApiErrorResponse>("/boom");
@@ -44,7 +44,7 @@ public sealed class ApiResponseShapeTests
     [Fact]
     public async Task ValidationException_ReturnsStandardValidationShape()
     {
-        using var server = BuildExceptionServer(app => app.MapGet("/validation", () => throw new ValidationException("validation", new[] { new FluentValidation.Results.ValidationFailure("field", "is required") })));
+        using var server = BuildExceptionServer(app => app.MapGet("/validation", () => throw new FluentValidation.ValidationException("validation", new[] { new FluentValidation.Results.ValidationFailure("field", "is required") })));
         using var client = server.CreateClient();
 
         var response = await client.GetFromJsonAsync<ApiErrorResponse>("/validation");
@@ -124,7 +124,7 @@ public sealed class ApiResponseShapeTests
         var app = builder.Build();
         app.UseMiddleware<GlobalExceptionMiddleware>();
         mapEndpoints(app);
-        app.Start();
+        app.StartAsync().GetAwaiter().GetResult();
         return app.GetTestServer();
     }
 

@@ -15,7 +15,7 @@ public sealed class DemoSeedEndpointTests
     public async Task DevSeedEndpoint_IsUnavailableInProduction()
     {
         using var host = await BuildHostAsync(Environments.Production);
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.PostAsync("/api/v1/dev/demo/seed", content: null);
 
