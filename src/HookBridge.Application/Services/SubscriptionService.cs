@@ -48,6 +48,7 @@ public sealed class SubscriptionService(
             Id = guidGenerator.NewGuid(),
             TenantId = tenantId,
             EventType = string.IsNullOrWhiteSpace(request.EventType) ? "*" : request.EventType,
+            DeliveryFormat = string.IsNullOrWhiteSpace(request.DeliveryFormat) ? "Raw" : request.DeliveryFormat,
             TargetUrl = request.TargetUrl,
             Headers = request.Headers.Select(Map).ToList(),
             Authentication = request.Authentication is null ? null : MapAndEncrypt(request.Authentication, null, secretEncryptionService),
@@ -153,6 +154,10 @@ public sealed class SubscriptionService(
         if (request.EventType is not null)
         {
             subscription.EventType = string.IsNullOrWhiteSpace(request.EventType) ? "*" : request.EventType;
+        }
+        if (request.DeliveryFormat is not null)
+        {
+            subscription.DeliveryFormat = string.IsNullOrWhiteSpace(request.DeliveryFormat) ? "Raw" : request.DeliveryFormat;
         }
 
         if (request.TargetUrl is not null)
@@ -324,6 +329,7 @@ public sealed class SubscriptionService(
             Authentication = subscription.Authentication is null ? null : MapAndMask(subscription.Authentication),
             RetryPolicy = Map(subscription.RetryPolicy),
             TimeoutSeconds = subscription.TimeoutSeconds,
+            DeliveryFormat = string.IsNullOrWhiteSpace(subscription.DeliveryFormat) ? "Raw" : subscription.DeliveryFormat,
             IsActive = subscription.IsActive,
             DisabledAt = subscription.DisabledAt,
             CreatedAt = subscription.CreatedAt,

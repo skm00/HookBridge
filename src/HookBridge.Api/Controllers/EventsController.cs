@@ -60,9 +60,52 @@ public sealed class EventsController(
                 return ErrorResponse<EventIngestionResponseDto>(StatusCodes.Status400BadRequest, "Invalid request payload.");
             }
 
-            if (element.TryGetProperty("eventType", out _) || element.TryGetProperty("payload", out _) || element.TryGetProperty("data", out _))
+            var isStructuredCloudEvent = (Request.ContentType?.Contains("application/cloudevents+json", StringComparison.OrdinalIgnoreCase) ?? false)
+                || (element.TryGetProperty("specversion", out _) && element.TryGetProperty("id", out _) && element.TryGetProperty("source", out _) && element.TryGetProperty("type", out _));
+            var isBinaryCloudEvent = Request.Headers.ContainsKey("ce-specversion")
+                && Request.Headers.ContainsKey("ce-id")
+                && Request.Headers.ContainsKey("ce-source")
+                && Request.Headers.ContainsKey("ce-type");
+
+            if (isStructuredCloudEvent)
+            {
+                request = new EventIngestionRequestDto
+                {
+                    EventId = element.TryGetProperty("id", out var idProperty) ? idProperty.GetString() : null,
+                    EventType = element.TryGetProperty("type", out var typeProperty) ? typeProperty.GetString() : "default",
+                    Source = element.TryGetProperty("source", out var sourceProperty) ? sourceProperty.GetString() : null,
+                    SpecVersion = element.TryGetProperty("specversion", out var specProperty) ? specProperty.GetString() : null,
+                    Timestamp = element.TryGetProperty("time", out var timeProperty) && timeProperty.TryGetDateTime(out var time) ? time : null,
+                    Data = element.TryGetProperty("data", out var dataProperty) ? dataProperty : element,
+                    ContentMode = "CloudEventsStructured",
+                    RawBody = rawPayload,
+                    Headers = Request.Headers.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.OrdinalIgnoreCase),
+                };
+            }
+            else if (isBinaryCloudEvent)
+            {
+                request = new EventIngestionRequestDto
+                {
+                    EventId = Request.Headers["ce-id"].ToString(),
+                    EventType = Request.Headers["ce-type"].ToString(),
+                    Source = Request.Headers["ce-source"].ToString(),
+                    SpecVersion = Request.Headers["ce-specversion"].ToString(),
+                    Timestamp = DateTime.TryParse(Request.Headers["ce-time"].ToString(), out var timestamp) ? timestamp : null,
+                    Data = element,
+                    ContentMode = "CloudEventsBinary",
+                    RawBody = rawPayload,
+                    Headers = Request.Headers.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.OrdinalIgnoreCase),
+                };
+            }
+            else if (element.TryGetProperty("eventType", out _) || element.TryGetProperty("payload", out _) || element.TryGetProperty("data", out _))
             {
                 request = JsonSerializer.Deserialize<EventIngestionRequestDto>(rawPayload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (request is not null)
+                {
+                    request.ContentMode = "Raw";
+                    request.RawBody = rawPayload;
+                    request.Headers = Request.Headers.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.OrdinalIgnoreCase);
+                }
             }
             else
             {
@@ -70,6 +113,9 @@ public sealed class EventsController(
                 {
                     EventType = null,
                     Data = element,
+                    ContentMode = "Raw",
+                    RawBody = rawPayload,
+                    Headers = Request.Headers.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.OrdinalIgnoreCase),
                 };
             }
         }

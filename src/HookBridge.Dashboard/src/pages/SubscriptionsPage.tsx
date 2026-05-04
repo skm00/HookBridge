@@ -40,6 +40,8 @@ type PageRequest = {
 
 type SubscriptionFormState = {
   eventType: string;
+  allEvents: boolean;
+  deliveryFormat: 'Raw' | 'HookBridgeEnvelope' | 'CloudEventsStructured' | 'CloudEventsBinary';
   targetUrl: string;
   timeoutSeconds: string;
   maxAttempts: string;
@@ -62,6 +64,8 @@ type SubscriptionFormState = {
 
 const defaultFormState: SubscriptionFormState = {
   eventType: '',
+  allEvents: true,
+  deliveryFormat: 'Raw',
   targetUrl: '',
   timeoutSeconds: '30',
   maxAttempts: '3',
@@ -131,6 +135,8 @@ const mapSubscriptionToForm = (subscription: Subscription): SubscriptionFormStat
 
   return {
     eventType: subscription.eventType,
+    allEvents: !subscription.eventType || subscription.eventType === '*',
+    deliveryFormat: subscription.deliveryFormat ?? 'Raw',
     targetUrl: subscription.targetUrl,
     timeoutSeconds: `${subscription.timeoutSeconds}`,
     maxAttempts: `${subscription.retryPolicy.maxAttempts}`,
@@ -324,10 +330,6 @@ const SubscriptionsPage = (): JSX.Element => {
   };
 
   const validateForm = (): string => {
-      if (!form.eventType.trim()) {
-      return 'eventType is required.';
-    }
-
     if (!form.targetUrl.trim()) {
       return 'targetUrl is required.';
     }
@@ -425,7 +427,8 @@ const SubscriptionsPage = (): JSX.Element => {
     };
 
     const commonPayload = {
-      eventType: form.eventType.trim(),
+      eventType: form.allEvents ? '*' : form.eventType.trim(),
+      deliveryFormat: form.deliveryFormat,
       targetUrl: form.targetUrl.trim(),
       headers: buildHeaders(),
       authentication: buildAuthentication(form),
@@ -593,7 +596,21 @@ const SubscriptionsPage = (): JSX.Element => {
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
               placeholder="order.created"
             />
+            <p className="mt-1 text-xs text-slate-500">Leave event type empty or choose All events to receive every payload.</p>
+            <label className="mt-2 inline-flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={form.allEvents} onChange={(event) => setFormField('allEvents', event.target.checked)} />
+              All events
+            </label>
             <FieldError errors={validationErrors.eventType ?? validationErrors.EventType} />
+          </label>
+          <label className="text-sm text-slate-700">
+            Delivery Format
+            <select value={form.deliveryFormat} onChange={(event) => setFormField('deliveryFormat', event.target.value as SubscriptionFormState['deliveryFormat'])} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+              <option value="Raw">Raw payload</option>
+              <option value="HookBridgeEnvelope">HookBridge envelope</option>
+              <option value="CloudEventsStructured">CloudEvents structured</option>
+              <option value="CloudEventsBinary">CloudEvents binary</option>
+            </select>
           </label>
 
           <label className="text-sm text-slate-700">

@@ -16,6 +16,16 @@ namespace HookBridge.Api.Tests;
 public sealed class EventsControllerTests
 {
     [Fact]
+    public async Task StructuredCloudEvent_IsAccepted()
+    {
+        var controller = BuildController(new FakeEventIngestionService(), new FakeApiKeyService());
+        controller.Request.Headers["x-api-key"] = "hb_live_key";
+        controller.Request.ContentType = "application/cloudevents+json";
+        SetRequestBody(controller, """{"specversion":"1.0","id":"evt_123","source":"/example","type":"invoice.created","data":{"invoiceId":"INV-001"}}""");
+        var result = await controller.IngestAsync("tenant-1", CancellationToken.None);
+        Assert.Equal(StatusCodes.Status202Accepted, Assert.IsType<AcceptedResult>(result.Result).StatusCode);
+    }
+    [Fact]
     public async Task MissingApiKey_Returns401()
     {
         var controller = BuildController(new FakeEventIngestionService(), new FakeApiKeyService());

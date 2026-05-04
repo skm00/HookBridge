@@ -84,6 +84,11 @@ public sealed class EventIngestionService(
             EventId = effectiveEventId,
             SourceTimestamp = request.Timestamp,
             Payload = AuditMetadataSanitizer.Sanitize(NormalizePayload(request.Data)),
+            RawBody = request.RawBody,
+            Headers = SanitizeHeaders(request.Headers),
+            Source = request.Source,
+            SpecVersion = request.SpecVersion,
+            ContentMode = string.IsNullOrWhiteSpace(request.ContentMode) ? "Raw" : request.ContentMode,
             Status = "Accepted",
             ReceivedAt = now,
             ApiKeyId = validationResult.ApiKeyId,
@@ -170,6 +175,18 @@ public sealed class EventIngestionService(
             JsonValueKind.Null => null,
             _ => element.GetRawText(),
         };
+    }
+
+    private static Dictionary<string, string> SanitizeHeaders(Dictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return [];
+        }
+
+        return headers
+            .Where(x => !x.Key.Equals("Authorization", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
     }
 
 }

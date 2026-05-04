@@ -11,6 +11,11 @@ public sealed class EventIngestionRequestDto
     public DateTime? Timestamp { get; set; }
 
     public object? Data { get; set; }
+    public string ContentMode { get; set; } = "Raw";
+    public string? Source { get; set; }
+    public string? SpecVersion { get; set; }
+    public Dictionary<string, string>? Headers { get; set; }
+    public string RawBody { get; set; } = string.Empty;
 
     [JsonPropertyName("payload")]
     public object Payload

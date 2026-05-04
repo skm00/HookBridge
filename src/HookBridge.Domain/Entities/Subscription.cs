@@ -8,6 +8,7 @@ public sealed class Subscription : BaseEntity
     public string TenantId { get; set; } = string.Empty;
 
     public string EventType { get; set; } = string.Empty;
+    public string DeliveryFormat { get; set; } = "Raw";
 
     public string TargetUrl { get; set; } = string.Empty;
 
