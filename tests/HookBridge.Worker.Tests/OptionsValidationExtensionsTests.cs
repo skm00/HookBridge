@@ -18,7 +18,7 @@ public class OptionsValidationExtensionsTests
             {
                 ["MongoDb:DatabaseName"] = "hookbridge",
             },
-            Environments.Production);
+            Environments.Production, requireJwtSettings: true);
 
         var exception = Assert.Throws<OptionsValidationException>(() =>
             serviceProvider.GetRequiredService<IOptions<MongoDbSettings>>().Value);
@@ -37,7 +37,8 @@ public class OptionsValidationExtensionsTests
                 ["Jwt:Secret"] = "short-secret",
                 ["Jwt:ExpiryMinutes"] = "60",
             },
-            Environments.Production);
+            Environments.Production,
+            requireJwtSettings: true);
 
         var exception = Assert.Throws<OptionsValidationException>(() =>
             serviceProvider.GetRequiredService<IOptions<JwtSettings>>().Value);
@@ -104,6 +105,7 @@ public class OptionsValidationExtensionsTests
             new Dictionary<string, string?>
             {
                 ["ElasticApm:Enabled"] = "true",
+                ["ElasticApm:ServerUrl"] = "",
                 ["ElasticApm:ServiceName"] = "hookbridge-worker",
                 ["ElasticApm:Environment"] = "Production",
                 ["Encryption:MasterKey"] = "12345678901234567890123456789012",
@@ -206,6 +208,7 @@ public class OptionsValidationExtensionsTests
                 ["Elastic:ServiceName"] = "hookbridge-worker",
                 ["Elastic:Environment"] = "Production",
                 ["ElasticApm:Enabled"] = "true",
+                ["ElasticApm:ServerUrl"] = "",
                 ["ElasticApm:ServerUrl"] = "http://localhost:8200",
                 ["ElasticApm:ServiceName"] = "hookbridge-worker",
                 ["ElasticApm:Environment"] = "Production",
@@ -226,7 +229,8 @@ public class OptionsValidationExtensionsTests
     private static ServiceProvider BuildServiceProvider(
         IDictionary<string, string?> values,
         string environmentName,
-        bool requireKafkaConsumerGroupId = false)
+        bool requireKafkaConsumerGroupId = false,
+        bool requireJwtSettings = false)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(values)
@@ -236,7 +240,7 @@ public class OptionsValidationExtensionsTests
         services.AddInfrastructureServices(
             configuration,
             new TestHostEnvironment(environmentName),
-            requireKafkaConsumerGroupId);
+            requireKafkaConsumerGroupId, requireJwtSettings);
 
         return services.BuildServiceProvider();
     }
