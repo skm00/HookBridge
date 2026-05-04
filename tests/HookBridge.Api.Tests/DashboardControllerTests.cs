@@ -3,6 +3,7 @@ using HookBridge.Application.DTOs.Dashboard;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using HookBridge.Shared.Api;
 using Xunit;
 
 namespace HookBridge.Api.Tests;
@@ -26,7 +27,7 @@ public sealed class DashboardControllerTests
         var result = await controller.GetOverviewAsync(CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = ExtractOverviewPayload(ok);
+        var payload = Assert.IsType<ApiResponse<DashboardOverviewResponseDto>>(ok.Value).Data;
 
         Assert.Equal("tenant-1", service.LastTenantId);
         Assert.Equal("tenant-1", payload.TenantId);
@@ -43,20 +44,10 @@ public sealed class DashboardControllerTests
         var result = await controller.GetOverviewAsync(CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = ExtractOverviewPayload(ok);
+        var payload = Assert.IsType<ApiResponse<DashboardOverviewResponseDto>>(ok.Value).Data;
 
         Assert.Equal("tenant-a", service.LastTenantId);
         Assert.Equal("tenant-a", payload.TenantId);
-    }
-
-    private static DashboardOverviewResponseDto ExtractOverviewPayload(OkObjectResult ok)
-    {
-        return ok.Value switch
-        {
-            DashboardOverviewResponseDto dto => dto,
-            HookBridge.Shared.Api.ApiResponse<DashboardOverviewResponseDto> response when response.Data is not null => response.Data,
-            _ => throw new Xunit.Sdk.XunitException($"Unexpected payload type: {ok.Value?.GetType().FullName ?? "null"}"),
-        };
     }
 
     private sealed class FakeDashboardService : IDashboardService
