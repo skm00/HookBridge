@@ -140,7 +140,7 @@ public sealed class TenantIsolationControllerTests
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
             TenantIsolationTestHelpers.CreateValidator(),
-            NullLogger<IncomingEventsController>.Instance);
+            NullLogger<IncomingEventsController>.Instance));
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByIdAsync("incoming-1", CancellationToken.None));
     }
@@ -172,7 +172,7 @@ public sealed class TenantIsolationControllerTests
         var controller = WithHttpContext(new ApiKeysController(
             new FakeApiKeyService(),
             TenantIsolationTestHelpers.CreateValidator(
-                new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = null, IsAuthenticated = true }));
+                new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = null, IsAuthenticated = true })));
 
         await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetByTenantAsync("tenant-1", CancellationToken.None));
     }
