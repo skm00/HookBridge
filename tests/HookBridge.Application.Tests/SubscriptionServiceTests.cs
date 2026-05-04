@@ -297,6 +297,7 @@ public sealed class SubscriptionServiceTests
     public async Task SearchSubscription_ByEventType()
     {
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        await tenantRepo.AddAsync(new Tenant { Id = "tenant-2", Name = "Two", Slug = "two", Status = TenantStatus.Active, CreatedAt = DateTime.UtcNow });
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 

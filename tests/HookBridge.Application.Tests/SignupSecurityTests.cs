@@ -66,11 +66,7 @@ public sealed class SignupSecurityTests
     [Fact]
     public void RegisterPage_DoesNotRenderTenantIdOrRoleInputs()
     {
-        var registerPagePath = Path.Combine(Directory.GetCurrentDirectory(), "src/HookBridge.Dashboard/src/pages/RegisterPage.tsx");
-        if (!File.Exists(registerPagePath))
-        {
-            registerPagePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../src/HookBridge.Dashboard/src/pages/RegisterPage.tsx"));
-        }
+        var registerPagePath = FindRegisterPagePath();
         var content = File.ReadAllText(registerPagePath);
 
         Assert.Contains("We’ll create your workspace automatically.", content);
