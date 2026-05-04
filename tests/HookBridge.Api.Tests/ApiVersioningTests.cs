@@ -294,8 +294,7 @@ public sealed class ApiVersioningTests
             => Task.FromResult(new SubscriptionResponseDto
             {
                 Id = "sub_1",
-                TenantId = request.TenantId,
-                EventType = request.EventType,
+                                EventType = request.EventType,
                 TargetUrl = request.TargetUrl,
                 CreatedAt = DateTime.UtcNow,
             });

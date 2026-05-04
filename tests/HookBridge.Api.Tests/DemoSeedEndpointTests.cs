@@ -2,6 +2,7 @@ using System.Net;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -33,14 +34,19 @@ public sealed class DemoSeedEndpointTests
             })
             .Configure(app =>
             {
-                if (app.ApplicationServices.GetRequiredService<IHostEnvironment>().IsDevelopment())
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
                 {
-                    app.MapPost("/api/v1/dev/demo/seed", async (IDemoDataSeeder seeder, CancellationToken cancellationToken) =>
+                    if (app.ApplicationServices.GetRequiredService<IHostEnvironment>().IsDevelopment())
                     {
-                        await seeder.SeedAsync(cancellationToken);
-                        return Results.Ok();
-                    });
-                }
+                        endpoints.MapPost("/api/v1/dev/demo/seed", async context =>
+                        {
+                            var seeder = context.RequestServices.GetRequiredService<IDemoDataSeeder>();
+                            await seeder.SeedAsync(context.RequestAborted);
+                            context.Response.StatusCode = StatusCodes.Status200OK;
+                        });
+                    }
+                });
             });
 
         var server = new TestServer(builder);

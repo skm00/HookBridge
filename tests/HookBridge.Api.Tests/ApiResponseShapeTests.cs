@@ -44,7 +44,7 @@ public sealed class ApiResponseShapeTests
     [Fact]
     public async Task ValidationException_ReturnsStandardValidationShape()
     {
-        using var server = BuildExceptionServer(app => app.MapGet("/validation", () => throw new FluentValidation.ValidationException("validation", new[] { new FluentValidation.Results.ValidationFailure("field", "is required") })));
+        using var server = BuildExceptionServer(app => app.MapGet("/validation", (HttpContext _) => throw new FluentValidation.ValidationException("validation", new[] { new FluentValidation.Results.ValidationFailure("field", "is required") })));
         using var client = server.CreateClient();
 
         var response = await client.GetFromJsonAsync<ApiErrorResponse>("/validation");
