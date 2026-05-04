@@ -68,7 +68,7 @@ public sealed class TenantIsolationControllerTests
     {
         var service = new FakeSubscriptionService
         {
-            GetByIdResult = new SubscriptionResponseDto { Id = "sub-1" },
+            GetByIdResult = new SubscriptionResponseDto { Id = "sub-1", TenantId = "tenant-2" },
         };
         var controller = WithHttpContext(new SubscriptionsController(
             service,
@@ -232,7 +232,7 @@ public sealed class TenantIsolationControllerTests
     {
         public SubscriptionSearchRequestDto? LastSearchRequest { get; private set; }
 
-        public SubscriptionResponseDto? GetByIdResult { get; set; } = new() { Id = "sub-1" };
+        public SubscriptionResponseDto? GetByIdResult { get; set; } = new() { Id = "sub-1", TenantId = "tenant-1" };
 
         public Task<SubscriptionResponseDto> CreateAsync(string tenantId, CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(new SubscriptionResponseDto { Id = "sub-1" });
