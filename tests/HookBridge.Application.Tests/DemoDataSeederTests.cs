@@ -174,5 +174,7 @@ public sealed class DemoDataSeederTests
         public string EnvironmentName { get; set; } = Environments.Development;
         public string ApplicationName { get; set; } = "HookBridge";
         public string ContentRootPath { get; set; } = Directory.GetCurrentDirectory();
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; }
+            = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(Directory.GetCurrentDirectory());
     }
 }
