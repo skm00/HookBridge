@@ -30,7 +30,8 @@ public sealed class UsageControllerTests
         var result = await controller.GetCurrentAsync("tenant-1", CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = Assert.IsType<CurrentUsageResponseDto>(ok.Value);
+        var response = Assert.IsType<HookBridge.Shared.Api.ApiResponse<CurrentUsageResponseDto>>(ok.Value);
+        var payload = Assert.IsType<CurrentUsageResponseDto>(response.Data);
         Assert.Equal("tenant-1", payload.TenantId);
         Assert.Equal(2026, payload.Year);
         Assert.Equal(4, payload.Month);
