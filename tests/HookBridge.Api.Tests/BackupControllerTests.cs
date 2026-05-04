@@ -13,11 +13,21 @@ namespace HookBridge.Api.Tests;
 
 public sealed class BackupControllerTests
 {
+    private static BackupController CreateController(FakeBackupService service)
+    {
+        var controller = new BackupController(service, TenantIsolationTestHelpers.CreateValidator())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+
+        return controller;
+    }
+
     [Fact]
     public async Task Export_ReturnsFile()
     {
         var service = new FakeBackupService();
-        var controller = new BackupController(service, TenantIsolationTestHelpers.CreateValidator());
+        var controller = CreateController(service);
 
         var result = await controller.ExportAsync("tenant-1", CancellationToken.None);
 
@@ -30,7 +40,7 @@ public sealed class BackupControllerTests
     public async Task Restore_BlocksLargeFile()
     {
         var service = new FakeBackupService();
-        var controller = new BackupController(service, TenantIsolationTestHelpers.CreateValidator());
+        var controller = CreateController(service);
 
         await using var ms = new MemoryStream(new byte[10 * 1024 * 1024 + 1]);
         var file = new FormFile(ms, 0, ms.Length, "file", "large.json.gz");
@@ -42,7 +52,7 @@ public sealed class BackupControllerTests
     public async Task Restore_ReturnsSummary()
     {
         var service = new FakeBackupService();
-        var controller = new BackupController(service, TenantIsolationTestHelpers.CreateValidator());
+        var controller = CreateController(service);
         var file = BuildFile("tenant-1");
 
         var result = await controller.ImportAsync("tenant-1", file, CancellationToken.None);
