@@ -22,10 +22,8 @@ public sealed class BillingControllerTests
 
         var result = await controller.HandleStripeWebhookAsync(CancellationToken.None);
 
-        var statusCode = (result.Result as IStatusCodeActionResult)?.StatusCode
-            ?? result.Value?.StatusCode;
-
-        Assert.Equal(StatusCodes.Status400BadRequest, statusCode);
+        var actionResult = Assert.IsAssignableFrom<IStatusCodeActionResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, actionResult.StatusCode);
     }
 
     private static BillingController BuildController(IBillingService billingService)
