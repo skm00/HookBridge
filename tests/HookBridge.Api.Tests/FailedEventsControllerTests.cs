@@ -1,6 +1,7 @@
 using HookBridge.Api.Controllers;
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Application.Interfaces.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -9,11 +10,18 @@ namespace HookBridge.Api.Tests;
 
 public sealed class FailedEventsControllerTests
 {
+    private static FailedEventsController CreateController(FakeFailedEventService service)
+    {
+        var controller = CreateController(service);
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        return controller;
+    }
+
     [Fact]
     public async Task SearchAsync_ReturnsOk()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
+        var controller = CreateController(service);
 
         var result = await controller.SearchAsync("tenant-1", null, null, null, "DLQ", null, null, 1, 50, null, "desc", CancellationToken.None);
 
@@ -26,7 +34,7 @@ public sealed class FailedEventsControllerTests
     public async Task GetByIdAsync_ReturnsOk_WhenFound()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
+        var controller = CreateController(service);
 
         var result = await controller.GetByIdAsync("failed-1", CancellationToken.None);
 
@@ -39,7 +47,7 @@ public sealed class FailedEventsControllerTests
     public async Task GetByIdAsync_ReturnsNotFound_WhenMissing()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
+        var controller = CreateController(service);
 
         var result = await controller.GetByIdAsync("missing", CancellationToken.None);
 
@@ -50,7 +58,7 @@ public sealed class FailedEventsControllerTests
     public async Task RetryAsync_ReturnsAccepted_WhenRetryRequested()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
+        var controller = CreateController(service);
 
         var result = await controller.RetryAsync("failed-1", CancellationToken.None);
 
@@ -61,7 +69,7 @@ public sealed class FailedEventsControllerTests
     public async Task RetryAsync_ReturnsNotFound_WhenMissing()
     {
         var service = new FakeFailedEventService();
-        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
+        var controller = CreateController(service);
 
         var result = await controller.RetryAsync("missing", CancellationToken.None);
 
@@ -73,7 +81,7 @@ public sealed class FailedEventsControllerTests
     {
         var service = new FakeFailedEventService();
         service.SetStatus("failed-1", "RetryRequested");
-        var controller = new FailedEventsController(service, new TenantIsolationTestHelpers.FakeCurrentUserContext(), TenantIsolationTestHelpers.CreateValidator(), NullLogger<FailedEventsController>.Instance);
+        var controller = CreateController(service);
 
         var result = await controller.RetryAsync("failed-1", CancellationToken.None);
 

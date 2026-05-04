@@ -22,6 +22,7 @@ public sealed class SubscriptionServiceTests
     public async Task CreateSubscription_Success()
     {
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        await tenantRepo.AddAsync(new Tenant { Id = "tenant-2", Name = "Two", Slug = "two", Status = TenantStatus.Active, CreatedAt = DateTime.UtcNow });
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 
@@ -282,21 +283,21 @@ public sealed class SubscriptionServiceTests
         await service.CreateAsync("tenant-1", BuildValidRequest());
 
         var second = BuildValidRequest();
-        second.TenantId = "tenant-2";
-        second.TargetUrl = "https://example.com/two";
+                second.TargetUrl = "https://example.com/two";
         second.EventType = "order.updated";
-        await service.CreateAsync("tenant-1", second);
+        await service.CreateAsync("tenant-2", second);
 
         var results = await service.SearchAsync(new SubscriptionSearchRequestDto { TenantId = "tenant-1" });
 
         Assert.Single(results.Items);
-        Assert.Equal("tenant-1", results.Items[0].TenantId);
+        Assert.Equal("https://example.com/hooks", results.Items[0].TargetUrl);
     }
 
     [Fact]
     public async Task SearchSubscription_ByEventType()
     {
         var tenantRepo = BuildTenantRepo(TenantStatus.Active);
+        await tenantRepo.AddAsync(new Tenant { Id = "tenant-2", Name = "Two", Slug = "two", Status = TenantStatus.Active, CreatedAt = DateTime.UtcNow });
         var subscriptionRepo = new InMemoryRepository<Subscription>();
         var service = CreateService(subscriptionRepo, tenantRepo);
 
@@ -305,9 +306,9 @@ public sealed class SubscriptionServiceTests
         var second = BuildValidRequest();
         second.EventType = "order.cancelled";
         second.TargetUrl = "https://example.com/cancel";
-        await service.CreateAsync("tenant-1", second);
+        await service.CreateAsync("tenant-2", second);
 
-        var results = await service.SearchAsync(new SubscriptionSearchRequestDto { EventType = "order.cancelled" });
+        var results = await service.SearchAsync(new SubscriptionSearchRequestDto { TenantId = "tenant-2", EventType = "order.cancelled" });
 
         Assert.Single(results.Items);
         Assert.Equal("order.cancelled", results.Items[0].EventType);
@@ -685,7 +686,7 @@ public sealed class SubscriptionServiceTests
 
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>.Create([], 1, 50, 0));
-        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
     }
 
@@ -754,7 +755,7 @@ public sealed class SubscriptionServiceTests
     {
         private readonly List<T> _items = [];
 
-        public Task<T?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
+        public Task<T?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
 
         public Task<IReadOnlyList<T>> FindAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
@@ -797,7 +798,7 @@ public sealed class SubscriptionServiceTests
             return Task.CompletedTask;
         }
 
-        public Task DeleteAsync(string tenantId, string id, CancellationToken cancellationToken = default)
+        public Task DeleteAsync(string id, CancellationToken cancellationToken = default)
         {
             _items.RemoveAll(x => x.Id == id);
             return Task.CompletedTask;

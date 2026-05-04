@@ -4,17 +4,30 @@ using HookBridge.Worker;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HookBridge.Worker.Tests;
 
 public sealed class DataCleanupWorkerTests
 {
+    private static Microsoft.Extensions.DependencyInjection.IServiceScopeFactory CreateScopeFactory(IDataCleanupService service)
+    {
+        var provider = new Microsoft.Extensions.DependencyInjection.ServiceCollection()
+            .AddSingleton(service)
+            .BuildServiceProvider();
+        var scope = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScope>();
+        scope.SetupGet(x => x.ServiceProvider).Returns(provider);
+        var sf = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
+        sf.Setup(x => x.CreateScope()).Returns(scope.Object);
+                return sf.Object;
+    }
+
     [Fact]
     public async Task RunCleanupCycleAsync_SkipsWhenDisabled()
     {
         var cleanupMock = new Mock<IDataCleanupService>(MockBehavior.Strict);
         var logger = new TestLogger<DataCleanupWorker>();
-        var worker = new DataCleanupWorker(cleanupMock.Object, Options.Create(new DataRetentionSettings { Enabled = false }), logger);
+        var worker = new DataCleanupWorker(CreateScopeFactory(cleanupMock.Object), Options.Create(new DataRetentionSettings { Enabled = false }), logger);
 
         await worker.RunCleanupCycleAsync(CancellationToken.None);
 
@@ -33,7 +46,7 @@ public sealed class DataCleanupWorkerTests
         cleanupMock.Setup(x => x.CleanupNotificationsAsync(15, It.IsAny<CancellationToken>())).ReturnsAsync(5);
 
         var worker = new DataCleanupWorker(
-            cleanupMock.Object,
+            CreateScopeFactory(cleanupMock.Object),
             Options.Create(new DataRetentionSettings
             {
                 Enabled = true,
@@ -64,7 +77,7 @@ public sealed class DataCleanupWorkerTests
         cleanupMock.Setup(x => x.CleanupAuditLogsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         cleanupMock.Setup(x => x.CleanupNotificationsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
-        var worker = new DataCleanupWorker(cleanupMock.Object, Options.Create(new DataRetentionSettings { Enabled = true }), new TestLogger<DataCleanupWorker>());
+        var worker = new DataCleanupWorker(CreateScopeFactory(cleanupMock.Object), Options.Create(new DataRetentionSettings { Enabled = true }), new TestLogger<DataCleanupWorker>());
 
         await worker.RunCleanupCycleAsync(CancellationToken.None);
 

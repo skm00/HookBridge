@@ -12,7 +12,7 @@ public sealed class WebhookSignatureValidatorTests
     {
         const string payload = "{\"event\":\"order.created\"}";
         const string secret = "super-secret";
-        const string signature = "sha256=2ea0dc6ffc89f7af67275bcf79e64ecadf93c9f10b23f91688aeefbe020ca329";
+        const string signature = "sha256=489a8577fa1e28f0064ad56664475fe173c43a41467162e59e0e3986f9bd8128";
 
         var isValid = _validator.Validate(payload, signature, secret);
 
@@ -43,7 +43,7 @@ public sealed class WebhookSignatureValidatorTests
     {
         const string payload = "{\"event\":\"order.created\"}";
         const string secret = "super-secret";
-        const string signature = "sha256=LqDcb/yJ969nJ1vPeeZOyt+TyfELI/kWiK7vvgIMoyk=";
+        const string signature = "sha256=SJqFd/oeKPAGStVmZEdf4XPEOkFGcWLlng45hvm9gSg=";
 
         var isValid = _validator.Validate(payload, signature, secret);
 

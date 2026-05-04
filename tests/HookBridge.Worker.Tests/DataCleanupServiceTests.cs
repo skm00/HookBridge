@@ -21,7 +21,7 @@ public sealed class DataCleanupServiceTests
 
         collectionMock
             .Setup(c => c.DeleteManyAsync(It.IsAny<FilterDefinition<IncomingEvent>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(DeleteResult.Acknowledged(10))
+            .ReturnsAsync(CreateDeleteResult(10))
             .Callback<FilterDefinition<IncomingEvent>, CancellationToken>((filter, _) => capturedFilter = filter);
 
         databaseMock
@@ -47,7 +47,7 @@ public sealed class DataCleanupServiceTests
 
         collectionMock
             .Setup(c => c.DeleteManyAsync(It.IsAny<FilterDefinition<IncomingEvent>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(DeleteResult.Acknowledged(0))
+            .ReturnsAsync(CreateDeleteResult(0))
             .Callback<FilterDefinition<IncomingEvent>, CancellationToken>((filter, _) => capturedFilter = filter);
 
         databaseMock
@@ -72,7 +72,7 @@ public sealed class DataCleanupServiceTests
 
         collectionMock
             .Setup(c => c.DeleteManyAsync(It.IsAny<FilterDefinition<Notification>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(DeleteResult.Acknowledged(4))
+            .ReturnsAsync(CreateDeleteResult(4))
             .Callback<FilterDefinition<Notification>, CancellationToken>((filter, _) => capturedFilter = filter);
 
         databaseMock
@@ -91,9 +91,17 @@ public sealed class DataCleanupServiceTests
     private static DateTime ExtractLessThanCutoff<TEntity>(FilterDefinition<TEntity> filter, string fieldName)
     {
         var serializer = BsonSerializer.SerializerRegistry.GetSerializer<TEntity>();
-        var renderedFilter = filter.Render(serializer, BsonSerializer.SerializerRegistry);
+        var renderedFilter = filter.Render(new RenderArgs<TEntity>(serializer, BsonSerializer.SerializerRegistry));
         var cutoffValue = renderedFilter[fieldName]["$lt"].ToUniversalTime();
         return DateTime.SpecifyKind(cutoffValue, DateTimeKind.Utc);
+    }
+
+    private static DeleteResult CreateDeleteResult(long deletedCount)
+    {
+        var result = new Mock<DeleteResult>();
+        result.SetupGet(x => x.IsAcknowledged).Returns(true);
+        result.SetupGet(x => x.DeletedCount).Returns(deletedCount);
+        return result.Object;
     }
 
     private sealed class FakeDateTimeProvider(DateTime utcNow) : IDateTimeProvider

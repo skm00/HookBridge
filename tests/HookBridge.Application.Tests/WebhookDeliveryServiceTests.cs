@@ -462,7 +462,8 @@ public sealed class WebhookDeliveryServiceTests
             int maxAttempts = 3,
             int initialDelaySeconds = 30,
             string backoffType = "Exponential",
-            bool isActive = true)
+            bool isActive = true,
+            string eventType = "order.created")
         {
             Subscriptions.AddAsync(new Subscription
             {

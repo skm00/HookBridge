@@ -33,7 +33,7 @@ public sealed class ApiVersioningTests
     public async Task EventsRoute_V1_Works()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         client.DefaultRequestHeaders.Add("x-api-key", "hb_test_key");
 
         var response = await client.PostAsJsonAsync("/api/v1/events/tenant-1", new EventIngestionRequestDto
@@ -50,13 +50,12 @@ public sealed class ApiVersioningTests
     public async Task AdminSubscriptionsRoute_V1_Works()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test");
 
         var response = await client.PostAsJsonAsync("/api/v1/admin/subscriptions", new CreateSubscriptionRequestDto
         {
-            TenantId = "tenant-1",
-            EventType = "order.created",
+                        EventType = "order.created",
             TargetUrl = "https://example.com/webhooks",
         });
 
@@ -67,7 +66,7 @@ public sealed class ApiVersioningTests
     public async Task SwaggerV1Document_IsAvailable()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.GetAsync("/swagger/v1/swagger.json");
 
@@ -78,7 +77,7 @@ public sealed class ApiVersioningTests
     public async Task SwaggerV1Document_ContainsBearerAndApiKeySecuritySchemes()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         using var swagger = await GetSwaggerDocumentAsync(client);
 
         var securitySchemes = swagger.RootElement
@@ -93,7 +92,7 @@ public sealed class ApiVersioningTests
     public async Task AdminEndpoint_DocumentsBearerSecurity()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         using var swagger = await GetSwaggerDocumentAsync(client);
 
         var createSubscription = swagger.RootElement
@@ -109,7 +108,7 @@ public sealed class ApiVersioningTests
     public async Task EventIngestionEndpoint_DocumentsApiKeySecurity()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         using var swagger = await GetSwaggerDocumentAsync(client);
 
         var ingestion = swagger.RootElement
@@ -125,7 +124,7 @@ public sealed class ApiVersioningTests
     public async Task SensitiveFields_AreNotExposedInSwaggerSchemas()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         using var swagger = await GetSwaggerDocumentAsync(client);
 
         var schemas = swagger.RootElement.GetProperty("components").GetProperty("schemas").EnumerateObject();
@@ -153,7 +152,7 @@ public sealed class ApiVersioningTests
     public async Task ApiReportsSupportedVersions()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         client.DefaultRequestHeaders.Add("x-api-key", "hb_test_key");
 
         var response = await client.PostAsJsonAsync("/api/v1/events/tenant-1", new EventIngestionRequestDto
@@ -171,7 +170,7 @@ public sealed class ApiVersioningTests
     public async Task UnversionedRoute_Returns404()
     {
         using var host = await BuildVersionedHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.PostAsJsonAsync("/api/events/tenant-1", new EventIngestionRequestDto
         {
@@ -209,11 +208,18 @@ public sealed class ApiVersioningTests
                     options.SchemaFilter<SwaggerSensitiveSchemaFilter>();
                     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme { Type = SecuritySchemeType.Http, Scheme = "bearer" });
                     options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme { Type = SecuritySchemeType.ApiKey, Name = "x-api-key", In = ParameterLocation.Header });
+                    options.DocInclusionPredicate((_, apiDesc) =>
+                        apiDesc.RelativePath is not null &&
+                        (apiDesc.RelativePath.Contains("events") || apiDesc.RelativePath.Contains("admin/subscriptions")));
                 });
 
                 services.AddAuthentication("Test")
                     .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
-                services.AddAuthorization();
+                services.AddAuthorization(options =>
+                {
+                    options.AddPolicy("AdminOrOwner", p => p.RequireAuthenticatedUser());
+                    options.AddPolicy("DeveloperOrAbove", p => p.RequireAuthenticatedUser());
+                });
 
                 services.AddSingleton<IEventIngestionService, FakeEventIngestionService>();
                 services.AddSingleton<IApiKeyService, FakeApiKeyService>();
@@ -295,8 +301,7 @@ public sealed class ApiVersioningTests
             => Task.FromResult(new SubscriptionResponseDto
             {
                 Id = "sub_1",
-                TenantId = request.TenantId,
-                EventType = request.EventType,
+                                EventType = request.EventType,
                 TargetUrl = request.TargetUrl,
                 CreatedAt = DateTime.UtcNow,
             });

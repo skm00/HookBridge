@@ -22,7 +22,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
     public async Task CorrelationId_IsGenerated_WhenMissing()
     {
         using var host = await BuildMiddlewareHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.GetAsync("/test");
 
@@ -35,7 +35,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
     public async Task CorrelationId_FromHeader_IsPreserved()
     {
         using var host = await BuildMiddlewareHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         const string expected = "corr-from-request-123";
 
         var request = new HttpRequestMessage(HttpMethod.Get, "/test");
@@ -51,7 +51,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
     public async Task Response_ContainsCorrelationId_Header()
     {
         using var host = await BuildMiddlewareHostAsync();
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.GetAsync("/test");
 
@@ -63,7 +63,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
     {
         var sink = new InMemoryLogSink();
         using var host = await BuildMiddlewareHostAsync(sink);
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
         const string secret = "Bearer super-secret-token";
 
         var request = new HttpRequestMessage(HttpMethod.Get, "/test");
@@ -134,7 +134,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
     public async Task ElasticApmHealthEndpoint_ReturnsHealthy_WhenEnabled()
     {
         using var host = await BuildHealthHostAsync("http://127.0.0.1:1", apmEnabled: true);
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.GetFromJsonAsync<ApmHealthResponse>("/api/v1/health/apm");
 
@@ -148,7 +148,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
     public async Task ElasticApmHealthEndpoint_ReturnsUnhealthy_WhenDisabled()
     {
         using var host = await BuildHealthHostAsync("http://127.0.0.1:1", apmEnabled: false);
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.GetFromJsonAsync<ApmHealthResponse>("/api/v1/health/apm");
 
@@ -162,7 +162,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
     public async Task ElasticsearchHealthEndpoint_ReturnsUnhealthy_WhenUnavailable()
     {
         using var host = await BuildHealthHostAsync("http://127.0.0.1:1");
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.GetFromJsonAsync<ElasticsearchHealthResponse>("/api/v1/health/elasticsearch");
 
@@ -175,7 +175,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
     public async Task WorkerHealthEndpoint_ReturnsHealthy()
     {
         using var host = await BuildHealthHostAsync("http://127.0.0.1:1");
-        var client = host.GetTestClient();
+        var client = host.CreateClient();
 
         var response = await client.GetFromJsonAsync<WorkerHealthResponse>("/api/v1/health/worker");
 

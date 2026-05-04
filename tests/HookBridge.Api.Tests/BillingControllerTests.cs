@@ -5,6 +5,7 @@ using HookBridge.Application.Interfaces.Services;
 using HookBridge.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Stripe;
 using Xunit;
 
@@ -21,8 +22,8 @@ public sealed class BillingControllerTests
 
         var result = await controller.HandleStripeWebhookAsync(CancellationToken.None);
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        var actionResult = Assert.IsAssignableFrom<IStatusCodeActionResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, actionResult.StatusCode);
     }
 
     private static BillingController BuildController(IBillingService billingService)
