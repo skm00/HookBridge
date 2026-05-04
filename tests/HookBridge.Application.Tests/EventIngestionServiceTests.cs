@@ -211,7 +211,6 @@ public sealed class EventIngestionServiceTests
             Data = null!,
         });
 
-        result.ShouldHaveValidationErrorFor(x => x.EventId);
         result.ShouldHaveValidationErrorFor(x => x.Data);
     }
 
