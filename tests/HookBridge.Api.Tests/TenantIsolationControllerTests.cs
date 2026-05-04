@@ -10,6 +10,7 @@ using HookBridge.Application.DTOs.Tenants;
 using HookBridge.Application.Exceptions;
 using HookBridge.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -17,13 +18,19 @@ namespace HookBridge.Api.Tests;
 
 public sealed class TenantIsolationControllerTests
 {
+    private static T WithHttpContext<T>(T controller) where T : ControllerBase
+    {
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        return controller;
+    }
+
     [Fact]
     public async Task AdminUser_CanAccessOwnTenantApiKeys()
     {
         var service = new FakeApiKeyService();
-        var controller = new ApiKeysController(
+        var controller = WithHttpContext(new ApiKeysController(
             service,
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         var result = await controller.GetByTenantAsync("tenant-1", CancellationToken.None);
 
@@ -34,9 +41,9 @@ public sealed class TenantIsolationControllerTests
     [Fact]
     public async Task AdminUser_CannotAccessAnotherTenantApiKeys()
     {
-        var controller = new ApiKeysController(
+        var controller = WithHttpContext(new ApiKeysController(
             new FakeApiKeyService(),
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByTenantAsync("tenant-2", CancellationToken.None));
     }
@@ -45,10 +52,10 @@ public sealed class TenantIsolationControllerTests
     public async Task SubscriptionSearch_IsForcedToCurrentTenant()
     {
         var service = new FakeSubscriptionService();
-        var controller = new SubscriptionsController(
+        var controller = WithHttpContext(new SubscriptionsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         var result = await controller.SearchAsync(null, null, true, 1, 50, null, "desc", CancellationToken.None);
 
@@ -63,10 +70,10 @@ public sealed class TenantIsolationControllerTests
         {
             GetByIdResult = new SubscriptionResponseDto { Id = "sub-1" },
         };
-        var controller = new SubscriptionsController(
+        var controller = WithHttpContext(new SubscriptionsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByIdAsync("sub-1", CancellationToken.None));
     }
@@ -75,11 +82,11 @@ public sealed class TenantIsolationControllerTests
     public async Task DeliveryLogsSearch_IsForcedToCurrentTenant()
     {
         var service = new FakeDeliveryAttemptService();
-        var controller = new DeliveryLogsController(
+        var controller = WithHttpContext(new DeliveryLogsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
             TenantIsolationTestHelpers.CreateValidator(),
-            NullLogger<DeliveryLogsController>.Instance);
+            NullLogger<DeliveryLogsController>.Instance));
 
         var result = await controller.SearchAsync("tenant-2", null, null, null, null, null, null, null, null, 1, 50, null, "desc", CancellationToken.None);
 
@@ -94,11 +101,11 @@ public sealed class TenantIsolationControllerTests
         {
             Item = new FailedEventResponseDto { Id = "failed-1", TenantId = "tenant-2", Status = "DLQ" },
         };
-        var controller = new FailedEventsController(
+        var controller = WithHttpContext(new FailedEventsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
             TenantIsolationTestHelpers.CreateValidator(),
-            NullLogger<FailedEventsController>.Instance);
+            NullLogger<FailedEventsController>.Instance));
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.RetryAsync("failed-1", CancellationToken.None));
     }
@@ -113,10 +120,10 @@ public sealed class TenantIsolationControllerTests
             Item = new NotificationResponseDto { Id = "notif-1", TenantId = "tenant-2" },
         };
 
-        var controller = new NotificationsController(
+        var controller = WithHttpContext(new NotificationsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByIdAsync("notif-1", CancellationToken.None));
     }
@@ -129,7 +136,7 @@ public sealed class TenantIsolationControllerTests
             Item = new IncomingEventResponseDto { Id = "incoming-1", TenantId = "tenant-2", EventId = "evt-1", EventType = "order.created", Status = "Accepted", ReceivedAt = DateTime.UtcNow, Payload = new { } },
         };
 
-        var controller = new IncomingEventsController(
+        var controller = WithHttpContext(new IncomingEventsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
             TenantIsolationTestHelpers.CreateValidator(),
@@ -141,10 +148,10 @@ public sealed class TenantIsolationControllerTests
     [Fact]
     public async Task TenantUpdate_ForAnotherTenant_IsBlocked()
     {
-        var controller = new TenantsController(
+        var controller = WithHttpContext(new TenantsController(
             new FakeTenantService(),
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.UpdateAsync("tenant-2", new UpdateTenantRequestDto(), CancellationToken.None));
     }
@@ -152,9 +159,9 @@ public sealed class TenantIsolationControllerTests
     [Fact]
     public async Task CrossTenantRequest_ReturnsForbiddenException()
     {
-        var controller = new BillingController(
+        var controller = WithHttpContext(new BillingController(
             new FakeBillingService(),
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetStatusAsync("tenant-2", CancellationToken.None));
     }
@@ -162,7 +169,7 @@ public sealed class TenantIsolationControllerTests
     [Fact]
     public async Task MissingTenantClaim_ReturnsUnauthorizedException()
     {
-        var controller = new ApiKeysController(
+        var controller = WithHttpContext(new ApiKeysController(
             new FakeApiKeyService(),
             TenantIsolationTestHelpers.CreateValidator(
                 new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = null, IsAuthenticated = true }));
@@ -174,10 +181,10 @@ public sealed class TenantIsolationControllerTests
     public async Task AuditLogsSearch_IsTenantScoped()
     {
         var service = new FakeAuditLogService();
-        var controller = new AuditLogsController(
+        var controller = WithHttpContext(new AuditLogsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         var result = await controller.SearchAsync(null, null, null, null, null, null, null, 1, 50, null, "desc", CancellationToken.None);
 
@@ -192,10 +199,10 @@ public sealed class TenantIsolationControllerTests
         {
             GetByIdResult = new AuditLogResponseDto { Id = "audit-1", TenantId = "tenant-2" },
         };
-        var controller = new AuditLogsController(
+        var controller = WithHttpContext(new AuditLogsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
-            TenantIsolationTestHelpers.CreateValidator());
+            TenantIsolationTestHelpers.CreateValidator()));
 
         await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByIdAsync("audit-1", CancellationToken.None));
     }

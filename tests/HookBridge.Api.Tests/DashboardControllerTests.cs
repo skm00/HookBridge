@@ -1,6 +1,7 @@
 using HookBridge.Api.Controllers;
 using HookBridge.Application.DTOs.Dashboard;
 using HookBridge.Application.Interfaces.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
@@ -8,13 +9,19 @@ namespace HookBridge.Api.Tests;
 
 public sealed class DashboardControllerTests
 {
+    private static T WithHttpContext<T>(T controller) where T : ControllerBase
+    {
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        return controller;
+    }
+
     [Fact]
     public async Task GetOverview_ReturnsCurrentTenantMetrics()
     {
         var service = new FakeDashboardService();
-        var controller = new DashboardController(
+        var controller = WithHttpContext(new DashboardController(
             service,
-            new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" });
+            new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" }));
 
         var result = await controller.GetOverviewAsync(CancellationToken.None);
 
@@ -29,9 +36,9 @@ public sealed class DashboardControllerTests
     public async Task GetOverview_ReturnsOnlyCurrentTenantData()
     {
         var service = new FakeDashboardService();
-        var controller = new DashboardController(
+        var controller = WithHttpContext(new DashboardController(
             service,
-            new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-a" });
+            new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-a" }));
 
         var result = await controller.GetOverviewAsync(CancellationToken.None);
 
