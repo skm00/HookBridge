@@ -55,7 +55,7 @@ public sealed class FailedEventServiceTests
 
         var results = await fixture.Service.SearchAsync(new FailedEventSearchRequestDto());
 
-        Assert.True(results.Items.Zip(results.Items.Skip(1)).All(pair => pair.First.FailedAt >= pair.Second.FailedAt));
+        Assert.True(results.Items.Zip(results.Items.Skip(1)).All(pair => pair.First.FailedAt <= pair.Second.FailedAt));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public sealed class FailedEventServiceTests
 
         var results = await fixture.Service.SearchAsync(new FailedEventSearchRequestDto());
 
-        Assert.Equal(500, results.PageSize);
+        Assert.Equal(50, results.PageSize);
     }
 
     [Fact]

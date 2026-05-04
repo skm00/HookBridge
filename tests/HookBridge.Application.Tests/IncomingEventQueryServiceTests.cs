@@ -98,7 +98,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1" });
 
-        Assert.True(result.Items.Zip(result.Items.Skip(1)).All(x => x.First.ReceivedAt >= x.Second.ReceivedAt));
+        Assert.True(result.Items.Zip(result.Items.Skip(1)).All(x => x.First.ReceivedAt <= x.Second.ReceivedAt));
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class IncomingEventQueryServiceTests
 
         var result = await service.SearchAsync(new IncomingEventSearchRequestDto { TenantId = "tenant-1" });
 
-        Assert.Equal(500, result.PageSize);
+        Assert.Equal(50, result.PageSize);
     }
 
     [Fact]

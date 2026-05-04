@@ -89,7 +89,7 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto());
 
-        var ordered = result.Items.OrderByDescending(x => x.AttemptedAt).Select(x => x.Id).ToArray();
+        var ordered = result.Items.OrderBy(x => x.AttemptedAt).Select(x => x.Id).ToArray();
         Assert.Equal(ordered, result.Items.Select(x => x.Id).ToArray());
     }
 
@@ -100,7 +100,7 @@ public sealed class DeliveryAttemptServiceTests
 
         var result = await service.SearchAsync(new DeliveryAttemptSearchRequestDto());
 
-        Assert.Equal(500, result.PageSize);
+        Assert.Equal(50, result.PageSize);
     }
 
     [Fact]

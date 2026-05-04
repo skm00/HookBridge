@@ -36,7 +36,7 @@ public sealed class ProductionReadinessServiceTests
     [Fact]
     public async Task JwtSecretTooShort_FailsReadiness()
     {
-        var service = CreateService(BuildValidProductionPairs().Append(Pair("Jwt:Secret", "short")), Environments.Production);
+        var service = CreateService(BuildValidProductionPairs().Where(x => x.Key != "Jwt:Secret").Append(Pair("Jwt:Secret", "short")), Environments.Production);
 
         var response = await service.CheckAsync();
 
@@ -48,7 +48,7 @@ public sealed class ProductionReadinessServiceTests
     [Fact]
     public async Task EncryptionKeyTooShort_FailsReadiness()
     {
-        var service = CreateService(BuildValidProductionPairs().Append(Pair("Encryption:MasterKey", "too-short")), Environments.Production);
+        var service = CreateService(BuildValidProductionPairs().Where(x => x.Key != "Encryption:MasterKey").Append(Pair("Encryption:MasterKey", "too-short")), Environments.Production);
 
         var response = await service.CheckAsync();
 
@@ -74,7 +74,7 @@ public sealed class ProductionReadinessServiceTests
     [Fact]
     public async Task DemoDataEnabledInProduction_FailsReadiness()
     {
-        var service = CreateService(BuildValidProductionPairs().Append(Pair("DemoData:Enabled", "true")), Environments.Production);
+        var service = CreateService(BuildValidProductionPairs().Where(x => x.Key != "DemoData:Enabled").Append(Pair("DemoData:Enabled", "true")), Environments.Production);
 
         var response = await service.CheckAsync();
 
