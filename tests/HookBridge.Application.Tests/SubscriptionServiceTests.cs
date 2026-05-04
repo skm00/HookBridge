@@ -685,7 +685,7 @@ public sealed class SubscriptionServiceTests
 
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>> SearchAsync(HookBridge.Application.DTOs.AuditLogs.AuditLogSearchRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(HookBridge.Application.DTOs.Common.PagedResponseDto<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto>.Create([], 1, 50, 0));
-        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
+        public Task<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult<HookBridge.Application.DTOs.AuditLogs.AuditLogResponseDto?>(null);
     }
 
@@ -754,7 +754,7 @@ public sealed class SubscriptionServiceTests
     {
         private readonly List<T> _items = [];
 
-        public Task<T?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
+        public Task<T?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
             => Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
 
         public Task<IReadOnlyList<T>> FindAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
@@ -797,7 +797,7 @@ public sealed class SubscriptionServiceTests
             return Task.CompletedTask;
         }
 
-        public Task DeleteAsync(string tenantId, string id, CancellationToken cancellationToken = default)
+        public Task DeleteAsync(string id, CancellationToken cancellationToken = default)
         {
             _items.RemoveAll(x => x.Id == id);
             return Task.CompletedTask;

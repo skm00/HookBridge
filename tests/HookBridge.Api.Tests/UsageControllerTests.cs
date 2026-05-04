@@ -6,6 +6,7 @@ using HookBridge.Domain.Entities;
 using HookBridge.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
+using MongoDB.Driver;
 
 namespace HookBridge.Api.Tests;
 
@@ -62,6 +63,9 @@ public sealed class UsageControllerTests
             => throw new NotSupportedException();
 
         public Task<Tenant?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<(IReadOnlyList<Tenant> Items, long TotalCount)> QueryAsync(System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate, SortDefinition<Tenant> sort, int skip, int limit, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<IReadOnlyList<Tenant>> GetAllAsync(CancellationToken cancellationToken = default)

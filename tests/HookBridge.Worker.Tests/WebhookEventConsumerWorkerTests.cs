@@ -10,6 +10,19 @@ namespace HookBridge.Worker.Tests;
 
 public sealed class WebhookEventConsumerWorkerTests
 {
+    private static Microsoft.Extensions.DependencyInjection.IServiceScopeFactory CreateScopeFactory(IWebhookDeliveryService service)
+    {
+        var provider = new Microsoft.Extensions.DependencyInjection.ServiceCollection()
+            .AddSingleton(service)
+            .BuildServiceProvider();
+        var scope = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScope>();
+        scope.SetupGet(x => x.ServiceProvider).Returns(provider);
+        var sf = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
+        sf.Setup(x => x.CreateScope()).Returns(scope.Object);
+        sf.Setup(x => x.CreateAsyncScope()).Returns(new Microsoft.Extensions.DependencyInjection.AsyncServiceScope(scope.Object));
+        return sf.Object;
+    }
+
     [Fact]
     public async Task ExecuteAsync_CallsWebhookDeliveryService()
     {
@@ -31,7 +44,7 @@ public sealed class WebhookEventConsumerWorkerTests
         var logger = new TestLogger<HookBridge.Worker.WebhookEventConsumerWorker>();
         var worker = new TestWebhookEventConsumerWorker(
             kafkaConsumerMock.Object,
-            deliveryServiceMock.Object,
+            CreateScopeFactory(deliveryServiceMock.Object),
             Options.Create(new KafkaSettings
             {
                 BootstrapServers = "localhost:9092",
@@ -70,7 +83,7 @@ public sealed class WebhookEventConsumerWorkerTests
         var logger = new TestLogger<HookBridge.Worker.WebhookEventConsumerWorker>();
         var worker = new TestWebhookEventConsumerWorker(
             kafkaConsumerMock.Object,
-            deliveryServiceMock.Object,
+            CreateScopeFactory(deliveryServiceMock.Object),
             Options.Create(new KafkaSettings
             {
                 BootstrapServers = "localhost:9092",
@@ -112,7 +125,7 @@ public sealed class WebhookEventConsumerWorkerTests
             IOptions<KafkaSettings> kafkaOptions,
             TestLogger<HookBridge.Worker.WebhookEventConsumerWorker> logger,
             WorkerTransactionRunner transactionRunner)
-            : base(kafkaConsumer, webhookDeliveryService, kafkaOptions, logger, transactionRunner)
+            : base(kafkaConsumer, CreateScopeFactory(webhookDeliveryService), kafkaOptions, logger, transactionRunner)
         {
         }
 
