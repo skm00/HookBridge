@@ -18,6 +18,7 @@ public sealed class CreateSubscriptionRequestDto
     public RetryPolicyDto? RetryPolicy { get; set; }
 
     public int? TimeoutSeconds { get; set; }
+    public string? DeliveryFormat { get; set; }
 }
 
 public sealed class UpdateSubscriptionRequestDto
@@ -33,6 +34,7 @@ public sealed class UpdateSubscriptionRequestDto
     public RetryPolicyDto? RetryPolicy { get; set; }
 
     public int? TimeoutSeconds { get; set; }
+    public string? DeliveryFormat { get; set; }
 }
 
 /// <summary>
@@ -53,6 +55,7 @@ public sealed class SubscriptionResponseDto
     public RetryPolicyDto RetryPolicy { get; set; } = new();
 
     public int TimeoutSeconds { get; set; }
+    public string DeliveryFormat { get; set; } = "Raw";
 
     public bool IsActive { get; set; }
 

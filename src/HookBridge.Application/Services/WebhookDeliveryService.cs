@@ -53,12 +53,12 @@ public sealed class WebhookDeliveryService(
             "db.mongodb",
             () => subscriptionRepository.FindAsync(
                 x => x.TenantId == message.TenantId
-                    && (x.EventType == message.EventType || x.EventType == "*")
+                    && (x.EventType == message.EventType || x.EventType == "*" || string.IsNullOrWhiteSpace(x.EventType))
                     && x.IsActive,
                 cancellationToken))
             ?? subscriptionRepository.FindAsync(
                 x => x.TenantId == message.TenantId
-                    && (x.EventType == message.EventType || x.EventType == "*")
+                    && (x.EventType == message.EventType || x.EventType == "*" || string.IsNullOrWhiteSpace(x.EventType))
                     && x.IsActive,
                 cancellationToken));
 

@@ -54,6 +54,7 @@ export type Subscription = {
   authentication?: Authentication;
   retryPolicy: RetryPolicy;
   timeoutSeconds: number;
+  deliveryFormat: 'Raw' | 'HookBridgeEnvelope' | 'CloudEventsStructured' | 'CloudEventsBinary';
   isActive: boolean;
   disabledAt?: string;
   createdAt: string;
@@ -67,7 +68,8 @@ export type SubscriptionListFilters = PagedRequest & {
 };
 
 export type CreateSubscriptionRequest = {
-  eventType: string;
+  eventType?: string;
+  deliveryFormat?: 'Raw' | 'HookBridgeEnvelope' | 'CloudEventsStructured' | 'CloudEventsBinary';
   targetUrl: string;
   headers: KeyValue[];
   authentication?: Authentication;
@@ -76,7 +78,8 @@ export type CreateSubscriptionRequest = {
 };
 
 export type UpdateSubscriptionRequest = {
-  eventType: string;
+  eventType?: string;
+  deliveryFormat?: 'Raw' | 'HookBridgeEnvelope' | 'CloudEventsStructured' | 'CloudEventsBinary';
   targetUrl: string;
   headers: KeyValue[];
   authentication?: Authentication;

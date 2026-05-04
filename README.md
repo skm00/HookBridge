@@ -67,6 +67,66 @@ HookBridge APIs are versioned using URL segments for long-term compatibility.
 - Route format: `/api/v{version}/...` (for example, `/api/v1/events/{tenantId}` and `/api/v1/admin/subscriptions`)
 - Future versions will follow the same pattern, such as `/api/v2/...`
 
+## Event Ingestion Formats (Raw + CloudEvents)
+
+HookBridge supports multiple ingestion formats. CloudEvents support is **optional** and additive; existing raw webhook payload mode continues to work.
+
+### A) Raw JSON payload
+
+```json
+{
+  "username": "abc"
+}
+```
+
+### B) HookBridge envelope
+
+```json
+{
+  "eventType": "invoice.created",
+  "payload": { "invoiceId": "INV-001" }
+}
+```
+
+### C) CloudEvents v1.0 structured
+
+```json
+{
+  "specversion": "1.0",
+  "id": "evt_123",
+  "source": "/example",
+  "type": "invoice.created",
+  "data": { "invoiceId": "INV-001" }
+}
+```
+
+### D) CloudEvents v1.0 binary
+
+- Include CloudEvents attributes as headers:
+  - `ce-specversion`
+  - `ce-id`
+  - `ce-source`
+  - `ce-type`
+  - `ce-time` (optional)
+- Send event data in the HTTP body.
+
+### Mapping and routing behavior
+
+- `CloudEvents.type` maps to HookBridge `EventType`.
+- If `EventType` is missing, HookBridge uses `"default"`.
+- Subscription matching supports:
+  - exact event type,
+  - wildcard `"*"`,
+  - empty event type (treated as wildcard).
+
+### Optional strict validation
+
+CloudEvents strict validation can be toggled via configuration and defaults to disabled:
+
+```bash
+CloudEvents__StrictValidation=false
+```
+
 ## Swagger / OpenAPI
 
 HookBridge publishes OpenAPI documentation for local development to help with discovery, SDK generation, and API testing.

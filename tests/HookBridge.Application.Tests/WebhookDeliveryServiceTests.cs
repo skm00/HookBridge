@@ -100,6 +100,17 @@ public sealed class WebhookDeliveryServiceTests
     }
 
     [Fact]
+    public async Task ProcessEvent_EmptySubscriptionEventType_ActsAsWildcard()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", eventType: "");
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200, DurationMs = 5 });
+        await fixture.Service.ProcessEventAsync(fixture.Message);
+        Assert.Single(await fixture.Attempts.GetAllAsync());
+    }
+
+    [Fact]
     public async Task ProcessEvent_MissingIncomingEvent_LogsWarningAndStops()
     {
         var fixture = new Fixture();

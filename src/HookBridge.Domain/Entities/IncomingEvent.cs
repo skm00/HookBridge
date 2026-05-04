@@ -5,6 +5,7 @@ namespace HookBridge.Domain.Entities;
 /// </summary>
 public sealed class IncomingEvent : BaseEntity
 {
+    public string IdempotencyId => EventId;
     public string TenantId { get; set; } = string.Empty;
 
     public string EventType { get; set; } = string.Empty;
@@ -14,6 +15,11 @@ public sealed class IncomingEvent : BaseEntity
     public DateTime? SourceTimestamp { get; set; }
 
     public object Payload { get; set; } = new { };
+    public string RawBody { get; set; } = string.Empty;
+    public Dictionary<string, string> Headers { get; set; } = [];
+    public string? Source { get; set; }
+    public string? SpecVersion { get; set; }
+    public string ContentMode { get; set; } = "Raw";
 
     public string Status { get; set; } = string.Empty;
 
