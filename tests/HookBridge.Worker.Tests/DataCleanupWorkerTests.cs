@@ -4,6 +4,7 @@ using HookBridge.Worker;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HookBridge.Worker.Tests;
 
@@ -18,8 +19,7 @@ public sealed class DataCleanupWorkerTests
         scope.SetupGet(x => x.ServiceProvider).Returns(provider);
         var sf = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
         sf.Setup(x => x.CreateScope()).Returns(scope.Object);
-        sf.Setup(x => x.CreateAsyncScope()).Returns(new Microsoft.Extensions.DependencyInjection.AsyncServiceScope(scope.Object));
-        return sf.Object;
+                return sf.Object;
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public sealed class DataCleanupWorkerTests
         cleanupMock.Setup(x => x.CleanupNotificationsAsync(15, It.IsAny<CancellationToken>())).ReturnsAsync(5);
 
         var worker = new DataCleanupWorker(
-            cleanupMock.Object,
+            CreateScopeFactory(cleanupMock.Object),
             Options.Create(new DataRetentionSettings
             {
                 Enabled = true,

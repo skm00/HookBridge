@@ -3,6 +3,7 @@ using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
 using Moq;
 using Xunit;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HookBridge.Worker.Tests;
 
@@ -17,8 +18,7 @@ public sealed class WebhookRetryConsumerWorkerTests
         scope.SetupGet(x => x.ServiceProvider).Returns(provider);
         var sf = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
         sf.Setup(x => x.CreateScope()).Returns(scope.Object);
-        sf.Setup(x => x.CreateAsyncScope()).Returns(new Microsoft.Extensions.DependencyInjection.AsyncServiceScope(scope.Object));
-        return sf.Object;
+                return sf.Object;
     }
 
     [Fact]

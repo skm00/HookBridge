@@ -282,15 +282,14 @@ public sealed class SubscriptionServiceTests
         await service.CreateAsync("tenant-1", BuildValidRequest());
 
         var second = BuildValidRequest();
-        second.TenantId = "tenant-2";
-        second.TargetUrl = "https://example.com/two";
+                second.TargetUrl = "https://example.com/two";
         second.EventType = "order.updated";
-        await service.CreateAsync("tenant-1", second);
+        await service.CreateAsync("tenant-2", second);
 
         var results = await service.SearchAsync(new SubscriptionSearchRequestDto { TenantId = "tenant-1" });
 
         Assert.Single(results.Items);
-        Assert.Equal("tenant-1", results.Items[0].TenantId);
+        Assert.Equal("https://example.com/hooks", results.Items[0].TargetUrl);
     }
 
     [Fact]
@@ -305,7 +304,7 @@ public sealed class SubscriptionServiceTests
         var second = BuildValidRequest();
         second.EventType = "order.cancelled";
         second.TargetUrl = "https://example.com/cancel";
-        await service.CreateAsync("tenant-1", second);
+        await service.CreateAsync("tenant-2", second);
 
         var results = await service.SearchAsync(new SubscriptionSearchRequestDto { EventType = "order.cancelled" });
 

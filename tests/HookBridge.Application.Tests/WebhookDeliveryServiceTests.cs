@@ -413,7 +413,7 @@ public sealed class WebhookDeliveryServiceTests
         {
             TenantId = "tenant-1",
             EventId = "evt-1",
-            EventType = "order.created",
+            EventType = eventType,
             CorrelationId = "corr-1",
             ReceivedAt = new DateTime(2026, 4, 27, 10, 0, 0, DateTimeKind.Utc),
         };
@@ -447,7 +447,7 @@ public sealed class WebhookDeliveryServiceTests
                 Id = "incoming-1",
                 TenantId = "tenant-1",
                 EventId = "evt-1",
-                EventType = "order.created",
+                EventType = eventType,
                 Payload = new { orderId = "1001" },
                 Status = "Accepted",
                 ReceivedAt = new DateTime(2026, 4, 27, 10, 0, 0, DateTimeKind.Utc),
@@ -462,13 +462,14 @@ public sealed class WebhookDeliveryServiceTests
             int maxAttempts = 3,
             int initialDelaySeconds = 30,
             string backoffType = "Exponential",
-            bool isActive = true)
+            bool isActive = true,
+            string eventType = "order.created")
         {
             Subscriptions.AddAsync(new Subscription
             {
                 Id = id,
                 TenantId = "tenant-1",
-                EventType = "order.created",
+                EventType = eventType,
                 TargetUrl = url,
                 IsActive = isActive,
                 TimeoutSeconds = timeoutSeconds,

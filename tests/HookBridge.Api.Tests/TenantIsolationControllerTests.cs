@@ -228,9 +228,9 @@ public sealed class TenantIsolationControllerTests
         public SubscriptionResponseDto? GetByIdResult { get; set; } = new() { Id = "sub-1", TenantId = "tenant-1" };
 
         public Task<SubscriptionResponseDto> CreateAsync(string tenantId, CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
-            => Task.FromResult(new SubscriptionResponseDto { Id = "sub-1", TenantId = request.TenantId });
+            => Task.FromResult(new SubscriptionResponseDto { Id = "sub-1" });
 
-        public Task<SubscriptionResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<SubscriptionResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
             => Task.FromResult(GetByIdResult);
 
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default)
@@ -246,7 +246,7 @@ public sealed class TenantIsolationControllerTests
 
         public Task<bool> EnableAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
-        public Task<bool> DisableAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> DisableAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 
     private sealed class FakeDeliveryAttemptService : IDeliveryAttemptService

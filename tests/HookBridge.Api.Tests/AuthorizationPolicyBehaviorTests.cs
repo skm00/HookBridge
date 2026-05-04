@@ -128,7 +128,7 @@ public sealed class AuthorizationPolicyBehaviorTests
         UrlEncoder encoder)
         : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
     {
-        public const string Scheme = "Test";
+        public new const string Scheme = "Test";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {

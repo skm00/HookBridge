@@ -5,6 +5,7 @@ using HookBridge.Infrastructure.Configuration;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HookBridge.Worker.Tests;
 
@@ -19,8 +20,7 @@ public sealed class WebhookEventConsumerWorkerTests
         scope.SetupGet(x => x.ServiceProvider).Returns(provider);
         var sf = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
         sf.Setup(x => x.CreateScope()).Returns(scope.Object);
-        sf.Setup(x => x.CreateAsyncScope()).Returns(new Microsoft.Extensions.DependencyInjection.AsyncServiceScope(scope.Object));
-        return sf.Object;
+                return sf.Object;
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class WebhookEventConsumerWorkerTests
         var logger = new TestLogger<HookBridge.Worker.WebhookEventConsumerWorker>();
         var worker = new TestWebhookEventConsumerWorker(
             kafkaConsumerMock.Object,
-            CreateScopeFactory(deliveryServiceMock.Object),
+            deliveryServiceMock.Object,
             Options.Create(new KafkaSettings
             {
                 BootstrapServers = "localhost:9092",
@@ -83,7 +83,7 @@ public sealed class WebhookEventConsumerWorkerTests
         var logger = new TestLogger<HookBridge.Worker.WebhookEventConsumerWorker>();
         var worker = new TestWebhookEventConsumerWorker(
             kafkaConsumerMock.Object,
-            CreateScopeFactory(deliveryServiceMock.Object),
+            deliveryServiceMock.Object,
             Options.Create(new KafkaSettings
             {
                 BootstrapServers = "localhost:9092",
