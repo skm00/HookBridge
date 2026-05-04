@@ -1,3 +1,4 @@
+using Xunit;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.DependencyInjection;
 using Microsoft.Extensions.Configuration;
