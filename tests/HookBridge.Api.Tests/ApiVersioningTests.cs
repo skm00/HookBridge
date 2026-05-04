@@ -208,11 +208,18 @@ public sealed class ApiVersioningTests
                     options.SchemaFilter<SwaggerSensitiveSchemaFilter>();
                     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme { Type = SecuritySchemeType.Http, Scheme = "bearer" });
                     options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme { Type = SecuritySchemeType.ApiKey, Name = "x-api-key", In = ParameterLocation.Header });
+                    options.DocInclusionPredicate((_, apiDesc) =>
+                        apiDesc.RelativePath is not null &&
+                        (apiDesc.RelativePath.Contains("events") || apiDesc.RelativePath.Contains("admin/subscriptions")));
                 });
 
                 services.AddAuthentication("Test")
                     .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
-                services.AddAuthorization();
+                services.AddAuthorization(options =>
+                {
+                    options.AddPolicy("AdminOrOwner", p => p.RequireAuthenticatedUser());
+                    options.AddPolicy("DeveloperOrAbove", p => p.RequireAuthenticatedUser());
+                });
 
                 services.AddSingleton<IEventIngestionService, FakeEventIngestionService>();
                 services.AddSingleton<IApiKeyService, FakeApiKeyService>();
