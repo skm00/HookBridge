@@ -63,6 +63,26 @@ public sealed class SignupSecurityTests
         Assert.DoesNotContain("Role", properties);
     }
 
+
+    private static string FindRegisterPagePath()
+    {
+        const string relativePath = "src/HookBridge.Dashboard/src/pages/RegisterPage.tsx";
+        var dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, relativePath);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            dir = dir.Parent;
+        }
+
+        throw new FileNotFoundException($"Could not locate {relativePath} from current directory hierarchy.");
+    }
+
     [Fact]
     public void RegisterPage_DoesNotRenderTenantIdOrRoleInputs()
     {
