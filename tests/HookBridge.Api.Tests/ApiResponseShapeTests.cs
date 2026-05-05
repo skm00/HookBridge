@@ -200,6 +200,7 @@ public sealed class ApiResponseShapeTests
             })
             .Configure(app =>
             {
+                app.UseRouting();
                 app.UseAuthentication();
                 app.Use(async (context, next) =>
                 {
