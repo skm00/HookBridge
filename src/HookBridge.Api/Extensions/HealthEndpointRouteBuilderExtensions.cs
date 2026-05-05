@@ -44,7 +44,7 @@ public static class HealthEndpointRouteBuilderExtensions
             .WithTags("Health")
             .WithSummary("Checks MongoDB connectivity.");
 
-        app.MapGet("/api/v{version:apiVersion}/health/kafka", async (IKafkaAdminService kafkaAdminService, CancellationToken cancellationToken) =>
+        app.MapGet("/api/v{version:apiVersion}/health/kafka", async ([FromServices] IKafkaAdminService kafkaAdminService, CancellationToken cancellationToken) =>
         {
             try
             {
@@ -81,7 +81,7 @@ public static class HealthEndpointRouteBuilderExtensions
             .WithTags("Health")
             .WithSummary("Checks Kafka connectivity.");
 
-        app.MapGet("/api/v{version:apiVersion}/health/apm", (IOptions<ElasticApmSettings> apmOptions) =>
+        app.MapGet("/api/v{version:apiVersion}/health/apm", ([FromServices] IOptions<ElasticApmSettings> apmOptions) =>
         {
             var enabled = apmOptions.Value.Enabled;
 
@@ -106,7 +106,7 @@ public static class HealthEndpointRouteBuilderExtensions
             .WithTags("Health")
             .WithSummary("Reports worker health endpoint availability.");
 
-        app.MapGet("/api/v{version:apiVersion}/health/elasticsearch", async (IElasticsearchHealthService elasticsearchHealthService, CancellationToken cancellationToken) =>
+        app.MapGet("/api/v{version:apiVersion}/health/elasticsearch", async ([FromServices] IElasticsearchHealthService elasticsearchHealthService, CancellationToken cancellationToken) =>
         {
             var response = await elasticsearchHealthService.CheckHealthAsync(cancellationToken);
 
