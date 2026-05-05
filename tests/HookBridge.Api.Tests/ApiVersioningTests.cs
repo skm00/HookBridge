@@ -337,7 +337,6 @@ public sealed class ApiVersioningTests
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }
     }
-}
     private static JsonElement GetOperation(JsonElement swaggerRoot, string pathSuffix, string method)
     {
         var path = swaggerRoot
@@ -349,4 +348,5 @@ public sealed class ApiVersioningTests
 
         return path.Value.GetProperty(method);
     }
+}
 
