@@ -1,6 +1,7 @@
 using HookBridge.Api.Health;
 using HookBridge.Application.Messaging;
 using HookBridge.Infrastructure.Configuration;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -16,7 +17,7 @@ public static class HealthEndpointRouteBuilderExtensions
             .WithTags("Health")
             .WithSummary("Returns a lightweight liveness status.");
 
-        app.MapGet("/api/v{version:apiVersion}/health/mongodb", async (IMongoDatabase database, CancellationToken cancellationToken) =>
+        app.MapGet("/api/v{version:apiVersion}/health/mongodb", async ([FromServices] IMongoDatabase database, CancellationToken cancellationToken) =>
         {
             try
             {
