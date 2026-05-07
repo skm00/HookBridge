@@ -310,7 +310,7 @@ const LandingPage = (): JSX.Element => {
                 Keep your existing navigation, connect your first endpoint, and give your team a production-ready command center for webhook delivery.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Button to="/register" size="lg" className="bg-white px-7 text-primary shadow-white/20 hover:bg-blue-50">Start Free</Button>
+                <Button to="/register" size="lg" className="bg-white px-7 !text-primary shadow-white/20 hover:bg-blue-50 hover:!text-primary-dark">Start Free</Button>
                 <Button to="/docs" variant="secondary" size="lg" className="border-white/30 bg-white/10 px-7 text-white hover:bg-white/20 hover:text-white">View Docs</Button>
               </div>
             </div>
