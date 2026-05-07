@@ -6,7 +6,7 @@ namespace HookBridge.Api.Controllers;
 
 public abstract class ApiControllerBase : ControllerBase
 {
-    protected string TraceId => HttpContext.TraceIdentifier;
+    protected string? TraceId => ControllerContext?.HttpContext?.TraceIdentifier;
 
     protected ActionResult<ApiResponse<T>> OkResponse<T>(T data, string? message = null)
         => Ok(ApiResponseFactory.Success(data, message, TraceId));
@@ -14,7 +14,7 @@ public abstract class ApiControllerBase : ControllerBase
     protected ActionResult<ApiResponse<T>> CreatedResponse<T>(string actionName, object? routeValues, T data, string? message = null)
     {
         var values = routeValues is null ? new RouteValueDictionary() : new RouteValueDictionary(routeValues);
-        if (!values.ContainsKey("version") && RouteData.Values.TryGetValue("version", out var version))
+        if (!values.ContainsKey("version") && ControllerContext?.RouteData?.Values.TryGetValue("version", out var version) == true)
         {
             values["version"] = version;
         }

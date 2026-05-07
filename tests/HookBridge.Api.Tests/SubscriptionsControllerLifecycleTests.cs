@@ -62,7 +62,7 @@ public sealed class SubscriptionsControllerLifecycleTests
 
         var result = await controller.UpdateAsync("missing", request, CancellationToken.None);
 
-        var notFound = result.Result.Should().BeOfType<ObjectResult>().Subject;
+        var notFound = result.Result.Should().BeOfType<NotFoundObjectResult>().Subject;
         notFound.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
 
@@ -88,7 +88,7 @@ public sealed class SubscriptionsControllerLifecycleTests
 
         var result = await controller.DeleteAsync("missing", CancellationToken.None);
 
-        var notFound = result.Should().BeOfType<ObjectResult>().Subject;
+        var notFound = result.Should().BeOfType<NotFoundObjectResult>().Subject;
         notFound.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
 

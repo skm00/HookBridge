@@ -89,7 +89,7 @@ public sealed class SignupSecurityTests
         var registerPagePath = FindRegisterPagePath();
         var content = File.ReadAllText(registerPagePath);
 
-        Assert.Contains("We’ll create your workspace automatically.", content);
+        Assert.Contains("We’ll create your workspace automatically after signup.", content);
         Assert.DoesNotContain("tenantId", content, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("role", content, StringComparison.OrdinalIgnoreCase);
     }
