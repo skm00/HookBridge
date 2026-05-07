@@ -37,6 +37,7 @@ public sealed class KafkaMessageContractsTests
             EventId = "evt_002",
             TenantId = "tenant_002",
             SubscriptionId = "sub_001",
+            FailedEventId = "failed_001",
             AttemptNumber = 2,
             NextRetryAt = new DateTime(2026, 4, 27, 12, 30, 0, DateTimeKind.Utc),
             CorrelationId = "corr_002",
@@ -49,6 +50,7 @@ public sealed class KafkaMessageContractsTests
         Assert.Equal(payload.EventId, roundTrip!.EventId);
         Assert.Equal(payload.TenantId, roundTrip.TenantId);
         Assert.Equal(payload.SubscriptionId, roundTrip.SubscriptionId);
+        Assert.Equal(payload.FailedEventId, roundTrip.FailedEventId);
         Assert.Equal(payload.AttemptNumber, roundTrip.AttemptNumber);
         Assert.Equal(payload.NextRetryAt, roundTrip.NextRetryAt);
         Assert.Equal(payload.CorrelationId, roundTrip.CorrelationId);

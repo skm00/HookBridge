@@ -146,6 +146,12 @@ public sealed class FailedEventsControllerTests
             return Task.FromResult(true);
         }
 
+        public Task MarkRetrySucceededAsync(string failedEventId, HookBridge.Application.Models.Delivery.WebhookDeliveryResult result, int attemptNumber, string targetUrl, string? correlationId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task MarkRetryExhaustedAsync(string failedEventId, HookBridge.Application.Models.Delivery.WebhookDeliveryResult result, int finalAttemptNumber, string targetUrl, string? correlationId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public void SetStatus(string id, string status)
         {
             var item = _items.First(x => x.Id == id);

@@ -291,6 +291,12 @@ public sealed class TenantIsolationControllerTests
             => Task.FromResult(Item);
 
         public Task<bool> RetryAsync(string failedEventId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+        public Task MarkRetrySucceededAsync(string failedEventId, HookBridge.Application.Models.Delivery.WebhookDeliveryResult result, int attemptNumber, string targetUrl, string? correlationId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task MarkRetryExhaustedAsync(string failedEventId, HookBridge.Application.Models.Delivery.WebhookDeliveryResult result, int finalAttemptNumber, string targetUrl, string? correlationId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
 

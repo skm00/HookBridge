@@ -75,7 +75,7 @@ const truncateText = (value: string | null | undefined, maxLength: number): stri
 };
 
 const normalizeStatus = (status: FailedEventResponse['status']): FailedEventStatus | 'Unknown' => {
-  if (status === 'DLQ' || status === 'RetryRequested') {
+  if (status === 'DLQ' || status === 'RetryRequested' || status === 'Retried') {
     return status;
   }
 
@@ -89,6 +89,10 @@ const getStatusBadgeClassName = (status: FailedEventStatus | 'Unknown'): string 
 
   if (status === 'RetryRequested') {
     return 'bg-amber-100 text-amber-700';
+  }
+
+  if (status === 'Retried') {
+    return 'bg-emerald-100 text-emerald-700';
   }
 
   return 'bg-slate-100 text-slate-600';
@@ -307,6 +311,7 @@ const FailedEventsPage = (): JSX.Element => {
             <option value="">All statuses</option>
             <option value="DLQ">DLQ</option>
             <option value="RetryRequested">RetryRequested</option>
+            <option value="Retried">Retried</option>
           </select>
           <input
             type="datetime-local"

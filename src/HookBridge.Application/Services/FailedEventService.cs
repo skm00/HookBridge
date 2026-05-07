@@ -4,6 +4,7 @@ using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
+using HookBridge.Application.Models.Delivery;
 using HookBridge.Shared.Constants;
 using HookBridge.Domain.Constants;
 using HookBridge.Domain.Entities;
@@ -98,6 +99,7 @@ public sealed class FailedEventService(
             EventId = failedEvent.EventId,
             TenantId = failedEvent.TenantId,
             SubscriptionId = failedEvent.SubscriptionId,
+            FailedEventId = failedEvent.Id,
             AttemptNumber = 1,
             NextRetryAt = now,
             CorrelationId = failedEvent.CorrelationId,
@@ -149,6 +151,60 @@ public sealed class FailedEventService(
             failedEvent.CorrelationId);
 
         return true;
+    }
+
+    public async Task MarkRetrySucceededAsync(
+        string failedEventId,
+        WebhookDeliveryResult result,
+        int attemptNumber,
+        string targetUrl,
+        string? correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        var failedEvent = await failedEventRepository.GetByIdAsync(failedEventId, cancellationToken);
+        if (failedEvent is null)
+        {
+            return;
+        }
+
+        failedEvent.Status = "Retried";
+        failedEvent.Reason = "Manual retry succeeded.";
+        failedEvent.FinalAttemptNumber = attemptNumber;
+        failedEvent.LastHttpStatusCode = result.HttpStatusCode;
+        failedEvent.LastErrorMessage = result.ErrorMessage;
+        failedEvent.TargetUrl = targetUrl;
+        failedEvent.CorrelationId = correlationId ?? failedEvent.CorrelationId;
+        failedEvent.UpdatedAt = dateTimeProvider.UtcNow;
+
+        await failedEventRepository.UpdateAsync(failedEvent, cancellationToken);
+    }
+
+    public async Task MarkRetryExhaustedAsync(
+        string failedEventId,
+        WebhookDeliveryResult result,
+        int finalAttemptNumber,
+        string targetUrl,
+        string? correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        var failedEvent = await failedEventRepository.GetByIdAsync(failedEventId, cancellationToken);
+        if (failedEvent is null)
+        {
+            return;
+        }
+
+        var now = dateTimeProvider.UtcNow;
+        failedEvent.Status = "DLQ";
+        failedEvent.Reason = "Retry attempts exhausted";
+        failedEvent.FinalAttemptNumber = finalAttemptNumber;
+        failedEvent.LastHttpStatusCode = result.HttpStatusCode;
+        failedEvent.LastErrorMessage = result.ErrorMessage;
+        failedEvent.TargetUrl = targetUrl;
+        failedEvent.CorrelationId = correlationId ?? failedEvent.CorrelationId;
+        failedEvent.FailedAt = now;
+        failedEvent.UpdatedAt = now;
+
+        await failedEventRepository.UpdateAsync(failedEvent, cancellationToken);
     }
 
     private static FailedEventResponseDto Map(FailedEvent entity) => new()

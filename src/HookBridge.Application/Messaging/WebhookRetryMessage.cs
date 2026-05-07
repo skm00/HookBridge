@@ -8,6 +8,8 @@ public sealed class WebhookRetryMessage
 
     public string SubscriptionId { get; set; } = string.Empty;
 
+    public string? FailedEventId { get; set; }
+
     public int AttemptNumber { get; set; }
 
     public DateTime NextRetryAt { get; set; }

@@ -3,6 +3,7 @@ using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
 using HookBridge.Application.Interfaces.Services;
 using HookBridge.Application.Messaging;
+using HookBridge.Application.Models.Delivery;
 using HookBridge.Application.Services;
 using HookBridge.Domain.Constants;
 using HookBridge.Domain.Entities;
@@ -138,6 +139,7 @@ public sealed class FailedEventServiceTests
         Assert.Equal("evt-1", message.EventId);
         Assert.Equal("tenant-1", message.TenantId);
         Assert.Equal("sub-1", message.SubscriptionId);
+        Assert.Equal("failed-1", message.FailedEventId);
         Assert.Equal(1, message.AttemptNumber);
         Assert.Equal(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc), message.NextRetryAt);
         Assert.Equal("corr-1", message.CorrelationId);
@@ -187,6 +189,58 @@ public sealed class FailedEventServiceTests
         Assert.NotNull(failedEvent);
         Assert.Equal("DLQ", failedEvent.Status);
         Assert.Null(failedEvent.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task MarkRetrySucceededAsync_UpdatesFailedEventStatus()
+    {
+        var fixture = new Fixture();
+        fixture.Seed();
+
+        await fixture.Service.MarkRetrySucceededAsync(
+            "failed-1",
+            new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200 },
+            2,
+            "https://example.com/current",
+            "corr-retry");
+
+        var failedEvent = await fixture.Repository.GetByIdAsync("failed-1");
+        Assert.NotNull(failedEvent);
+        Assert.Equal("Retried", failedEvent.Status);
+        Assert.Equal("Manual retry succeeded.", failedEvent.Reason);
+        Assert.Equal(2, failedEvent.FinalAttemptNumber);
+        Assert.Equal(200, failedEvent.LastHttpStatusCode);
+        Assert.Null(failedEvent.LastErrorMessage);
+        Assert.Equal("https://example.com/current", failedEvent.TargetUrl);
+        Assert.Equal("corr-retry", failedEvent.CorrelationId);
+        Assert.Equal(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc), failedEvent.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task MarkRetryExhaustedAsync_ReturnsFailedEventToDlq()
+    {
+        var fixture = new Fixture();
+        fixture.Seed();
+        fixture.Repository.UpdateStatus("failed-1", "RetryRequested");
+
+        await fixture.Service.MarkRetryExhaustedAsync(
+            "failed-1",
+            new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom" },
+            2,
+            "https://example.com/current",
+            "corr-retry");
+
+        var failedEvent = await fixture.Repository.GetByIdAsync("failed-1");
+        Assert.NotNull(failedEvent);
+        Assert.Equal("DLQ", failedEvent.Status);
+        Assert.Equal("Retry attempts exhausted", failedEvent.Reason);
+        Assert.Equal(2, failedEvent.FinalAttemptNumber);
+        Assert.Equal(500, failedEvent.LastHttpStatusCode);
+        Assert.Equal("boom", failedEvent.LastErrorMessage);
+        Assert.Equal("https://example.com/current", failedEvent.TargetUrl);
+        Assert.Equal("corr-retry", failedEvent.CorrelationId);
+        Assert.Equal(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc), failedEvent.FailedAt);
+        Assert.Equal(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc), failedEvent.UpdatedAt);
     }
 
     private sealed class Fixture
