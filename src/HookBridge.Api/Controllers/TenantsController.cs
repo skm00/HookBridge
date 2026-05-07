@@ -74,6 +74,7 @@ public sealed class TenantsController(
     /// <returns>The tenant when found.</returns>
     /// <response code="200">Tenant found.</response>
     /// <response code="404">Tenant not found.</response>
+    [ActionName(nameof(GetByIdAsync))]
     [HttpGet("{id}")]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(ApiResponse<TenantResponseDto>), StatusCodes.Status200OK)]

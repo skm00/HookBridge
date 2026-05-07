@@ -19,13 +19,8 @@ public abstract class ApiControllerBase : ControllerBase
             values["version"] = version;
         }
 
-        return CreatedAtAction(NormalizeActionName(actionName), values, ApiResponseFactory.Success(data, message, TraceId));
+        return CreatedAtAction(actionName, values, ApiResponseFactory.Success(data, message, TraceId));
     }
-
-    private static string NormalizeActionName(string actionName)
-        => actionName.EndsWith("Async", StringComparison.Ordinal)
-            ? actionName[..^"Async".Length]
-            : actionName;
 
     protected ActionResult<ApiResponse<T>> AcceptedResponse<T>(T data, string? message = null)
         => Accepted(ApiResponseFactory.Success(data, message, TraceId));
