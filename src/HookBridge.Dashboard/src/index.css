@@ -9,7 +9,7 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #eef4ff 0%, #f8fbff 35%, #f4f7fb 100%);
+  background: radial-gradient(circle at 20% 0%, #eaf3ff 0%, #f8fbff 38%, #f4f8ff 100%);
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -26,23 +26,23 @@ body {
   }
 
   .hb-card {
-    @apply rounded-xl border border-border bg-surface p-5 shadow-sm;
+    @apply rounded-2xl border border-border/90 bg-surface/95 p-5 shadow-soft backdrop-blur;
   }
 
   .hb-btn-primary {
-    @apply rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark focus-ring;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/25 focus-ring;
   }
 
   .hb-btn-secondary {
-    @apply rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted transition hover:bg-slate-50 focus-ring;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text transition shadow-sm hover:-translate-y-0.5 hover:border-primary-border hover:bg-primary-soft hover:text-primary-dark focus-ring;
   }
 
   .hb-input {
-    @apply w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text shadow-sm placeholder:text-text-muted focus-ring;
+    @apply w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-text shadow-sm placeholder:text-slate-400 focus-ring;
   }
 
   .hb-select {
-    @apply w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text shadow-sm focus-ring;
+    @apply w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-text shadow-sm focus-ring;
   }
 
   .hb-table-wrap {

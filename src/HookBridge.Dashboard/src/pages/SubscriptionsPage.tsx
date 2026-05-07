@@ -39,6 +39,7 @@ type PageRequest = {
 };
 
 type SubscriptionFormState = {
+  tenantId: string;
   eventType: string;
   allEvents: boolean;
   deliveryFormat: 'Raw' | 'HookBridgeEnvelope' | 'CloudEventsStructured' | 'CloudEventsBinary';
@@ -63,6 +64,7 @@ type SubscriptionFormState = {
 };
 
 const defaultFormState: SubscriptionFormState = {
+  tenantId: '',
   eventType: '',
   allEvents: true,
   deliveryFormat: 'Raw',
@@ -134,6 +136,7 @@ const mapSubscriptionToForm = (subscription: Subscription): SubscriptionFormStat
   const authentication = subscription.authentication;
 
   return {
+    tenantId: '',
     eventType: subscription.eventType,
     allEvents: !subscription.eventType || subscription.eventType === '*',
     deliveryFormat: subscription.deliveryFormat ?? 'Raw',
@@ -864,6 +867,14 @@ const SubscriptionsPage = (): JSX.Element => {
               placeholder="https://example.com/webhooks/orders"
             />
             <FieldError errors={validationErrors.targetUrl ?? validationErrors.TargetUrl} />
+            <button
+              type="button"
+              onClick={() => void handleTestEndpoint()}
+              disabled={isTestingEndpoint}
+              className="mt-2 rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-text-muted transition hover:border-primary-border hover:bg-primary-soft hover:text-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isTestingEndpoint ? 'Testing endpoint...' : 'Test endpoint'}
+            </button>
           </label>
 
           <label className="text-sm text-slate-700">

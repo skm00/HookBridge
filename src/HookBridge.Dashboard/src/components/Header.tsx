@@ -72,10 +72,10 @@ const Header = ({ onOpenMenu }: HeaderProps): JSX.Element => {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 border-b border-border bg-white/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <button type="button" onClick={onOpenMenu} className="focus-ring rounded-md border border-border bg-surface px-2 py-1 text-text-muted md:hidden" aria-label="Open menu">
+          <button type="button" onClick={onOpenMenu} className="focus-ring rounded-xl border border-border bg-white px-3 py-2 text-text-muted shadow-sm md:hidden" aria-label="Open menu">
             ☰
           </button>
           <div className="min-w-0">
