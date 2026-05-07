@@ -250,8 +250,10 @@ public sealed class WebhookDeliveryServiceTests
 
         await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
 
+        var attempt = (await fixture.Attempts.GetAllAsync()).Single();
+        Assert.Equal("guid-1", attempt.Id);
         var failedEvent = Assert.Single(fixture.FailedEventService.CreatedEvents);
-        Assert.Equal("guid-1", failedEvent.Id);
+        Assert.Equal("guid-2", failedEvent.Id);
         Assert.Equal("tenant-1", failedEvent.TenantId);
         Assert.Equal("evt-1", failedEvent.EventId);
         Assert.Equal("sub-1", failedEvent.SubscriptionId);
