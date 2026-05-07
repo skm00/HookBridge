@@ -40,13 +40,14 @@ public sealed class BackupController(
     [HttpPost("restore")]
     [Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
     [RequestSizeLimit(MaxRestoreFileBytes)]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ApiResponse<RestoreSummaryResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ApiResponse<RestoreSummaryResponse>>> ImportAsync(
         string tenantId,
-        [FromForm] IFormFile file,
+        IFormFile file,
         CancellationToken cancellationToken)
     {
         tenantAccessValidator.EnsureTenantAccess(tenantId);

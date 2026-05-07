@@ -114,6 +114,29 @@ public sealed class ApiVersioningTests
         Assert.True(securityItem.TryGetProperty("ApiKey", out _));
     }
 
+
+    [Fact]
+    public async Task RestoreEndpoint_DocumentsMultipartFileUpload()
+    {
+        using var host = await BuildVersionedHostAsync();
+        var client = host.CreateClient();
+        using var swagger = await GetSwaggerDocumentAsync(client);
+
+        var restore = GetOperation(swagger.RootElement, "/admin/tenants/{tenantId}/restore", "post");
+
+        var multipart = restore
+            .GetProperty("requestBody")
+            .GetProperty("content")
+            .GetProperty("multipart/form-data");
+        var fileProperty = multipart
+            .GetProperty("schema")
+            .GetProperty("properties")
+            .GetProperty("file");
+
+        Assert.Equal("string", fileProperty.GetProperty("type").GetString());
+        Assert.Equal("binary", fileProperty.GetProperty("format").GetString());
+    }
+
     [Fact]
     public async Task SensitiveFields_AreNotExposedInSwaggerSchemas()
     {
@@ -204,7 +227,9 @@ public sealed class ApiVersioningTests
                     options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme { Type = SecuritySchemeType.ApiKey, Name = "x-api-key", In = ParameterLocation.Header });
                     options.DocInclusionPredicate((_, apiDesc) =>
                         apiDesc.RelativePath is not null &&
-                        (apiDesc.RelativePath.Contains("events") || apiDesc.RelativePath.Contains("admin/subscriptions")));
+                        (apiDesc.RelativePath.Contains("events")
+                            || apiDesc.RelativePath.Contains("admin/subscriptions")
+                            || apiDesc.RelativePath.Contains("admin/tenants")));
                 });
 
                 services.AddAuthentication("Test")
@@ -213,6 +238,7 @@ public sealed class ApiVersioningTests
                 {
                     options.AddPolicy("AdminOrOwner", p => p.RequireAuthenticatedUser());
                     options.AddPolicy("DeveloperOrAbove", p => p.RequireAuthenticatedUser());
+                    options.AddPolicy("OwnerOnly", p => p.RequireAuthenticatedUser());
                 });
 
                 services.AddSingleton<IEventIngestionService, FakeEventIngestionService>();
@@ -221,6 +247,7 @@ public sealed class ApiVersioningTests
                 services.AddSingleton<IClientIpResolver, ClientIpResolver>();
                 services.AddSingleton<IIpAllowlistService, IpAllowlistService>();
                 services.AddSingleton<ISubscriptionService, FakeSubscriptionService>();
+                services.AddSingleton<IBackupService, FakeBackupService>();
                 services.AddSingleton<ICurrentUserContext>(new FakeCurrentUserContext());
                 services.AddScoped<TenantAccessValidator>();
             })
@@ -271,6 +298,15 @@ public sealed class ApiVersioningTests
                 EventId = request.EventId,
                 Message = "Event accepted for delivery.",
             });
+    }
+
+    private sealed class FakeBackupService : IBackupService
+    {
+        public Task<byte[]> ExportAsync(string tenantId, CancellationToken cancellationToken = default)
+            => Task.FromResult(Array.Empty<byte>());
+
+        public Task ImportAsync(string tenantId, byte[] data, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class FakeApiKeyService : IApiKeyService
