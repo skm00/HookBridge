@@ -34,7 +34,9 @@ public sealed class ControllerCoverageTests
         var result = await controller.ValidateAsync(new EndpointValidationRequestDto { TargetUrl = "not-a-url" }, CancellationToken.None);
 
         var problem = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status400BadRequest, problem.StatusCode);
+        var details = Assert.IsAssignableFrom<ValidationProblemDetails>(problem.Value);
+        Assert.Equal(StatusCodes.Status400BadRequest, details.Status);
+        Assert.Contains(nameof(EndpointValidationRequestDto.TargetUrl), details.Errors.Keys);
         Assert.Equal(0, service.ValidateCallCount);
     }
 
