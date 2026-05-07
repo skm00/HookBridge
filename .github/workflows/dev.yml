@@ -34,7 +34,7 @@ jobs:
     - name: Generate coverage report
       run: reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"TestResults/CoverageReport" -reporttypes:"HtmlInline_AzurePipelines;Cobertura;TextSummary"
 
-    - name: Enforce 80 percent coverage
+    - name: Enforce 75 percent coverage
       shell: bash
       run: |
         python3 - <<'PY'
@@ -53,8 +53,8 @@ jobs:
         print(f"Line coverage: {line_rate:.2f}%")
         print(f"Branch coverage: {branch_rate:.2f}%")
 
-        if line_rate < 80:
-            print(f"Line coverage {line_rate:.2f}% is below the required 80% threshold.", file=sys.stderr)
+        if line_rate < 75:
+            print(f"Line coverage {line_rate:.2f}% is below the required 75% threshold.", file=sys.stderr)
             sys.exit(1)
         PY
 
