@@ -9,6 +9,29 @@ Initial production-style SaaS solution scaffold for a multi-tenant webhook deliv
 - Kafka (planned)
 - React dashboard (planned)
 
+## Continuous Integration
+
+HookBridge uses the `.NET CI` GitHub Actions workflow to validate changes before they are merged into `main`.
+
+- Pull requests targeting `main` require CI success before merging.
+- The Release build must pass.
+- All xUnit test cases must pass.
+- If any test case fails, the `Build and Test` status check fails and the merge should be blocked.
+- Test result files are generated in TRX format and uploaded as workflow artifacts for review.
+
+## Branch Protection Setup
+
+Configure GitHub branch protection manually to enforce CI before merging:
+
+1. Go to `Repository → Settings → Branches → Add branch protection rule`.
+2. Set the branch name pattern to `main`.
+3. Enable the following settings:
+   - Require a pull request before merging
+   - Require status checks to pass before merging
+   - Require branches to be up to date before merging
+   - Select required check: `Build and Test`
+   - Do not allow bypassing the above settings
+
 ## Run the Demo
 
 For a complete guided demo flow (local setup, seeded login, success/failure webhook scenarios, DLQ retry, and dashboard walkthrough), use:
