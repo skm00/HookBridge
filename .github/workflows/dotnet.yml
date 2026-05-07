@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-and-test:
+  build-test-coverage:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,5 +25,42 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
 
-    - name: Test
-      run: dotnet test --no-build --configuration Release --logger "console;verbosity=detailed"
+    - name: Test with Coverlet collector
+      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings --results-directory TestResults
+
+    - name: Install ReportGenerator
+      run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+    - name: Generate coverage report
+      run: reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"TestResults/CoverageReport" -reporttypes:"HtmlInline_AzurePipelines;Cobertura;TextSummary"
+
+    - name: Enforce 80 percent coverage
+      shell: bash
+      run: |
+        python3 - <<'PY'
+        import pathlib
+        import sys
+        import xml.etree.ElementTree as ET
+
+        coverage_file = pathlib.Path("TestResults/CoverageReport/Cobertura.xml")
+        if not coverage_file.exists():
+            print(f"Coverage file not found: {coverage_file}", file=sys.stderr)
+            sys.exit(1)
+
+        root = ET.parse(coverage_file).getroot()
+        line_rate = float(root.attrib.get("line-rate", "0")) * 100
+        branch_rate = float(root.attrib.get("branch-rate", "0")) * 100
+        print(f"Line coverage: {line_rate:.2f}%")
+        print(f"Branch coverage: {branch_rate:.2f}%")
+
+        if line_rate < 80:
+            print(f"Line coverage {line_rate:.2f}% is below the required 80% threshold.", file=sys.stderr)
+            sys.exit(1)
+        PY
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-report
+        path: TestResults/CoverageReport
