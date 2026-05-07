@@ -103,7 +103,7 @@ public sealed class ControllerCoverageTests
             currentUser,
             TenantIsolationTestHelpers.CreateValidator(currentUser)));
 
-        var result = await controller.SearchAsync("webhook", "warning", false, null, null, CancellationToken.None);
+        var result = await controller.SearchAsync("webhook", "warning", false, null, null, cancellationToken: CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var payload = Assert.IsAssignableFrom<ApiResponse<PagedResponseDto<NotificationResponseDto>>>(ok.Value);
