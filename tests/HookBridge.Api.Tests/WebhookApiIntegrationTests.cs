@@ -67,6 +67,59 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         _factory.State.Subscriptions.Should().BeEmpty();
     }
 
+
+    [Fact]
+    public async Task UpdateSubscriptionApi_WhenSubscriptionExists_ShouldPersistChangesAndReturnOk()
+    {
+        var create = await _client.PostAsJsonAsync("/api/v1/admin/subscriptions", IntegrationTestData.CreateSubscriptionRequest());
+        create.EnsureSuccessStatusCode();
+        var created = await create.Content.ReadFromJsonAsync<ApiResponse<SubscriptionResponseDto>>();
+        var update = new UpdateSubscriptionRequestDto
+        {
+            EventType = "order.updated",
+            TargetUrl = "https://webhooks.example.com/orders-updated",
+            Headers = [new KeyValueDto { Name = "x-updated", Value = "true" }],
+            RetryPolicy = new RetryPolicyDto { MaxAttempts = 5, InitialDelaySeconds = 20, BackoffType = "Fixed" },
+            TimeoutSeconds = 45,
+        };
+
+        var response = await _client.PutAsJsonAsync($"/api/v1/admin/subscriptions/{created!.Data!.Id}", update);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<SubscriptionResponseDto>>();
+        body!.Data!.EventType.Should().Be("order.updated");
+        _factory.State.Subscriptions.Should().ContainSingle(x => x.Id == created.Data.Id && x.TargetUrl == update.TargetUrl);
+    }
+
+    [Fact]
+    public async Task DeleteSubscriptionApi_WhenSubscriptionExists_ShouldRemoveSubscriptionAndReturnNoContent()
+    {
+        var create = await _client.PostAsJsonAsync("/api/v1/admin/subscriptions", IntegrationTestData.CreateSubscriptionRequest());
+        create.EnsureSuccessStatusCode();
+        var created = await create.Content.ReadFromJsonAsync<ApiResponse<SubscriptionResponseDto>>();
+
+        var response = await _client.DeleteAsync($"/api/v1/admin/subscriptions/{created!.Data!.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        _factory.State.Subscriptions.Should().NotContain(x => x.Id == created.Data.Id);
+    }
+
+    [Fact]
+    public async Task SendWebhookEventApi_WhenApiKeyIsInvalid_ShouldReturnUnauthorizedAndNotPublishKafkaEvent()
+    {
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/events/tenant-1")
+        {
+            Content = JsonContent.Create(IntegrationTestData.EventRequest("evt_invalid_key")),
+        };
+        httpRequest.Headers.Add("x-api-key", "hb_live_invalid");
+
+        var response = await _client.SendAsync(httpRequest);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _factory.State.IncomingEvents.Should().BeEmpty();
+        _factory.State.PublishedMessages.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task SendWebhookEventApi_WhenApiKeyIsValid_ShouldPublishKafkaEventAndReturnAccepted()
     {
@@ -284,7 +337,13 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         }
     }
 
-    public sealed record StoredSubscription(string Id, string TenantId, string EventType, string TargetUrl);
+    public sealed class StoredSubscription
+    {
+        public required string Id { get; init; }
+        public required string TenantId { get; init; }
+        public required string EventType { get; set; }
+        public required string TargetUrl { get; set; }
+    }
     public sealed record FailedEventRecord(string EventId, string SubscriptionId, string Status);
     public sealed record PublishedMessage(string Topic, string Key, object Message);
 
@@ -298,7 +357,13 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
             }
 
             var id = $"sub-{state.Subscriptions.Count + 1}";
-            state.Subscriptions.Add(new StoredSubscription(id, tenantId, request.EventType ?? "*", request.TargetUrl));
+            state.Subscriptions.Add(new StoredSubscription
+            {
+                Id = id,
+                TenantId = tenantId,
+                EventType = request.EventType ?? "*",
+                TargetUrl = request.TargetUrl,
+            });
             return Task.FromResult(new SubscriptionResponseDto
             {
                 Id = id,
@@ -312,12 +377,60 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
             });
         }
 
-        public Task<SubscriptionResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionResponseDto?>(null);
-        public Task<PagedResponseDto<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult(PagedResponseDto<SubscriptionResponseDto>.Create([], 1, 50, 0));
-        public Task<SubscriptionResponseDto?> UpdateAsync(string tenantId, string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionResponseDto?>(null);
-        public Task<bool> DeleteAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<SubscriptionResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
+        {
+            var subscription = state.Subscriptions.SingleOrDefault(x => x.TenantId == tenantId && x.Id == id);
+            return Task.FromResult(subscription is null ? null : ToResponse(subscription));
+        }
+
+        public Task<PagedResponseDto<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default)
+        {
+            var matches = state.Subscriptions
+                .Where(x => x.TenantId == request.TenantId)
+                .Select(ToResponse)
+                .ToList();
+            return Task.FromResult(PagedResponseDto<SubscriptionResponseDto>.Create(matches, 1, 50, matches.Count));
+        }
+
+        public Task<SubscriptionResponseDto?> UpdateAsync(string tenantId, string id, UpdateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
+        {
+            var subscription = state.Subscriptions.SingleOrDefault(x => x.TenantId == tenantId && x.Id == id);
+            if (subscription is null)
+            {
+                return Task.FromResult<SubscriptionResponseDto?>(null);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.EventType))
+            {
+                subscription.EventType = request.EventType;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.TargetUrl))
+            {
+                subscription.TargetUrl = request.TargetUrl;
+            }
+
+            return Task.FromResult<SubscriptionResponseDto?>(ToResponse(subscription, request.RetryPolicy, request.TimeoutSeconds));
+        }
+
+        public Task<bool> DeleteAsync(string tenantId, string id, CancellationToken cancellationToken = default)
+        {
+            var removed = state.Subscriptions.RemoveAll(x => x.TenantId == tenantId && x.Id == id);
+            return Task.FromResult(removed == 1);
+        }
         public Task<bool> EnableAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<bool> DisableAsync(string tenantId, string id, CancellationToken cancellationToken = default) => Task.FromResult(false);
+
+        private static SubscriptionResponseDto ToResponse(StoredSubscription subscription, RetryPolicyDto? retryPolicy = null, int? timeoutSeconds = null) => new()
+        {
+            Id = subscription.Id,
+            EventType = subscription.EventType,
+            TargetUrl = subscription.TargetUrl,
+            RetryPolicy = retryPolicy ?? new RetryPolicyDto { MaxAttempts = 3, InitialDelaySeconds = 10, BackoffType = "Exponential" },
+            TimeoutSeconds = timeoutSeconds ?? 30,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        };
     }
 
     private sealed class RecordingEventIngestionService(IntegrationTestState state, IKafkaProducer kafkaProducer) : IEventIngestionService

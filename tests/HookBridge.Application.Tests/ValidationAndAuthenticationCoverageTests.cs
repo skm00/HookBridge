@@ -202,6 +202,61 @@ public sealed class ValidationAndAuthenticationCoverageTests
         httpHandler.RequestBodies[0].Should().Contain("grant_type=client_credentials").And.Contain("client_id=client-id");
     }
 
+
+    [Fact]
+    public async Task GetAccessTokenAsync_WhenAccessTokenIsMissing_ShouldThrowInvalidOperationException()
+    {
+        var httpHandler = new RecordingHttpMessageHandler("{\"expires_in\":3600}");
+        var service = new OAuthTokenService(new StubHttpClientFactory(new HttpClient(httpHandler)));
+
+        var act = () => service.GetAccessTokenAsync(new OAuth2ClientCredentialsDto
+        {
+            TokenUrl = "https://auth.example.com/oauth/token",
+            ClientId = "client-id",
+            ClientSecret = "client-secret",
+        });
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("OAuth token response did not include access_token.");
+    }
+
+    [Fact]
+    public async Task GetAccessTokenAsync_WhenTokenEndpointReturnsFailure_ShouldPropagateHttpRequestException()
+    {
+        var httpHandler = new RecordingHttpMessageHandler("{\"error\":\"invalid_client\"}", HttpStatusCode.Unauthorized);
+        var service = new OAuthTokenService(new StubHttpClientFactory(new HttpClient(httpHandler)));
+
+        var act = () => service.GetAccessTokenAsync(new OAuth2ClientCredentialsDto
+        {
+            TokenUrl = "https://auth.example.com/oauth/token",
+            ClientId = "bad-client",
+            ClientSecret = "bad-secret",
+        });
+
+        await act.Should().ThrowAsync<HttpRequestException>();
+        httpHandler.RequestBodies.Should().ContainSingle(body => body.Contains("client_id=bad-client", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ApplyAsync_WhenApiKeyHeaderAlreadyHasValue_ShouldPreserveExistingHeader()
+    {
+        var handler = new WebhookAuthenticationHandler(new StubOAuthTokenService("unused-token"));
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://webhooks.example.com/orders");
+        request.Headers.TryAddWithoutValidation("x-api-key", "caller-provided");
+        var deliveryRequest = new WebhookDeliveryRequest
+        {
+            Authentication = new AuthenticationDto
+            {
+                Type = "ApiKeyHeader",
+                ApiKeyHeader = new ApiKeyHeaderDto { HeaderName = "x-api-key", HeaderValue = "configured-secret" },
+            },
+        };
+
+        await handler.ApplyAsync(request, deliveryRequest);
+
+        request.Headers.GetValues("x-api-key").Should().ContainSingle().Which.Should().Be("caller-provided");
+    }
+
     private sealed class StubOAuthTokenService(string token) : IOAuthTokenService
     {
         public Task<string> GetAccessTokenAsync(OAuth2ClientCredentialsDto config, CancellationToken cancellationToken = default)
@@ -213,14 +268,14 @@ public sealed class ValidationAndAuthenticationCoverageTests
         public HttpClient CreateClient(string name) => client;
     }
 
-    private sealed class RecordingHttpMessageHandler(string responseJson) : HttpMessageHandler
+    private sealed class RecordingHttpMessageHandler(string responseJson, HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler
     {
         public List<string> RequestBodies { get; } = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestBodies.Add(request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken));
-            return new HttpResponseMessage(HttpStatusCode.OK)
+            return new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(responseJson, Encoding.UTF8, "application/json"),
             };

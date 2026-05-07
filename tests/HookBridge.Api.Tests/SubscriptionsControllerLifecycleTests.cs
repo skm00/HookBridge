@@ -9,6 +9,7 @@ using HookBridge.Domain.Enums;
 using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -62,7 +63,7 @@ public sealed class SubscriptionsControllerLifecycleTests
 
         var result = await controller.UpdateAsync("missing", request, CancellationToken.None);
 
-        var notFound = result.Result.Should().BeOfType<ObjectResult>().Subject;
+        var notFound = result.Result.Should().BeOfType<NotFoundObjectResult>().Subject;
         notFound.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
 
@@ -88,7 +89,7 @@ public sealed class SubscriptionsControllerLifecycleTests
 
         var result = await controller.DeleteAsync("missing", CancellationToken.None);
 
-        var notFound = result.Should().BeOfType<ObjectResult>().Subject;
+        var notFound = result.Should().BeOfType<NotFoundObjectResult>().Subject;
         notFound.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
 
@@ -101,7 +102,11 @@ public sealed class SubscriptionsControllerLifecycleTests
             currentUser,
             new TenantAccessValidator(currentUser, httpContextAccessor, NullLogger<TenantAccessValidator>.Instance))
         {
-            ControllerContext = new ControllerContext { HttpContext = httpContextAccessor.HttpContext },
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = httpContextAccessor.HttpContext,
+                RouteData = new RouteData(),
+            },
         };
     }
 
