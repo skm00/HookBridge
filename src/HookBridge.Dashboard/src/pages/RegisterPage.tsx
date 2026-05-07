@@ -52,7 +52,7 @@ const RegisterPage = (): JSX.Element => {
           <div className="text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/25">HB</div>
             <h2 className="mt-5 text-2xl font-bold tracking-tight text-text">Start free</h2>
-            <p className="mt-2 text-sm text-text-muted">We’ll create your HookBridge workspace automatically.</p>
+            <p className="mt-2 text-sm text-text-muted">We’ll create your workspace automatically.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
