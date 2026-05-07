@@ -39,7 +39,7 @@ public sealed class WebhookRetryConsumerWorkerTests
     [Fact]
     public async Task ExecuteAsync_DelaysWhenNextRetryAtIsFuture()
     {
-        var message = CreateMessage(DateTime.UtcNow.AddMilliseconds(500));
+        var message = CreateMessage(DateTime.UtcNow.AddMinutes(5));
         var kafkaConsumerMock = CreateKafkaConsumer([message]);
         var deliveryServiceMock = new Mock<IWebhookDeliveryService>();
         var logger = new TestLogger<HookBridge.Worker.WebhookRetryConsumerWorker>();
@@ -49,7 +49,7 @@ public sealed class WebhookRetryConsumerWorkerTests
         await worker.RunOnceAsync(cts.Token);
 
         Assert.Single(worker.Delays);
-        Assert.True(worker.Delays[0] > TimeSpan.Zero);
+        Assert.True(worker.Delays[0] > TimeSpan.FromMinutes(4));
     }
 
     [Fact]
