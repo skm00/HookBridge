@@ -70,7 +70,7 @@ public sealed class FailedEventsControllerTests
 
         var result = await controller.RetryAsync("failed-1", CancellationToken.None);
 
-        Assert.IsType<AcceptedObjectResult>(result);
+        Assert.IsType<AcceptedResult>(result.Result);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed class FailedEventsControllerTests
 
         var result = await controller.RetryAsync("missing", CancellationToken.None);
 
-        Assert.IsType<NotFoundObjectResult>(result);
+        Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class FailedEventsControllerTests
 
         var result = await controller.RetryAsync("failed-1", CancellationToken.None);
 
-        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
     private sealed class FakeFailedEventService : IFailedEventService
