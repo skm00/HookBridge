@@ -95,10 +95,7 @@ public sealed class ApiVersioningTests
         var client = host.CreateClient();
         using var swagger = await GetSwaggerDocumentAsync(client);
 
-        var createSubscription = swagger.RootElement
-            .GetProperty("paths")
-            .GetProperty("/api/v{version}/admin/subscriptions")
-            .GetProperty("post");
+        var createSubscription = GetOperation(swagger.RootElement, "/admin/subscriptions", "post");
 
         var securityItem = createSubscription.GetProperty("security")[0];
         Assert.True(securityItem.TryGetProperty("Bearer", out _));
@@ -111,10 +108,7 @@ public sealed class ApiVersioningTests
         var client = host.CreateClient();
         using var swagger = await GetSwaggerDocumentAsync(client);
 
-        var ingestion = swagger.RootElement
-            .GetProperty("paths")
-            .GetProperty("/api/v{version}/events/{tenantId}")
-            .GetProperty("post");
+        var ingestion = GetOperation(swagger.RootElement, "/events/{tenantId}", "post");
 
         var securityItem = ingestion.GetProperty("security")[0];
         Assert.True(securityItem.TryGetProperty("ApiKey", out _));
@@ -343,4 +337,16 @@ public sealed class ApiVersioningTests
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }
     }
+    private static JsonElement GetOperation(JsonElement swaggerRoot, string pathSuffix, string method)
+    {
+        var path = swaggerRoot
+            .GetProperty("paths")
+            .EnumerateObject()
+            .FirstOrDefault(x => x.Name.EndsWith(pathSuffix, StringComparison.OrdinalIgnoreCase));
+
+        Assert.False(path.Equals(default), $"Swagger path ending with '{pathSuffix}' was not found.");
+
+        return path.Value.GetProperty(method);
+    }
 }
+

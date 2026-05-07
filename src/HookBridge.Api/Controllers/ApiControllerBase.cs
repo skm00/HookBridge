@@ -1,5 +1,6 @@
 using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 
 namespace HookBridge.Api.Controllers;
 
@@ -11,7 +12,20 @@ public abstract class ApiControllerBase : ControllerBase
         => Ok(ApiResponseFactory.Success(data, message, TraceId));
 
     protected ActionResult<ApiResponse<T>> CreatedResponse<T>(string actionName, object? routeValues, T data, string? message = null)
-        => CreatedAtAction(actionName, routeValues, ApiResponseFactory.Success(data, message, TraceId));
+    {
+        var values = routeValues is null ? new RouteValueDictionary() : new RouteValueDictionary(routeValues);
+        if (!values.ContainsKey("version") && RouteData.Values.TryGetValue("version", out var version))
+        {
+            values["version"] = version;
+        }
+
+        return CreatedAtAction(NormalizeActionName(actionName), values, ApiResponseFactory.Success(data, message, TraceId));
+    }
+
+    private static string NormalizeActionName(string actionName)
+        => actionName.EndsWith("Async", StringComparison.Ordinal)
+            ? actionName[..^"Async".Length]
+            : actionName;
 
     protected ActionResult<ApiResponse<T>> AcceptedResponse<T>(T data, string? message = null)
         => Accepted(ApiResponseFactory.Success(data, message, TraceId));

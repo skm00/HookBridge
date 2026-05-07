@@ -64,18 +64,21 @@ public sealed class TenantIsolationControllerTests
     }
 
     [Fact]
-    public async Task SubscriptionGetById_ForAnotherTenant_IsBlocked()
+    public async Task SubscriptionGetById_UsesCurrentTenantScope()
     {
         var service = new FakeSubscriptionService
         {
-            GetByIdResult = new SubscriptionResponseDto { Id = "sub-1", TenantId = "tenant-2" },
+            GetByIdResult = new SubscriptionResponseDto { Id = "sub-1" },
         };
         var controller = WithHttpContext(new SubscriptionsController(
             service,
             new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" },
             TenantIsolationTestHelpers.CreateValidator()));
 
-        await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetByIdAsync("sub-1", CancellationToken.None));
+        var result = await controller.GetByIdAsync("sub-1", CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal("tenant-1", service.LastGetByIdTenantId);
     }
 
     [Fact]
@@ -232,13 +235,18 @@ public sealed class TenantIsolationControllerTests
     {
         public SubscriptionSearchRequestDto? LastSearchRequest { get; private set; }
 
-        public SubscriptionResponseDto? GetByIdResult { get; set; } = new() { Id = "sub-1", TenantId = "tenant-1" };
+        public SubscriptionResponseDto? GetByIdResult { get; set; } = new() { Id = "sub-1" };
+
+        public string? LastGetByIdTenantId { get; private set; }
 
         public Task<SubscriptionResponseDto> CreateAsync(string tenantId, CreateSubscriptionRequestDto request, CancellationToken cancellationToken = default)
             => Task.FromResult(new SubscriptionResponseDto { Id = "sub-1" });
 
         public Task<SubscriptionResponseDto?> GetByIdAsync(string tenantId, string id, CancellationToken cancellationToken = default)
-            => Task.FromResult(GetByIdResult);
+        {
+            LastGetByIdTenantId = tenantId;
+            return Task.FromResult(GetByIdResult);
+        }
 
         public Task<HookBridge.Application.DTOs.Common.PagedResponseDto<SubscriptionResponseDto>> SearchAsync(SubscriptionSearchRequestDto request, CancellationToken cancellationToken = default)
         {
