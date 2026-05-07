@@ -4,6 +4,7 @@ import { Pagination } from '../components/Pagination';
 import ErrorAlert from '../components/ErrorAlert';
 import { getErrorMessage, getTraceId } from '../utils/errorUtils';
 import { SortableHeader } from '../components/SortableHeader';
+import { TargetUrlLink } from '../components/TargetUrlLink';
 import type {
   DeliveryAttemptResponse,
   DeliveryAttemptSearchRequest,
@@ -435,7 +436,9 @@ const DeliveryLogsPage = (): JSX.Element => {
                   <td className="px-4 py-3">{log.eventId || '-'}</td>
                   <td className="px-4 py-3">{log.eventType || '-'}</td>
                   <td className="px-4 py-3">{log.subscriptionId || '-'}</td>
-                  <td className="px-4 py-3" title={log.targetUrl}>{truncateText(log.targetUrl, 40)}</td>
+                  <td className="px-4 py-3">
+                    <TargetUrlLink url={log.targetUrl} displayText={truncateText(log.targetUrl, 40)} />
+                  </td>
                   <td className="px-4 py-3">{log.attemptNumber}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeClassName(normalizedStatus)}`}>
@@ -505,7 +508,7 @@ const DeliveryLogsPage = (): JSX.Element => {
                   <div><dt className="font-semibold text-slate-900">EventId</dt><dd>{selectedLog.eventId || '-'}</dd></div>
                   <div><dt className="font-semibold text-slate-900">SubscriptionId</dt><dd>{selectedLog.subscriptionId || '-'}</dd></div>
                   <div><dt className="font-semibold text-slate-900">EventType</dt><dd>{selectedLog.eventType || '-'}</dd></div>
-                  <div className="sm:col-span-2"><dt className="font-semibold text-slate-900">TargetUrl</dt><dd className="break-all">{selectedLog.targetUrl || '-'}</dd></div>
+                  <div className="sm:col-span-2"><dt className="font-semibold text-slate-900">TargetUrl</dt><dd className="break-all"><TargetUrlLink url={selectedLog.targetUrl} /></dd></div>
                   <div><dt className="font-semibold text-slate-900">AttemptNumber</dt><dd>{selectedLog.attemptNumber}</dd></div>
                   <div><dt className="font-semibold text-slate-900">Status</dt><dd>{normalizeStatus(selectedLog.status)}</dd></div>
                   <div><dt className="font-semibold text-slate-900">HttpStatusCode</dt><dd>{selectedLog.httpStatusCode ?? '-'}</dd></div>

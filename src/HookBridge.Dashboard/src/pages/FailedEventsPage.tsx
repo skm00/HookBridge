@@ -4,6 +4,7 @@ import { Pagination } from '../components/Pagination';
 import ErrorAlert from '../components/ErrorAlert';
 import { getErrorMessage, getTraceId } from '../utils/errorUtils';
 import { SortableHeader } from '../components/SortableHeader';
+import { TargetUrlLink } from '../components/TargetUrlLink';
 import type { FailedEventResponse, FailedEventSearchRequest, FailedEventStatus } from '../types/failedEvent';
 import type { PagedResponse } from '../types/pagination';
 
@@ -414,8 +415,8 @@ const FailedEventsPage = (): JSX.Element => {
                     <td className="px-4 py-3">{failedEvent.eventId || '-'}</td>
                     <td className="px-4 py-3">{failedEvent.eventType || '-'}</td>
                     <td className="px-4 py-3">{failedEvent.subscriptionId || '-'}</td>
-                    <td className="max-w-xs px-4 py-3" title={failedEvent.targetUrl}>
-                      {truncateText(failedEvent.targetUrl, 40)}
+                    <td className="max-w-xs px-4 py-3">
+                      <TargetUrlLink url={failedEvent.targetUrl} displayText={truncateText(failedEvent.targetUrl, 40)} />
                     </td>
                     <td className="px-4 py-3">{failedEvent.finalAttemptNumber}</td>
                     <td className="px-4 py-3">{failedEvent.lastHttpStatusCode ?? '-'}</td>
@@ -518,7 +519,7 @@ const FailedEventsPage = (): JSX.Element => {
                   </div>
                   <div className="sm:col-span-2">
                     <dt className="font-semibold text-slate-900">TargetUrl</dt>
-                    <dd className="break-all">{selectedEvent.targetUrl || '-'}</dd>
+                    <dd className="break-all"><TargetUrlLink url={selectedEvent.targetUrl} /></dd>
                   </div>
                   <div className="sm:col-span-2">
                     <dt className="font-semibold text-slate-900">Reason</dt>

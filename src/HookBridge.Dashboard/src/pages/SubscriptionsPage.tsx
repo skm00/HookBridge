@@ -5,6 +5,7 @@ import { getErrorMessage, getTraceId, getValidationErrors } from '../utils/error
 import { Pagination } from '../components/Pagination';
 import FieldError from '../components/FieldError';
 import { SortableHeader } from '../components/SortableHeader';
+import { TargetUrlLink } from '../components/TargetUrlLink';
 import type { PagedResponse } from '../types/pagination';
 import type {
   Authentication,
@@ -734,7 +735,7 @@ const SubscriptionsPage = (): JSX.Element => {
                   return (
                     <tr key={subscription.id} className="align-top">
                       <td className="px-4 py-3 text-slate-900">{subscription.eventType}</td>
-                      <td className="px-4 py-3 text-slate-700">{subscription.targetUrl}</td>
+                      <td className="px-4 py-3 text-slate-700"><TargetUrlLink url={subscription.targetUrl} /></td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-semibold ${
