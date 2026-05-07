@@ -39,6 +39,7 @@ public sealed class SubscriptionsController(
         return CreatedResponse(nameof(GetByIdAsync), new { id = created.Id }, created);
     }
 
+    [ActionName(nameof(GetByIdAsync))]
     [HttpGet("{id}")]
     [Authorize(Policy = AuthorizationPolicies.DeveloperOrAbove)]
     [ProducesResponseType(typeof(ApiResponse<SubscriptionResponseDto>), StatusCodes.Status200OK)]
