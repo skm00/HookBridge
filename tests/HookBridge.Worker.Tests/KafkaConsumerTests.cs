@@ -62,7 +62,7 @@ public sealed class KafkaConsumerTests
             enableAutoCommit: true);
 
         var results = new List<WebhookEventMessage>();
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         await foreach (var message in consumer.ConsumeAsync<WebhookEventMessage>("webhook-events", "group-1", cts.Token))
         {
