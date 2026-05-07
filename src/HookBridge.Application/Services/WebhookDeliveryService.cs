@@ -107,7 +107,7 @@ public sealed class WebhookDeliveryService(
 
             if (!result.IsSuccess)
             {
-                await TryScheduleRetryAsync(incomingEvent, subscription, result, currentAttemptNumber, message.CorrelationId, cancellationToken);
+                await TryScheduleRetryAsync(incomingEvent, subscription, result, currentAttemptNumber, message.CorrelationId, failedEventId: null, cancellationToken);
             }
 
             logger.LogInformation(
@@ -215,6 +215,7 @@ public sealed class WebhookDeliveryService(
         if (result.IsSuccess)
         {
             await usageService.IncrementEventsDeliveredAsync(incomingEvent.TenantId, cancellationToken);
+            await TryMarkManualRetrySucceededAsync(message.FailedEventId, result, message.AttemptNumber, subscription.TargetUrl, message.CorrelationId, cancellationToken);
             logger.LogInformation(
                 "Retry delivery succeeded. TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, AttemptNumber: {AttemptNumber}, NextRetryAt: {NextRetryAt}, CorrelationId: {CorrelationId}",
                 message.TenantId,
@@ -234,7 +235,7 @@ public sealed class WebhookDeliveryService(
             message.AttemptNumber,
             message.NextRetryAt,
             message.CorrelationId);
-        await TryScheduleRetryAsync(incomingEvent, subscription, result, message.AttemptNumber, message.CorrelationId, cancellationToken);
+        await TryScheduleRetryAsync(incomingEvent, subscription, result, message.AttemptNumber, message.CorrelationId, message.FailedEventId, cancellationToken);
     }
 
     private DeliveryAttempt CreateDeliveryAttempt(
@@ -290,6 +291,7 @@ public sealed class WebhookDeliveryService(
         WebhookDeliveryResult result,
         int currentAttemptNumber,
         string? correlationId,
+        string? failedEventId,
         CancellationToken cancellationToken)
     {
         var retryPolicy = new RetryPolicyDto
@@ -301,7 +303,7 @@ public sealed class WebhookDeliveryService(
 
         if (!retryPolicyService.ShouldRetry(retryPolicy, currentAttemptNumber))
         {
-            await MoveToDlqAsync(incomingEvent, subscription, result, currentAttemptNumber, correlationId, cancellationToken);
+            await MoveToDlqAsync(incomingEvent, subscription, result, currentAttemptNumber, correlationId, failedEventId, cancellationToken);
             return;
         }
 
@@ -316,6 +318,7 @@ public sealed class WebhookDeliveryService(
             AttemptNumber = nextAttemptNumber,
             NextRetryAt = nextRetryAt,
             CorrelationId = correlationId,
+            FailedEventId = failedEventId,
         };
 
         try
@@ -357,12 +360,42 @@ public sealed class WebhookDeliveryService(
         }
     }
 
+    private async Task TryMarkManualRetrySucceededAsync(
+        string? failedEventId,
+        WebhookDeliveryResult result,
+        int attemptNumber,
+        string targetUrl,
+        string? correlationId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(failedEventId))
+        {
+            return;
+        }
+
+        try
+        {
+            await failedEventService.MarkRetrySucceededAsync(failedEventId, result, attemptNumber, targetUrl, correlationId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Failed to mark failed event retry as succeeded. FailedEventId: {FailedEventId}, AttemptNumber: {AttemptNumber}, TargetUrl: {TargetUrl}, CorrelationId: {CorrelationId}",
+                failedEventId,
+                attemptNumber,
+                targetUrl,
+                correlationId);
+        }
+    }
+
     private async Task MoveToDlqAsync(
         IncomingEvent incomingEvent,
         Subscription subscription,
         WebhookDeliveryResult result,
         int finalAttemptNumber,
         string? correlationId,
+        string? failedEventId,
         CancellationToken cancellationToken)
     {
         await usageService.IncrementEventsFailedAsync(incomingEvent.TenantId, cancellationToken);
@@ -432,6 +465,45 @@ public sealed class WebhookDeliveryService(
                 finalAttemptNumber,
                 failedEvent.Reason,
                 correlationId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(failedEventId))
+        {
+            try
+            {
+                await failedEventService.MarkRetryExhaustedAsync(
+                    failedEventId,
+                    result,
+                    finalAttemptNumber,
+                    subscription.TargetUrl,
+                    correlationId,
+                    cancellationToken);
+
+                logger.LogInformation(
+                    "Manual retry exhausted and failed event returned to DLQ. FailedEventId: {FailedEventId}, TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, EventType: {EventType}, FinalAttemptNumber: {FinalAttemptNumber}, CorrelationId: {CorrelationId}",
+                    failedEventId,
+                    incomingEvent.TenantId,
+                    incomingEvent.EventId,
+                    subscription.Id,
+                    incomingEvent.EventType,
+                    finalAttemptNumber,
+                    correlationId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Failed to return manual retry failed event to DLQ. FailedEventId: {FailedEventId}, TenantId: {TenantId}, EventId: {EventId}, SubscriptionId: {SubscriptionId}, EventType: {EventType}, FinalAttemptNumber: {FinalAttemptNumber}, CorrelationId: {CorrelationId}",
+                    failedEventId,
+                    incomingEvent.TenantId,
+                    incomingEvent.EventId,
+                    subscription.Id,
+                    incomingEvent.EventType,
+                    finalAttemptNumber,
+                    correlationId);
+            }
+
+            return;
         }
 
         try

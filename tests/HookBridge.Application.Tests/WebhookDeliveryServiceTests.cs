@@ -250,14 +250,36 @@ public sealed class WebhookDeliveryServiceTests
 
         await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
 
+        var attempt = (await fixture.Attempts.GetAllAsync()).Single();
+        Assert.Equal("guid-1", attempt.Id);
         var failedEvent = Assert.Single(fixture.FailedEventService.CreatedEvents);
-        Assert.Equal("guid-1", failedEvent.Id);
+        Assert.Equal("guid-2", failedEvent.Id);
         Assert.Equal("tenant-1", failedEvent.TenantId);
         Assert.Equal("evt-1", failedEvent.EventId);
         Assert.Equal("sub-1", failedEvent.SubscriptionId);
         Assert.Equal("DLQ", failedEvent.Status);
         Assert.Equal(2, failedEvent.FinalAttemptNumber);
         Assert.Equal(1, fixture.UsageService.FailedIncrements);
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_ManualRetryExhausted_ReturnsFailedEventToDlq()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", url: "https://example.com/current", maxAttempts: 2, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.RetryMessage.FailedEventId = "failed-1";
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 500, ErrorMessage = "boom", DurationMs = 44 });
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        Assert.Empty(fixture.FailedEventService.CreatedEvents);
+        var update = Assert.Single(fixture.FailedEventService.ExhaustedRetries);
+        Assert.Equal("failed-1", update.FailedEventId);
+        Assert.Equal(2, update.FinalAttemptNumber);
+        Assert.Equal("https://example.com/current", update.TargetUrl);
+        Assert.Equal(500, update.Result.HttpStatusCode);
+        Assert.Equal("boom", update.Result.ErrorMessage);
     }
 
     [Fact]
@@ -326,6 +348,24 @@ public sealed class WebhookDeliveryServiceTests
     }
 
     [Fact]
+    public async Task ProcessRetryAsync_ManualRetrySuccess_MarksFailedEventRetried()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", url: "https://example.com/current", maxAttempts: 3, initialDelaySeconds: 30, backoffType: "Fixed");
+        fixture.RetryMessage.FailedEventId = "failed-1";
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200, ResponseBody = "ok", DurationMs = 21 });
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        var update = Assert.Single(fixture.FailedEventService.SucceededRetries);
+        Assert.Equal("failed-1", update.FailedEventId);
+        Assert.Equal(2, update.AttemptNumber);
+        Assert.Equal("https://example.com/current", update.TargetUrl);
+        Assert.Equal(200, update.Result.HttpStatusCode);
+    }
+
+    [Fact]
     public async Task ProcessRetryAsync_Failure_ReschedulesRetry()
     {
         var fixture = new Fixture();
@@ -344,6 +384,26 @@ public sealed class WebhookDeliveryServiceTests
         var retryMessage = Assert.IsType<WebhookRetryMessage>(published.Message);
         Assert.Equal(3, retryMessage.AttemptNumber);
         Assert.Equal(new DateTime(2026, 4, 27, 11, 0, 30, DateTimeKind.Utc), retryMessage.NextRetryAt);
+    }
+
+    [Fact]
+    public async Task ProcessRetryAsync_UsesUpdatedSubscriptionTargetUrl()
+    {
+        var fixture = new Fixture();
+        fixture.SeedIncomingEvent();
+        fixture.SeedSubscription("sub-1", url: "https://example.com/original");
+        var subscription = await fixture.Subscriptions.GetByIdAsync("sub-1");
+        Assert.NotNull(subscription);
+        subscription.TargetUrl = "https://example.com/updated";
+        await fixture.Subscriptions.UpdateAsync(subscription);
+        fixture.DeliveryClient.Results.Enqueue(new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200, ResponseBody = "ok", DurationMs = 21 });
+
+        await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
+
+        var request = Assert.Single(fixture.DeliveryClient.Requests);
+        Assert.Equal("https://example.com/updated", request.TargetUrl);
+        var attempt = (await fixture.Attempts.GetAllAsync()).Single();
+        Assert.Equal("https://example.com/updated", attempt.TargetUrl);
     }
 
     [Fact]
@@ -518,6 +578,8 @@ public sealed class WebhookDeliveryServiceTests
     private sealed class FakeFailedEventService : IFailedEventService
     {
         public List<FailedEvent> CreatedEvents { get; } = [];
+        public List<SucceededRetryUpdate> SucceededRetries { get; } = [];
+        public List<ExhaustedRetryUpdate> ExhaustedRetries { get; } = [];
         public bool ThrowOnCreate { get; set; }
 
         public Task CreateAsync(FailedEvent failedEvent, CancellationToken cancellationToken = default)
@@ -539,6 +601,22 @@ public sealed class WebhookDeliveryServiceTests
 
         public Task<bool> RetryAsync(string failedEventId, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
+
+        public Task MarkRetrySucceededAsync(string failedEventId, WebhookDeliveryResult result, int attemptNumber, string targetUrl, string? correlationId, CancellationToken cancellationToken = default)
+        {
+            SucceededRetries.Add(new SucceededRetryUpdate(failedEventId, result, attemptNumber, targetUrl, correlationId));
+            return Task.CompletedTask;
+        }
+
+        public Task MarkRetryExhaustedAsync(string failedEventId, WebhookDeliveryResult result, int finalAttemptNumber, string targetUrl, string? correlationId, CancellationToken cancellationToken = default)
+        {
+            ExhaustedRetries.Add(new ExhaustedRetryUpdate(failedEventId, result, finalAttemptNumber, targetUrl, correlationId));
+            return Task.CompletedTask;
+        }
+
+        public sealed record SucceededRetryUpdate(string FailedEventId, WebhookDeliveryResult Result, int AttemptNumber, string TargetUrl, string? CorrelationId);
+
+        public sealed record ExhaustedRetryUpdate(string FailedEventId, WebhookDeliveryResult Result, int FinalAttemptNumber, string TargetUrl, string? CorrelationId);
     }
 
     private sealed class FakeUsageService : IUsageService

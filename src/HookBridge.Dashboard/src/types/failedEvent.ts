@@ -1,6 +1,6 @@
 import type { PagedRequest } from './pagination';
 
-export type FailedEventStatus = 'DLQ' | 'RetryRequested';
+export type FailedEventStatus = 'DLQ' | 'RetryRequested' | 'Retried';
 
 export type FailedEventResponse = {
   id: string;
