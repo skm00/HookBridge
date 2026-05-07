@@ -29,11 +29,13 @@ public sealed class ApiResponseShapeTests
     [Fact]
     public async Task UnhandledException_ReturnsStandardErrorShape()
     {
-        using var server = BuildExceptionServer(app => app.MapGet("/boom", (HttpContext _) => throw new InvalidOperationException("boom")));
+        using var server = BuildExceptionServer(app => app.MapGet("/boom", (HttpContext _) => throw new ApplicationException("boom")));
         using var client = server.CreateClient();
 
-        var response = await client.GetFromJsonAsync<ApiErrorResponse>("/boom");
+        var result = await client.GetAsync("/boom");
+        var response = await result.Content.ReadFromJsonAsync<ApiErrorResponse>();
 
+        Assert.Equal(HttpStatusCode.InternalServerError, result.StatusCode);
         Assert.NotNull(response);
         Assert.False(response!.Success);
         Assert.Equal("An unexpected error occurred.", response.Message);
@@ -47,8 +49,10 @@ public sealed class ApiResponseShapeTests
         using var server = BuildExceptionServer(app => app.MapGet("/validation", (HttpContext _) => throw new FluentValidation.ValidationException("validation", new[] { new FluentValidation.Results.ValidationFailure("field", "is required") })));
         using var client = server.CreateClient();
 
-        var response = await client.GetFromJsonAsync<ApiErrorResponse>("/validation");
+        var result = await client.GetAsync("/validation");
+        var response = await result.Content.ReadFromJsonAsync<ApiErrorResponse>();
 
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
         Assert.NotNull(response);
         Assert.False(response!.Success);
         Assert.Equal("Validation failed.", response.Message);
