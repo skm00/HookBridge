@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using HookBridge.Application.Messaging;
+using HookBridge.Shared.Constants;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -43,32 +44,56 @@ public sealed class KafkaAdminService : IKafkaAdminService
     public async Task EnsureTopicsAsync(CancellationToken cancellationToken = default)
     {
         using var adminClient = new AdminClientBuilder(_adminConfig).Build();
-        const string requiredTopic = "webhook-events";
+
+        var requiredTopics = new[]
+        {
+            KafkaTopics.WebhookEvents,
+            KafkaTopics.WebhookRetry,
+            KafkaTopics.WebhookDlq,
+        };
 
         try
         {
             var metadata = adminClient.GetMetadata(TimeSpan.FromSeconds(5));
-            var topicExists = metadata.Topics.Any(t => t.Topic == requiredTopic);
+            var existingTopics = metadata.Topics
+                .Where(topicMetadata => topicMetadata.Error.Code == ErrorCode.NoError)
+                .Select(topicMetadata => topicMetadata.Topic)
+                .ToHashSet(StringComparer.Ordinal);
 
-            if (!topicExists)
-            {
-                _logger.LogInformation("Topic '{Topic}' not found. Creating it now...", requiredTopic);
-
-                await adminClient.CreateTopicsAsync(new[]
+            var missingTopics = requiredTopics
+                .Where(topic => !existingTopics.Contains(topic))
+                .Select(topic => new TopicSpecification
                 {
-                    new TopicSpecification
-                    {
-                        Name = requiredTopic,
-                        ReplicationFactor = 1,
-                        NumPartitions = 1
-                    }
-                });
+                    Name = topic,
+                    ReplicationFactor = 1,
+                    NumPartitions = 1,
+                })
+                .ToArray();
 
-                _logger.LogInformation("Topic '{Topic}' created successfully.", requiredTopic);
+            if (missingTopics.Length == 0)
+            {
+                _logger.LogInformation("All required Kafka topics already exist. Topics: {Topics}", requiredTopics);
+                return;
             }
+
+            _logger.LogInformation("Creating required Kafka topics: {Topics}", missingTopics.Select(topic => topic.Name));
+
+            await adminClient.CreateTopicsAsync(missingTopics);
+
+            _logger.LogInformation("Required Kafka topics created successfully: {Topics}", missingTopics.Select(topic => topic.Name));
         }
         catch (CreateTopicsException ex)
         {
+            var nonIgnorableResults = ex.Results
+                .Where(result => result.Error.Code != ErrorCode.TopicAlreadyExists)
+                .ToArray();
+
+            if (nonIgnorableResults.Length == 0)
+            {
+                _logger.LogInformation("Required Kafka topics were created by another process before this instance completed initialization.");
+                return;
+            }
+
             _logger.LogError(ex, "Failed to create required Kafka topics.");
             throw;
         }

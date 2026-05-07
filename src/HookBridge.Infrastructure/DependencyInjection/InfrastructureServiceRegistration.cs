@@ -17,6 +17,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Driver;
 
 namespace HookBridge.Infrastructure.DependencyInjection;
@@ -170,6 +171,8 @@ public static class InfrastructureServiceRegistration
             }
         });
 
+        RegisterMongoConventions();
+
         services.AddSingleton<IMongoClient>(serviceProvider =>
         {
             var settings = serviceProvider.GetRequiredService<IOptions<MongoDbSettings>>().Value;
@@ -195,6 +198,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IKafkaProducer, KafkaProducer>();
         services.AddSingleton<IKafkaConsumer, KafkaConsumer>();
         services.AddSingleton<IKafkaAdminService, KafkaAdminService>();
+        services.AddHostedService<KafkaTopicInitializerHostedService>();
         services.AddHttpClient();
         services.AddSingleton<IOAuthTokenService, OAuthTokenService>();
         services.AddScoped<IWebhookAuthenticationHandler, WebhookAuthenticationHandler>();
@@ -215,6 +219,26 @@ public static class InfrastructureServiceRegistration
         services.AddHostedService<MongoIndexInitializerHostedService>();
 
         return services;
+    }
+
+    private static void RegisterMongoConventions()
+    {
+        const string conventionName = "HookBridgeIgnoreExtraElements";
+
+        try
+        {
+            ConventionRegistry.Register(
+                conventionName,
+                new ConventionPack
+                {
+                    new IgnoreExtraElementsConvention(true),
+                },
+                type => type.Namespace?.StartsWith("HookBridge.Domain.Entities", StringComparison.Ordinal) == true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+        {
+            // Conventions are global to the process and can already be registered in test hosts.
+        }
     }
 
     private static string? Required(string? value, string fieldName)
