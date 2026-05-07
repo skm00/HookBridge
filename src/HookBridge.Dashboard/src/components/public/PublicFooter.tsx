@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 const PublicFooter = (): JSX.Element => {
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:px-8">
+      <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:px-8">
         <div>
-          <p className="text-lg font-bold text-slate-900">HookBridge</p>
+          <p className="text-lg font-black tracking-tight text-slate-950">HookBridge</p>
           <p className="mt-2 text-sm text-slate-600">Reliable webhook infrastructure for modern SaaS teams.</p>
         </div>
 
