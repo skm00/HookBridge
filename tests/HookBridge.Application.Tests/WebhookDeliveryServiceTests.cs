@@ -141,6 +141,7 @@ public sealed class WebhookDeliveryServiceTests
         await fixture.Service.ProcessEventAsync(fixture.Message);
 
         var attempt = (await fixture.Attempts.GetAllAsync()).Single();
+        Assert.Equal("guid-1", attempt.Id);
         Assert.Equal("tenant-1", attempt.TenantId);
         Assert.Equal("evt-1", attempt.EventId);
         Assert.Equal("order.created", attempt.EventType);
@@ -250,6 +251,7 @@ public sealed class WebhookDeliveryServiceTests
         await fixture.Service.ProcessRetryAsync(fixture.RetryMessage);
 
         var failedEvent = Assert.Single(fixture.FailedEventService.CreatedEvents);
+        Assert.Equal("guid-1", failedEvent.Id);
         Assert.Equal("tenant-1", failedEvent.TenantId);
         Assert.Equal("evt-1", failedEvent.EventId);
         Assert.Equal("sub-1", failedEvent.SubscriptionId);
@@ -403,6 +405,7 @@ public sealed class WebhookDeliveryServiceTests
         public InMemoryRepository<IncomingEvent> IncomingEvents { get; } = new();
         public InMemoryRepository<Subscription> Subscriptions { get; } = new();
         public InMemoryRepository<DeliveryAttempt> Attempts { get; } = new();
+        public FakeGuidGenerator GuidGenerator { get; } = new();
         public FakeWebhookDeliveryClient DeliveryClient { get; } = new();
         public FakeKafkaProducer KafkaProducer { get; } = new();
         public FakeFailedEventService FailedEventService { get; } = new();
@@ -432,6 +435,7 @@ public sealed class WebhookDeliveryServiceTests
             Subscriptions,
             Attempts,
             new FixedDateTimeProvider(),
+            GuidGenerator,
             DeliveryClient,
             KafkaProducer,
             new RetryPolicyService(),
@@ -567,6 +571,14 @@ public sealed class WebhookDeliveryServiceTests
     private sealed class FixedDateTimeProvider : HookBridge.Application.Interfaces.IDateTimeProvider
     {
         public DateTime UtcNow => new(2026, 4, 27, 11, 0, 0, DateTimeKind.Utc);
+    }
+
+
+    private sealed class FakeGuidGenerator : IGuidGenerator
+    {
+        private int _nextId = 1;
+
+        public string NewGuid() => $"guid-{_nextId++}";
     }
 
     private sealed class FakeWebhookDeliveryClient : IWebhookDeliveryClient

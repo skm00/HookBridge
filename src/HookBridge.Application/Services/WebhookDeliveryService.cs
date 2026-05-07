@@ -16,6 +16,7 @@ public sealed class WebhookDeliveryService(
     IMongoRepository<Subscription> subscriptionRepository,
     IMongoRepository<DeliveryAttempt> deliveryAttemptRepository,
     IDateTimeProvider dateTimeProvider,
+    IGuidGenerator guidGenerator,
     IWebhookDeliveryClient webhookDeliveryClient,
     IKafkaProducer kafkaProducer,
     IRetryPolicyService retryPolicyService,
@@ -248,6 +249,7 @@ public sealed class WebhookDeliveryService(
 
         return new DeliveryAttempt
         {
+            Id = guidGenerator.NewGuid(),
             TenantId = incomingEvent.TenantId,
             EventId = incomingEvent.EventId,
             SubscriptionId = subscription.Id,
@@ -368,6 +370,7 @@ public sealed class WebhookDeliveryService(
         var failedAt = dateTimeProvider.UtcNow;
         var failedEvent = new FailedEvent
         {
+            Id = guidGenerator.NewGuid(),
             TenantId = incomingEvent.TenantId,
             EventId = incomingEvent.EventId,
             SubscriptionId = subscription.Id,
