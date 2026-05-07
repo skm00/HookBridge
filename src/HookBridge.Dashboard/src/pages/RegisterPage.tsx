@@ -4,6 +4,10 @@ import { authApi } from '../api/authApi';
 import { authStorage } from '../auth/authStorage';
 import ErrorAlert from '../components/ErrorAlert';
 import FieldError from '../components/FieldError';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Icon from '../components/ui/Icon';
+import PageContainer from '../components/ui/PageContainer';
 import { getErrorMessage, getTraceId, getValidationErrors } from '../utils/errorUtils';
 
 const RegisterPage = (): JSX.Element => {
@@ -33,17 +37,52 @@ const RegisterPage = (): JSX.Element => {
     } finally { setIsLoading(false); }
   };
 
-  return <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10"><div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-  <h1 className="text-2xl font-bold text-slate-900">Register for HookBridge</h1>
-  <p className="mt-2 text-sm text-slate-600">We’ll create your workspace automatically.</p>
-  <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-  <div><label htmlFor="organizationName" className="mb-1 block text-sm font-medium text-slate-700">Organization Name (optional)</label><input id="organizationName" type="text" value={organizationName} onChange={(e)=>setOrganizationName(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring" /></div>
-  <div><label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">Email</label><input id="email" type="email" value={email} onChange={(e)=>{setEmail(e.target.value);setValidationErrors((p)=>({...p,email:[],Email:[]}));}} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring" autoComplete="email" /><FieldError errors={validationErrors.email ?? validationErrors.Email} /></div>
-  <div><label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">Password</label><input id="password" type="password" value={password} onChange={(e)=>{setPassword(e.target.value);setValidationErrors((p)=>({...p,password:[],Password:[]}));}} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring" autoComplete="new-password" /><FieldError errors={validationErrors.password ?? validationErrors.Password} /></div>
-  <div><label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-slate-700">Confirm Password</label><input id="confirmPassword" type="password" value={confirmPassword} onChange={(e)=>setConfirmPassword(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-600 focus:ring" autoComplete="new-password" /></div>
-  {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
-  <button type="submit" disabled={isLoading} className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400">{isLoading ? 'Registering...' : 'Register'}</button>
-  </form><p className="mt-4 text-sm text-slate-600">Already have an account? <Link to="/login" className="font-medium text-brand-700">Login</Link></p></div></div>;
+  return (
+    <PageContainer className="py-10 sm:py-16">
+      <div className="grid items-center gap-10 lg:grid-cols-[1fr,28rem]">
+        <section className="hidden lg:block">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary-border bg-primary-soft px-4 py-2 text-sm font-semibold text-primary-dark">
+            <Icon name="spark" className="h-4 w-4" /> Launch free
+          </div>
+          <h1 className="mt-6 text-5xl font-black tracking-tight text-text">Create your webhook workspace in minutes.</h1>
+          <p className="mt-5 max-w-xl text-lg leading-8 text-text-muted">Start with event ingestion, delivery logs, retries, and docs built for teams that need production-ready webhook operations.</p>
+        </section>
+
+        <Card className="mx-auto w-full p-6 sm:p-8">
+          <div className="text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/25">HB</div>
+            <h2 className="mt-5 text-2xl font-bold tracking-tight text-text">Start free</h2>
+            <p className="mt-2 text-sm text-text-muted">We’ll create your HookBridge workspace automatically.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+            <div>
+              <label htmlFor="organizationName" className="mb-2 block text-sm font-semibold text-text">Organization name <span className="font-normal text-text-muted">(optional)</span></label>
+              <input id="organizationName" type="text" value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} className="hb-input" placeholder="Acme Inc." />
+            </div>
+            <div>
+              <label htmlFor="email" className="mb-2 block text-sm font-semibold text-text">Email</label>
+              <input id="email" type="email" value={email} onChange={(event) => { setEmail(event.target.value); setValidationErrors((previous) => ({ ...previous, email: [], Email: [] })); }} className="hb-input" autoComplete="email" placeholder="admin@company.com" />
+              <FieldError errors={validationErrors.email ?? validationErrors.Email} />
+            </div>
+            <div>
+              <label htmlFor="password" className="mb-2 block text-sm font-semibold text-text">Password</label>
+              <input id="password" type="password" value={password} onChange={(event) => { setPassword(event.target.value); setValidationErrors((previous) => ({ ...previous, password: [], Password: [] })); }} className="hb-input" autoComplete="new-password" placeholder="Create a password" />
+              <FieldError errors={validationErrors.password ?? validationErrors.Password} />
+            </div>
+            <div>
+              <label htmlFor="confirmPassword" className="mb-2 block text-sm font-semibold text-text">Confirm password</label>
+              <input id="confirmPassword" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="hb-input" autoComplete="new-password" placeholder="Confirm your password" />
+            </div>
+
+            {errorMessage ? <ErrorAlert message={errorMessage} traceId={errorTraceId} validationErrors={validationErrors} /> : null}
+            <Button type="submit" disabled={isLoading} className="w-full">{isLoading ? 'Creating workspace...' : 'Start Free'}</Button>
+          </form>
+          <p className="mt-6 text-center text-sm text-text-muted">Already have an account? <Link to="/login" className="font-semibold text-primary-dark hover:text-primary">Login</Link></p>
+        </Card>
+      </div>
+    </PageContainer>
+  );
 };
 
 export default RegisterPage;

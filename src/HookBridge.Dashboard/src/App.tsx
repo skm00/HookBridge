@@ -15,6 +15,7 @@ import LoginPage from './pages/LoginPage';
 import NotificationsPage from './pages/NotificationsPage';
 import OverviewPage from './pages/OverviewPage';
 import PricingPublicPage from './pages/PricingPublicPage';
+import ProductPublicPage from './pages/ProductPublicPage';
 import RegisterPage from './pages/RegisterPage';
 import SettingsPage from './pages/SettingsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
@@ -32,6 +33,7 @@ const App = (): JSX.Element => {
     <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/product" element={<ProductPublicPage />} />
         <Route path="/pricing" element={<PricingPublicPage />} />
         <Route path="/docs" element={<DocsShell />}>
           <Route index element={<DocsQuickstartPage />} />
@@ -42,10 +44,9 @@ const App = (): JSX.Element => {
           <Route path="retries" element={<DocsRetriesPage />} />
           <Route path="errors" element={<DocsErrorsPage />} />
         </Route>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
       </Route>
-
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
