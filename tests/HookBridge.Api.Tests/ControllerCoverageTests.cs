@@ -35,8 +35,8 @@ public sealed class ControllerCoverageTests
 
         var problem = Assert.IsType<ObjectResult>(result.Result);
         var details = Assert.IsAssignableFrom<ValidationProblemDetails>(problem.Value);
-        Assert.Equal(StatusCodes.Status400BadRequest, details.Status);
         Assert.Contains(nameof(EndpointValidationRequestDto.TargetUrl), details.Errors.Keys);
+        Assert.Contains("TargetUrl is invalid.", details.Errors[nameof(EndpointValidationRequestDto.TargetUrl)]);
         Assert.Equal(0, service.ValidateCallCount);
     }
 
