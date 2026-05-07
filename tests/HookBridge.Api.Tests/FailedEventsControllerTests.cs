@@ -1,6 +1,7 @@
 using HookBridge.Api.Controllers;
 using HookBridge.Application.DTOs.FailedEvents;
 using HookBridge.Application.Interfaces.Services;
+using HookBridge.Shared.Api;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,7 +13,12 @@ public sealed class FailedEventsControllerTests
 {
     private static FailedEventsController CreateController(FakeFailedEventService service)
     {
-        var controller = CreateController(service);
+        var currentUserContext = new TenantIsolationTestHelpers.FakeCurrentUserContext { TenantId = "tenant-1" };
+        var controller = new FailedEventsController(
+            service,
+            currentUserContext,
+            TenantIsolationTestHelpers.CreateValidator(currentUserContext),
+            NullLogger<FailedEventsController>.Instance);
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
         return controller;
     }
@@ -26,7 +32,8 @@ public sealed class FailedEventsControllerTests
         var result = await controller.SearchAsync("tenant-1", null, null, null, "DLQ", null, null, 1, 50, null, "desc", CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = Assert.IsType<HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>>(ok.Value);
+        var response = Assert.IsType<ApiResponse<HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>>>(ok.Value);
+        var payload = Assert.IsType<HookBridge.Application.DTOs.Common.PagedResponseDto<FailedEventResponseDto>>(response.Data);
         Assert.Single(payload.Items);
     }
 
@@ -39,7 +46,8 @@ public sealed class FailedEventsControllerTests
         var result = await controller.GetByIdAsync("failed-1", CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var payload = Assert.IsType<FailedEventResponseDto>(ok.Value);
+        var response = Assert.IsType<ApiResponse<FailedEventResponseDto>>(ok.Value);
+        var payload = Assert.IsType<FailedEventResponseDto>(response.Data);
         Assert.Equal("failed-1", payload.Id);
     }
 
@@ -51,7 +59,7 @@ public sealed class FailedEventsControllerTests
 
         var result = await controller.GetByIdAsync("missing", CancellationToken.None);
 
-        Assert.IsType<NotFoundResult>(result.Result);
+        Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
     [Fact]
@@ -62,7 +70,7 @@ public sealed class FailedEventsControllerTests
 
         var result = await controller.RetryAsync("failed-1", CancellationToken.None);
 
-        Assert.IsType<AcceptedResult>(result);
+        Assert.IsType<AcceptedObjectResult>(result);
     }
 
     [Fact]
@@ -73,7 +81,7 @@ public sealed class FailedEventsControllerTests
 
         var result = await controller.RetryAsync("missing", CancellationToken.None);
 
-        Assert.IsType<NotFoundResult>(result);
+        Assert.IsType<NotFoundObjectResult>(result);
     }
 
     [Fact]
