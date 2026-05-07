@@ -200,6 +200,7 @@ public sealed class ApiResponseShapeTests
             })
             .Configure(app =>
             {
+                app.UseRouting();
                 app.UseAuthentication();
                 app.Use(async (context, next) =>
                 {
@@ -224,19 +225,6 @@ public sealed class ApiResponseShapeTests
         return new TestServer(builder);
     }
 
-    [ApiController]
-    [Route("api/v1/test")]
-    private sealed class ValidationController : ControllerBase
-    {
-        [HttpPost("validate")]
-        public IActionResult Validate([FromBody] ValidationRequest request) => Ok(request);
-    }
-
-    private sealed class ValidationRequest
-    {
-        [Required]
-        public string Name { get; init; } = string.Empty;
-    }
 
     private sealed class TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -263,4 +251,18 @@ public sealed class ApiResponseShapeTests
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }
     }
+}
+
+[ApiController]
+[Route("api/v1/test")]
+public sealed class ApiResponseShapeValidationController : ControllerBase
+{
+    [HttpPost("validate")]
+    public IActionResult Validate([FromBody] ApiResponseShapeValidationRequest request) => Ok(request);
+}
+
+public sealed class ApiResponseShapeValidationRequest
+{
+    [Required]
+    public string Name { get; init; } = string.Empty;
 }

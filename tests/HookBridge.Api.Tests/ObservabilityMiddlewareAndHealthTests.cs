@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
+using Asp.Versioning;
 using HookBridge.Api.Extensions;
 using HookBridge.Api.Health;
 using HookBridge.Api.Middleware;
@@ -217,6 +218,7 @@ public sealed class ObservabilityMiddlewareAndHealthTests
             .ConfigureServices(services =>
             {
                 services.AddRouting();
+                services.AddApiVersioning(options => options.DefaultApiVersion = new ApiVersion(1, 0));
                 services.AddHttpClient();
                 services.Configure<ElasticSettings>(options =>
                 {
