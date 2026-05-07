@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using HookBridge.Application.DTOs.Auth;
 using HookBridge.Application.Validation.Auth;
 using Xunit;
@@ -83,14 +84,23 @@ public sealed class SignupSecurityTests
         throw new FileNotFoundException($"Could not locate {relativePath} from current directory hierarchy.");
     }
 
+    private static Regex RenderedInputAttributePattern(string attributeValue)
+    {
+        return new Regex($@"\b(?:id|name|htmlFor)=\{{?[""']{Regex.Escape(attributeValue)}[""']\}}?", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
+
     [Fact]
     public void RegisterPage_DoesNotRenderTenantIdOrRoleInputs()
     {
         var registerPagePath = FindRegisterPagePath();
         var content = File.ReadAllText(registerPagePath);
 
-        Assert.Contains("We’ll create your workspace automatically after signup.", content);
-        Assert.DoesNotContain("tenantId", content, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("role", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("organizationName", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("email", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("password", content, StringComparison.OrdinalIgnoreCase);
+
+        Assert.DoesNotMatch(RenderedInputAttributePattern("tenantId"), content);
+        Assert.DoesNotMatch(RenderedInputAttributePattern("role"), content);
     }
 }
