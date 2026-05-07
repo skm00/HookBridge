@@ -320,3 +320,5 @@ internal sealed class ConfigureSwaggerOptions(IApiVersionDescriptionProvider pro
         }
     }
 }
+
+public partial class Program;
