@@ -6,7 +6,7 @@ Initial production-style SaaS solution scaffold for a multi-tenant webhook deliv
 
 If HookBridge helps your team, please consider supporting ongoing development.
 
-<iframe src="https://github.com/sponsors/skm00/card" title="Sponsor skm00" height="225" width="600" style="border: 0;"></iframe>
+[![Sponsor HookBridge](https://img.shields.io/badge/Sponsor-HookBridge-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/skm00)
 
 [💖 Sponsor this project](https://github.com/sponsors/skm00)
 
