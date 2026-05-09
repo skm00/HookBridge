@@ -1,14 +1,33 @@
 # HookBridge
 
-Initial production-style SaaS solution scaffold for a multi-tenant webhook delivery platform.
+[![.NET CI](https://github.com/skm00/HookBridge/actions/workflows/dev.yml/badge.svg?branch=main)](https://github.com/skm00/HookBridge/actions/workflows/dev.yml)
+[![Sponsor HookBridge](https://img.shields.io/badge/Sponsor-HookBridge-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/skm00)
+[![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Ready-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Kafka](https://img.shields.io/badge/Kafka-Integration-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+[![CloudEvents](https://img.shields.io/badge/CloudEvents-v1.0-326CE5)](https://cloudevents.io/)
+
+Production-style SaaS scaffold for a multi-tenant webhook delivery platform built around event-driven infrastructure, CloudEvents ingestion, Kafka-oriented delivery patterns, observability, and Kubernetes-ready deployment.
 
 ## Support This Project
 
-If HookBridge helps your team, please consider supporting ongoing development.
+HookBridge is maintained as open-source infrastructure for developers building reliable webhook and event-driven systems. Sponsorship helps keep the project practical, tested, documented, and sustainable for production-minded teams.
 
 [![Sponsor HookBridge](https://img.shields.io/badge/Sponsor-HookBridge-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/skm00)
 
-[💖 Sponsor this project](https://github.com/sponsors/skm00)
+[💖 Sponsor this project on GitHub](https://github.com/sponsors/skm00)
+
+### Why Sponsor?
+
+Your sponsorship directly supports the work required to keep HookBridge useful and maintainable:
+
+- **Infrastructure costs** for hosted demos, test environments, container registries, and operational tooling.
+- **CI/CD reliability** for builds, coverage checks, release validation, and dependency updates.
+- **Testing coverage** across webhook delivery, retries, CloudEvents parsing, Kafka integrations, MongoDB persistence, and Kubernetes deployment paths.
+- **Documentation** for setup guides, API examples, deployment notes, troubleshooting, and examples for real-world event workflows.
+- **Long-term maintenance** including issue triage, security updates, refactoring, roadmap planning, and compatibility work.
+
+For sponsorship tier copy, profile text, social posts, and visibility recommendations, see [`docs/sponsorship.md`](docs/sponsorship.md).
 
 ## Stack
 - .NET 8
