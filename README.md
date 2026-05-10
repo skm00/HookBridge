@@ -187,7 +187,45 @@ The Docker image serves the dashboard on `http://localhost:3000`. The Vite devel
 
 HookBridge separates ingestion, application logic, persistence/infrastructure, background processing, and dashboard concerns.
 
-Placeholder image path: `docs/images/architecture.png`
+```mermaid
+flowchart LR
+  ClientApps["Client Applications"] -->|POST events / CloudEvents| API["HookBridge API<br/>ASP.NET Core"]
+  API -->|Validate tenant, auth, schema, rate limits| Kafka[(Kafka<br/>Event Topic)]
+  Kafka -->|Consume events| Workers["Workers<br/>Delivery & Retry Consumers"]
+  Workers -->|HTTP delivery| WebhookEndpoints["External Webhook Endpoints"]
+
+  Workers -->|Transient failure| RetryQueue[["Retry Queue<br/>Backoff schedule"]]
+  RetryQueue -->|Requeue for retry| Kafka
+  Workers -->|Max attempts exceeded| DLQ[["DLQ<br/>Dead Letter Queue"]]
+  DLQ -->|Inspect / replay| Workers
+
+  API -->|Persist tenants, events, audit records| MongoDB[(MongoDB)]
+  Workers -->|Record attempts, outcomes, failures| MongoDB
+  DLQ -->|Failed event records| MongoDB
+
+  API -.->|Logs, metrics, traces, health| Monitoring["Monitoring Stack<br/>Observability & alerting"]
+  Kafka -.->|Broker metrics / lag| Monitoring
+  Workers -.->|Delivery metrics / errors| Monitoring
+  MongoDB -.->|Storage health / query telemetry| Monitoring
+
+  classDef client fill:#1e3a8a,stroke:#60a5fa,color:#eff6ff,stroke-width:2px;
+  classDef api fill:#0e7490,stroke:#22d3ee,color:#ecfeff,stroke-width:2px;
+  classDef stream fill:#4c1d95,stroke:#a78bfa,color:#f5f3ff,stroke-width:2px;
+  classDef worker fill:#065f46,stroke:#34d399,color:#ecfdf5,stroke-width:2px;
+  classDef retry fill:#78350f,stroke:#fbbf24,color:#fffbeb,stroke-width:2px;
+  classDef dlq fill:#7f1d1d,stroke:#f87171,color:#fef2f2,stroke-width:2px;
+  classDef data fill:#064e3b,stroke:#10b981,color:#ecfdf5,stroke-width:2px;
+  classDef observe fill:#312e81,stroke:#818cf8,color:#eef2ff,stroke-width:2px;
+
+  class ClientApps,WebhookEndpoints client;
+  class API api;
+  class Kafka stream;
+  class Workers worker;
+  class RetryQueue retry;
+  class DLQ dlq;
+  class MongoDB data;
+  class Monitoring observe;
+```
 
 High-level flow:
 
@@ -204,8 +242,6 @@ Additional architecture notes are available in [`docs/architecture.md`](docs/arc
 ## Screenshots
 
 Dashboard screenshots can be added under `docs/images/` as the UI stabilizes.
-
-Placeholder image path: `docs/images/dashboard.png`
 
 ## API Documentation
 
