@@ -6,6 +6,7 @@ It combines ASP.NET Core, Kafka, MongoDB, Docker, and Kubernetes-oriented deploy
 [![Build status](https://github.com/skm00/HookBridge/actions/workflows/dev.yml/badge.svg?branch=main)](https://github.com/skm00/HookBridge/actions/workflows/dev.yml)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](#license)
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/skm00)
+[![GitHub Discussions](https://img.shields.io/badge/discussions-GitHub%20Discussions-57606a?logo=github&logoColor=white)](https://github.com/skm00/HookBridge/discussions)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Kafka](https://img.shields.io/badge/Kafka-event%20processing-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
@@ -415,7 +416,7 @@ HookBridge uses GitHub's public collaboration tools for community support, proje
 
 - **Issues:** Use GitHub Issues for reproducible bugs, focused feature requests, documentation gaps, and actionable maintenance tasks. Search existing issues first, include reproduction steps or acceptance criteria, and avoid posting secrets, API keys, JWTs, connection strings, or private customer data.
 - **Discussions:** Use GitHub Discussions for architecture questions, deployment tradeoffs, community support, and ideas that need design feedback before they become implementation issues.
-- **Sponsorship:** HookBridge is actively maintained and community feedback, contributions, and sponsorship support help improve long-term development. Sponsorship is optional and available through [GitHub Sponsors](https://github.com/sponsors/skm00).
+- **Sponsorship:** HookBridge is actively maintained and community support, feedback, and sponsorships help improve long-term development. Sponsorship is optional and available through [GitHub Sponsors](https://github.com/sponsors/skm00). Avoid opening sponsorship issues unless there is a specific repository maintenance need that cannot be handled through GitHub Sponsors or maintainer profile links.
 - **Contributions:** Contributions are welcome through focused pull requests with documentation and tests where practical. See [Contributing](#contributing) and [`CONTRIBUTING.md`](CONTRIBUTING.md) for workflow and maintainer-contact guidance.
 - **Security reporting:** Do not report vulnerabilities in public issues or discussions. Review [`docs/security.md`](docs/security.md); if a private reporting path is not listed, use public maintainer profile links to identify an appropriate contact method without disclosing sensitive details publicly.
 
@@ -437,7 +438,7 @@ Good first contribution areas include documentation fixes, test coverage, API ex
 
 ## Sponsorship
 
-HookBridge is actively maintained and community feedback, contributions, and sponsorship support help improve long-term development. Sponsorship helps fund documentation, CI reliability, test coverage, dependency maintenance, demos, and long-term issue triage.
+HookBridge is actively maintained and community support, feedback, and sponsorships help improve long-term development. Sponsorship helps fund documentation, CI reliability, test coverage, dependency maintenance, demos, and long-term issue triage.
 
 [Sponsor HookBridge on GitHub](https://github.com/sponsors/skm00)
 
