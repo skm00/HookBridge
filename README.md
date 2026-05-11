@@ -36,17 +36,17 @@ It is not positioned as a hosted webhook SaaS. It is an open-source codebase you
 
 ## Features
 
-| Area | Capability | Notes |
-| --- | --- | --- |
-| Webhook ingestion | Raw JSON, HookBridge envelopes, and CloudEvents-style payloads | Supports CloudEvents v1.0 structured and binary-style inputs. |
-| Delivery reliability | Async worker delivery, retry handling, and failed-event/DLQ records | Worker consumes Kafka event streams and records delivery outcomes. |
-| Event processing | Kafka-based event and retry consumers | Local Docker Compose includes Kafka and Zookeeper. |
-| Persistence | MongoDB-backed tenants, events, subscriptions, attempts, audit logs, and notifications | Local development defaults to the `hookbridge` database. |
-| Endpoint validation | Target URL, authentication, header, payload, and security validations | Designed to reduce unsafe outbound webhook configuration. |
-| API security | Admin JWT authentication, tenant API keys, roles, IP allowlists, and rate limiting | Admin APIs use Bearer tokens; event ingestion uses `x-api-key`. |
-| Observability | Health checks, structured logging, Elasticsearch, Kibana, and Elastic APM support | Compose includes Elasticsearch, Kibana, and APM Server. |
-| Dashboard | React dashboard and public documentation/marketing routes | Dashboard runs on port `3000` in Docker Compose. |
-| Deployment | Docker Compose and Helm/Kubernetes deployment assets | See [`deploy/docker-compose.yml`](deploy/docker-compose.yml) and [`deploy/helm/README.md`](deploy/helm/README.md). |
+| Area                 | Capability                                                                               | Notes                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Webhook ingestion    | Raw JSON, HookBridge envelopes, and CloudEvents-style payloads                           | Supports CloudEvents v1.0 structured and binary-style inputs.                                                          |
+| Delivery reliability | Async worker delivery, retry handling, and failed-event/DLQ records                      | Worker consumes Kafka event streams and records delivery outcomes.                                                      |
+| Event processing     | Kafka-based event and retry consumers                                                    | Local Docker Compose includes Kafka and Zookeeper.                                                                     |
+| Persistence          | MongoDB-backed tenants, events, subscriptions, attempts, audit logs, and notifications   | Local development defaults to the `hookbridge` database.                                                               |
+| Endpoint validation  | Target URL, authentication, header, payload, and security validations                     | Designed to reduce unsafe outbound webhook configuration.                                                              |
+| API security         | Admin JWT authentication, tenant API keys, roles, IP allowlists, and rate limiting       | Admin APIs use Bearer tokens; event ingestion uses `x-api-key`.                                                        |
+| Observability        | Health checks, structured logging, Elasticsearch, Kibana, and Elastic APM support        | Compose includes Elasticsearch, Kibana, and APM Server.                                                                |
+| Dashboard            | React dashboard and public documentation/marketing routes                                | Dashboard runs on port `3000` in Docker Compose.                                                                      |
+| Deployment           | Docker Compose and Helm/Kubernetes deployment assets                                     | See [`deploy/docker-compose.yml`](deploy/docker-compose.yml) and [`deploy/helm/README.md`](deploy/helm/README.md).    |
 
 ## Repository Layout
 
