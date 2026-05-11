@@ -185,59 +185,27 @@ The Docker image serves the dashboard on `http://localhost:3000`. The Vite devel
 
 ## Architecture
 
-HookBridge separates ingestion, application logic, persistence/infrastructure, background processing, and dashboard concerns.
+HookBridge separates ingestion, event streaming, worker delivery, retry/DLQ handling, persistence, and observability concerns.
 
 ```mermaid
 flowchart LR
-  ClientApps["Client Applications"] -->|POST events / CloudEvents| API["HookBridge API<br/>ASP.NET Core"]
-  API -->|Validate tenant, auth, schema, rate limits| Kafka[(Kafka<br/>Event Topic)]
-  Kafka -->|Consume events| Workers["Workers<br/>Delivery & Retry Consumers"]
-  Workers -->|HTTP delivery| WebhookEndpoints["External Webhook Endpoints"]
+    Clients[Client Applications] --> API[HookBridge API]
+    API --> Kafka[Kafka Topics]
+    Kafka --> Workers[Webhook Workers / Consumers]
+    Workers --> Endpoints[External Webhook Endpoints]
 
-  Workers -->|Transient failure| RetryQueue[["Retry Queue<br/>Backoff schedule"]]
-  RetryQueue -->|Requeue for retry| Kafka
-  Workers -->|Max attempts exceeded| DLQ[["DLQ<br/>Dead Letter Queue"]]
-  DLQ -->|Inspect / replay| Workers
+    Workers --> Retry[Retry Queue]
+    Retry --> Workers
+    Retry --> DLQ[Dead Letter Queue / DLQ]
 
-  API -->|Persist tenants, events, audit records| MongoDB[(MongoDB)]
-  Workers -->|Record attempts, outcomes, failures| MongoDB
-  DLQ -->|Failed event records| MongoDB
+    API --> Mongo[(MongoDB)]
+    Workers --> Mongo
 
-  API -.->|Logs, metrics, traces, health| Monitoring["Monitoring Stack<br/>Observability & alerting"]
-  Kafka -.->|Broker metrics / lag| Monitoring
-  Workers -.->|Delivery metrics / errors| Monitoring
-  MongoDB -.->|Storage health / query telemetry| Monitoring
-
-  classDef client fill:#1e3a8a,stroke:#60a5fa,color:#eff6ff,stroke-width:2px;
-  classDef api fill:#0e7490,stroke:#22d3ee,color:#ecfeff,stroke-width:2px;
-  classDef stream fill:#4c1d95,stroke:#a78bfa,color:#f5f3ff,stroke-width:2px;
-  classDef worker fill:#065f46,stroke:#34d399,color:#ecfdf5,stroke-width:2px;
-  classDef retry fill:#78350f,stroke:#fbbf24,color:#fffbeb,stroke-width:2px;
-  classDef dlq fill:#7f1d1d,stroke:#f87171,color:#fef2f2,stroke-width:2px;
-  classDef data fill:#064e3b,stroke:#10b981,color:#ecfdf5,stroke-width:2px;
-  classDef observe fill:#312e81,stroke:#818cf8,color:#eef2ff,stroke-width:2px;
-
-  class ClientApps,WebhookEndpoints client;
-  class API api;
-  class Kafka stream;
-  class Workers worker;
-  class RetryQueue retry;
-  class DLQ dlq;
-  class MongoDB data;
-  class Monitoring observe;
+    API --> Monitoring[Monitoring & Observability]
+    Workers --> Monitoring
 ```
 
-High-level flow:
-
-1. Producers submit events to the API using a tenant API key.
-2. The API validates authentication, payload shape, tenant access, plan limits, rate limits, and endpoint configuration.
-3. Accepted events are persisted and published to Kafka.
-4. Worker consumers process event and retry topics.
-5. Delivery attempts are recorded for each matching subscription endpoint.
-6. Exhausted retries create failed-event/DLQ records that can be inspected and replayed.
-7. Logs, health checks, metrics-oriented endpoints, and Elastic integrations support operations and troubleshooting.
-
-Additional architecture notes are available in [`docs/architecture.md`](docs/architecture.md).
+For more details, see [Architecture Documentation](docs/architecture.md).
 
 ## Screenshots
 
