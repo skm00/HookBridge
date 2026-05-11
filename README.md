@@ -18,7 +18,6 @@ It combines ASP.NET Core, Kafka, MongoDB, Docker, and Kubernetes-oriented deploy
 - [Repository Layout](#repository-layout)
 - [Docker Images](#docker-images)
 - [Quick Start](#quick-start)
-- [Quick Start with Docker Compose](#quick-start-with-docker-compose)
 - [Local Development (.NET 8)](#local-development-net-8)
 - [Architecture](#architecture)
 - [Screenshots](#screenshots)
@@ -68,19 +67,15 @@ docs/                         API examples, demo guide, deployment, security, ba
 
 ## Docker Images
 
-Available container images:
+HookBridge packages are published on GitHub Container Registry (GHCR). Available container images:
 
-- `ghcr.io/skm00/hookbridge-api`
-- `ghcr.io/skm00/hookbridge-worker`
-- `ghcr.io/skm00/hookbridge-dashboard`
+| Component | Image |
+| --- | --- |
+| API | `ghcr.io/skm00/hookbridge-api:latest` |
+| Worker | `ghcr.io/skm00/hookbridge-worker:latest` |
+| Dashboard | `ghcr.io/skm00/hookbridge-dashboard:latest` |
 
 ## Quick Start
-
-```bash
-docker compose up -d
-```
-
-## Quick Start with Docker Compose
 
 The fastest way to run the full local stack is Docker Compose. It starts MongoDB, Kafka, Elasticsearch, Kibana, Elastic APM, the API, the worker, and the dashboard.
 
