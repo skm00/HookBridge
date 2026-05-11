@@ -57,9 +57,32 @@ Operators are responsible for securing their HookBridge deployments. Recommended
 
 ## Dependency Management
 
-HookBridge uses dependency management and security alerting processes to reduce supply-chain risk. Maintainers should review Dependabot updates, GitHub security alerts, package advisories, and framework security notices regularly. Security and patch updates should be evaluated promptly, tested, and merged on an appropriate cadence.
+HookBridge uses dependency management and security alerting practices to help reduce supply-chain and runtime security risks.
 
-Operators should also rebuild and redeploy container images after dependency updates, base image updates, runtime security fixes, or operating system patches.
+Maintainers should regularly review:
+
+- Dependabot pull requests.
+- GitHub security alerts.
+- Package vulnerability advisories.
+- .NET and framework security bulletins.
+- Container base image updates.
+
+Security-related dependency updates should be evaluated, tested, and merged in a timely manner based on severity and operational impact.
+
+Operators deploying HookBridge should also regularly rebuild and redeploy container images after:
+
+- Dependency updates.
+- Base image updates.
+- Runtime security fixes.
+- Operating system security patches.
+
+We strongly recommend keeping the following updated with the latest stable security releases:
+
+- ASP.NET Core runtimes.
+- Docker images.
+- MongoDB deployments.
+- Kafka infrastructure.
+- Kubernetes clusters.
 
 ## Responsible Disclosure
 
