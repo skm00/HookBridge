@@ -26,6 +26,7 @@ It combines ASP.NET Core, Kafka, MongoDB, Docker, and Kubernetes-oriented deploy
 - [API Documentation](#api-documentation)
 - [Important Project-Specific Setup Details](#important-project-specific-setup-details)
 - [Roadmap](#roadmap)
+- [Community & Support](#community--support)
 - [Contributing](#contributing)
 - [Sponsorship](#sponsorship)
 - [License](#license)
@@ -408,6 +409,18 @@ Near-term roadmap items:
 
 The roadmap is intentionally conservative and implementation-driven. Issues and pull requests should prefer small, verifiable improvements over broad rewrites.
 
+## Community & Support
+
+HookBridge uses GitHub's public collaboration tools for community support, project coordination, and maintainer contact. GitHub does not provide a direct private DM system for repository maintainers, so please use the public channels below unless a maintainer lists another contact method on their profile.
+
+- **Issues:** Use GitHub Issues for reproducible bugs, focused feature requests, documentation gaps, and actionable maintenance tasks. Search existing issues first, include reproduction steps or acceptance criteria, and avoid posting secrets, API keys, JWTs, connection strings, or private customer data.
+- **Discussions:** Use GitHub Discussions for architecture questions, deployment tradeoffs, community support, and ideas that need design feedback before they become implementation issues.
+- **Sponsorship:** HookBridge is actively maintained and community feedback, contributions, and sponsorship support help improve long-term development. Sponsorship is optional and available through [GitHub Sponsors](https://github.com/sponsors/skm00).
+- **Contributions:** Contributions are welcome through focused pull requests with documentation and tests where practical. See [Contributing](#contributing) and [`CONTRIBUTING.md`](CONTRIBUTING.md) for workflow and maintainer-contact guidance.
+- **Security reporting:** Do not report vulnerabilities in public issues or discussions. Review [`docs/security.md`](docs/security.md); if a private reporting path is not listed, use public maintainer profile links to identify an appropriate contact method without disclosing sensitive details publicly.
+
+Maintainers can be contacted through GitHub Issues, GitHub Discussions, public profile links listed on maintainer profiles, and sponsorship pages where available. Use `@mentions` sparingly when a maintainer or contributor is directly relevant to the topic. For more support details, see [`.github/SUPPORT.md`](.github/SUPPORT.md).
+
 ## Contributing
 
 Contributions are welcome. Please keep changes focused, documented, and covered by tests where possible.
@@ -424,7 +437,7 @@ Good first contribution areas include documentation fixes, test coverage, API ex
 
 ## Sponsorship
 
-HookBridge is maintained as open-source infrastructure for developers building reliable webhook and event-driven systems. Sponsorship helps fund documentation, CI reliability, test coverage, dependency maintenance, demos, and long-term issue triage.
+HookBridge is actively maintained and community feedback, contributions, and sponsorship support help improve long-term development. Sponsorship helps fund documentation, CI reliability, test coverage, dependency maintenance, demos, and long-term issue triage.
 
 [Sponsor HookBridge on GitHub](https://github.com/sponsors/skm00)
 
