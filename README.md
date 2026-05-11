@@ -11,6 +11,8 @@ It combines ASP.NET Core, Kafka, MongoDB, Docker, and Kubernetes-oriented deploy
 [![Kafka](https://img.shields.io/badge/Kafka-event%20processing-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
 [![CloudEvents](https://img.shields.io/badge/CloudEvents-v1.0-326CE5)](https://cloudevents.io/)
 
+![HookBridge Banner](docs/images/hookbridge-banner.png)
+
 ## Table of Contents
 
 - [Why HookBridge](#why-hookbridge)
