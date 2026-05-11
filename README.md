@@ -16,6 +16,8 @@ It combines ASP.NET Core, Kafka, MongoDB, Docker, and Kubernetes-oriented deploy
 - [Why HookBridge](#why-hookbridge)
 - [Features](#features)
 - [Repository Layout](#repository-layout)
+- [Docker Images](#docker-images)
+- [Quick Start](#quick-start)
 - [Quick Start with Docker Compose](#quick-start-with-docker-compose)
 - [Local Development (.NET 8)](#local-development-net-8)
 - [Architecture](#architecture)
@@ -62,6 +64,20 @@ src/
 tests/                        API, application, and worker test projects
 deploy/                       Docker Compose, environment samples, Helm chart
 docs/                         API examples, demo guide, deployment, security, backup/restore
+```
+
+## Docker Images
+
+Available container images:
+
+- `ghcr.io/skm00/hookbridge-api`
+- `ghcr.io/skm00/hookbridge-worker`
+- `ghcr.io/skm00/hookbridge-dashboard`
+
+## Quick Start
+
+```bash
+docker compose up -d
 ```
 
 ## Quick Start with Docker Compose
