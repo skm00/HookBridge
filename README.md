@@ -5,6 +5,7 @@ It combines ASP.NET Core, Kafka, MongoDB, Docker, and Kubernetes-oriented deploy
 
 [![Build status](https://github.com/skm00/HookBridge/actions/workflows/dev.yml/badge.svg?branch=main)](https://github.com/skm00/HookBridge/actions/workflows/dev.yml)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](#license)
+[![Security Policy](https://img.shields.io/badge/security-policy-brightgreen.svg)](.github/SECURITY.md)
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/skm00)
 [![GitHub Discussions](https://img.shields.io/badge/discussions-GitHub%20Discussions-57606a?logo=github&logoColor=white)](https://github.com/skm00/HookBridge/discussions)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
