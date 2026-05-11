@@ -1,88 +1,89 @@
 # Support
 
-Thank you for your interest in HookBridge. This document explains how to get help, report issues, request features, contact maintainers, and support ongoing development.
+Thank you for your interest in HookBridge. This page explains where to ask questions, how to report issues, how to request features, and how to support ongoing maintenance.
 
-## Asking Questions
+## Getting Help
 
-Use GitHub Discussions for questions that are not clearly bugs or feature requests. Good discussion topics include:
+Start by checking the README, documentation under `docs/`, existing GitHub Issues, and existing GitHub Discussions. When opening a new support thread, include enough context for maintainers and contributors to understand your environment and goal.
 
-- Architecture and deployment approaches.
-- Local development setup and operational guidance.
-- Webhook reliability, retries, DLQs, and event-processing patterns.
-- Ideas that need community feedback before becoming a tracked issue.
+Helpful details include:
 
-Before opening a new discussion, search existing discussions and issues to avoid duplicates. Include relevant context such as your HookBridge version or branch, runtime environment, Docker/Kubernetes setup, logs, and the behavior you expected.
+- HookBridge branch, tag, or commit SHA.
+- Runtime environment, including .NET SDK, Docker Compose, Kubernetes, MongoDB, and Kafka versions where relevant.
+- Configuration details that are safe to share.
+- Logs, request examples, screenshots, or reproduction notes with secrets removed.
+
+Do not post API keys, JWTs, connection strings, webhook secrets, customer payloads, or other private data in public channels.
 
 ## Reporting Bugs
 
-Report reproducible bugs with a GitHub Issue. A useful bug report includes:
+Use GitHub Issues for bugs, regressions, runtime errors, incorrect documentation, and other actionable problems. Search existing issues before opening a new one so related reports can be consolidated.
 
-- A concise description of the problem.
-- Steps to reproduce the behavior.
-- Expected and actual results.
-- Relevant logs, stack traces, screenshots, or request/response examples.
-- Environment details such as operating system, .NET SDK version, Docker Compose or Kubernetes version, MongoDB version, Kafka version, and browser version for dashboard issues.
+A useful bug report includes:
 
-Please do not include secrets, API keys, JWTs, connection strings, or private customer data in issues or discussions.
+- A clear title that names the affected area.
+- Steps to reproduce the issue.
+- Expected behavior and actual behavior.
+- Relevant logs, stack traces, HTTP requests or responses, screenshots, or failing tests.
+- Environment details, including operating system, .NET SDK version, browser version for dashboard issues, and deployment method.
 
-## Requesting Features
+Keep each issue focused on one problem. If a report turns into a broader design question, maintainers may ask you to continue the discussion in GitHub Discussions.
 
-Open a GitHub Issue for concrete feature requests that are ready for maintainer review. Use GitHub Discussions when the request is exploratory, needs design feedback, or may affect project architecture.
+## Feature Requests
+
+Use GitHub Issues for concrete, scoped feature requests that are ready for maintainer triage. Use GitHub Discussions first when the idea needs design feedback, architecture tradeoff analysis, or community input before becoming implementation work.
 
 Feature requests are easier to evaluate when they include:
 
-- The problem or workflow you want to improve.
-- Proposed behavior or API changes.
+- The problem or workflow the feature would improve.
+- Proposed behavior, API changes, configuration changes, or user-facing changes.
 - Alternatives you considered.
-- Compatibility, deployment, or security considerations.
-- Whether you are interested in contributing an implementation.
+- Compatibility, security, and deployment considerations.
+- Whether you are interested in contributing the implementation.
 
-## Creating Issues
+## Discussions
 
-Use issues for actionable work items, including bugs, documentation gaps, focused enhancements, and validated feature requests. Keep each issue focused on one problem or request so it can be triaged and resolved independently.
+Use GitHub Discussions for architecture questions, community support, deployment planning, operational tradeoffs, and ideas that are not yet ready for a focused issue.
 
-When creating an issue:
+Good discussion topics include:
 
-1. Search for an existing issue first.
-2. Use a clear title that identifies the affected area.
-3. Provide reproduction steps or acceptance criteria where possible.
-4. Add links to related discussions, pull requests, documentation, or logs.
-5. Be available for follow-up questions during triage.
+- Webhook reliability, retries, failed-event handling, and DLQ operations.
+- Kafka, MongoDB, Docker Compose, Kubernetes, and observability decisions.
+- Integration approaches and deployment patterns.
+- Community examples, lessons learned, and early design proposals.
 
-## GitHub Discussions Guidance
+If a discussion identifies a reproducible bug or a specific implementation task, open a focused GitHub Issue and link back to the discussion for context.
 
-Discussions are the preferred place for community support and broader design conversation. Use Discussions for:
+## Sponsorship & Support
 
-- General questions about using HookBridge.
-- Architecture and operational tradeoffs.
-- Deployment planning and integration patterns.
-- Community feedback on larger ideas before opening issues.
+HookBridge is actively maintained and community support, feedback, and sponsorships help improve long-term development.
 
-If a discussion becomes a specific bug or implementation task, maintainers may ask you to open a focused issue.
-
-## Contacting Maintainers
-
-GitHub does not provide a direct private DM system for repository maintainers. Use public project channels unless a maintainer lists another contact method on their profile.
-
-Maintainers can be contacted through:
-
-- GitHub Issues for bugs, documentation gaps, and actionable feature requests.
-- GitHub Discussions for architecture, usage, and community questions.
-- Public profile links listed on maintainer GitHub profiles.
-- GitHub Sponsors pages or sponsorship-related contact paths where available.
-
-Use `@mentions` sparingly and only when a maintainer or contributor is directly relevant to the topic. Avoid posting sensitive security details publicly; follow the repository security reporting guidance instead.
-
-## Sponsorship and Support
-
-HookBridge is actively maintained and community feedback, contributions, and sponsorship support help improve long-term development.
-
-Sponsorship is optional and should be used when individuals or organizations want to support continued maintenance, documentation, testing, and issue triage. You can support the project through GitHub Sponsors:
+Sponsorship is optional and available through GitHub Sponsors:
 
 - <https://github.com/sponsors/skm00>
 
-Sponsorship does not replace the public issue and discussion workflow, and it does not guarantee a specific feature timeline. Please continue to use issues and discussions for technical coordination.
+Please avoid opening sponsorship issues unless there is a specific repository maintenance need that cannot be handled through GitHub Sponsors, public documentation, or maintainer profile links. Sponsorship does not replace the normal issue, discussion, and pull request workflow, and it does not guarantee a specific feature timeline.
 
-## Security Reports
+## Security Reporting
 
-Do not report security vulnerabilities in public issues or discussions. Review the README and `docs/security.md`; if a private reporting path is not listed, use public maintainer profile links to identify an appropriate contact method without disclosing sensitive details publicly.
+Do not report security vulnerabilities in public GitHub Issues or GitHub Discussions. Review `docs/security.md` for security guidance. If a private reporting path is not listed, use maintainer profile links or other listed contact paths to identify an appropriate private channel without disclosing sensitive details publicly.
+
+When reporting security concerns privately, include:
+
+- A concise summary of the vulnerability.
+- Reproduction steps or proof-of-concept details.
+- Affected versions, components, and deployment assumptions.
+- Potential impact and any known mitigations.
+
+## Contacting Maintainers
+
+GitHub does not provide a direct private DM system for repository maintainers. Use public project channels unless a maintainer lists another contact method on their public GitHub profile.
+
+Use the most specific channel available:
+
+- GitHub Issues for bugs, documentation problems, focused feature requests, and actionable maintenance tasks.
+- GitHub Discussions for architecture questions, community support, deployment help, and exploratory ideas.
+- Pull requests for proposed code, documentation, configuration, or test changes.
+- GitHub Sponsors or maintainer profile links for sponsorship-specific contact paths.
+
+Use `@mentions` responsibly. Mention maintainers or contributors only when they are directly relevant to the question, review, or follow-up, and avoid broad or repeated mentions.
