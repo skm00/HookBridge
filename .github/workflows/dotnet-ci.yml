@@ -21,6 +21,7 @@ env:
   SOLUTION_FILE: HookBridge.sln
   TEST_RESULTS_DIR: test-results
   COVERAGE_REPORTS_DIR: coverage-reports
+  COVERAGE_LINE_THRESHOLD: 75
 
 jobs:
   build-test-coverage:
@@ -83,6 +84,39 @@ jobs:
           else
             echo "::warning::No coverage.cobertura.xml files were found under $TEST_RESULTS_DIR."
           fi
+
+      - name: Enforce minimum line coverage
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import sys
+          import xml.etree.ElementTree as ET
+
+          coverage_file = pathlib.Path(os.environ["COVERAGE_REPORTS_DIR"]) / "Cobertura.xml"
+          threshold = float(os.environ["COVERAGE_LINE_THRESHOLD"])
+
+          if not coverage_file.exists():
+              print(f"Coverage file not found: {coverage_file}", file=sys.stderr)
+              sys.exit(1)
+
+          root = ET.parse(coverage_file).getroot()
+          line_rate = float(root.attrib.get("line-rate", "0")) * 100
+          branch_rate = float(root.attrib.get("branch-rate", "0")) * 100
+
+          print(f"Line coverage: {line_rate:.2f}%")
+          print(f"Branch coverage: {branch_rate:.2f}%")
+          print(f"Required line coverage: {threshold:.2f}%")
+
+          if line_rate < threshold:
+              print(
+                  f"Line coverage {line_rate:.2f}% is below the required {threshold:.2f}% threshold.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          PY
 
       - name: Upload test results
         if: always()
