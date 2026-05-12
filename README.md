@@ -4,7 +4,7 @@ HookBridge is an open-source high-throughput webhook platform built using .NET 8
 
 It provides scalable webhook processing, retry mechanisms, DLQ handling, CloudEvents compatibility, and enterprise-grade observability.
 
-[![Build Status](https://github.com/skm00/HookBridge/actions/workflows/dev.yml/badge.svg?branch=main)](https://github.com/skm00/HookBridge/actions/workflows/dev.yml)
+[![Build](https://github.com/skm00/HookBridge/actions/workflows/dotnet-ci.yml/badge.svg)](https://github.com/skm00/HookBridge/actions/workflows/dotnet-ci.yml)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/8.0)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](#license)
 [![GitHub stars](https://img.shields.io/github/stars/skm00/HookBridge?style=social)](https://github.com/skm00/HookBridge/stargazers)
@@ -39,6 +39,7 @@ It provides scalable webhook processing, retry mechanisms, DLQ handling, CloudEv
 - [Kubernetes Deployment](#kubernetes-deployment)
 - [Docker Setup](#docker-setup)
 - [Getting Started](#getting-started)
+- [Continuous Integration](#continuous-integration)
 - [Roadmap](#roadmap)
 - [Sponsors](#sponsors)
 - [Contributing](#contributing)
@@ -290,6 +291,25 @@ dotnet restore
 dotnet build HookBridge.sln
 dotnet test HookBridge.sln
 ```
+
+## Continuous Integration
+
+HookBridge uses the [`.NET CI/CD`](.github/workflows/dotnet-ci.yml) GitHub Actions workflow to validate changes before they are merged into `main`. The workflow runs on every pull request targeting `main` and every push to `main` using `ubuntu-latest` with the .NET 8 SDK.
+
+The pipeline provides:
+
+- **Build validation:** restores NuGet packages once, builds `HookBridge.sln` in `Release` mode, and fails fast when compilation fails.
+- **Automated testing:** runs the xUnit test projects with `dotnet test --no-build`, emits TRX logs, and surfaces failing test names in the GitHub Actions log output.
+- **Code coverage:** collects Coverlet `XPlat Code Coverage`, generates HTML/Cobertura/TextSummary coverage reports, enforces the existing 75% minimum line coverage gate, and publishes `coverage-reports/` as a workflow artifact.
+- **Pull request checks:** uploads `test-results/` on every run and is designed to be required as a status check before merging.
+- **Fast execution:** caches NuGet packages and uses `--no-restore`/`--no-build` to avoid duplicate work after the initial restore and build steps.
+
+Recommended branch protection for `main`:
+
+1. Require a pull request before merging.
+2. Require the `.NET CI/CD` status check to pass before merge so build, test, and 75% line coverage gates cannot be bypassed.
+3. Prevent direct pushes to `main`, including for administrators unless an emergency bypass process is documented.
+4. Require branches to be up to date before merging when the repository has high commit volume.
 
 ## Roadmap
 
