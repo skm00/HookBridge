@@ -1,10 +1,10 @@
-# HookBridge — High-Throughput .NET 8 Webhook Platform, Kafka Webhook Gateway, and CloudEvents Event-Driven Infrastructure
+# HookBridge
 
 HookBridge is an open-source high-throughput webhook platform built using .NET 8, Kafka, MongoDB, and Kubernetes.
 
-It is designed for scalable, reliable, event-driven webhook processing with retry support, DLQ handling, CloudEvents compatibility, and enterprise-grade observability.
+It provides scalable webhook processing, retry mechanisms, DLQ handling, CloudEvents compatibility, and enterprise-grade observability.
 
-[![Build status](https://github.com/skm00/HookBridge/actions/workflows/dev.yml/badge.svg?branch=main)](https://github.com/skm00/HookBridge/actions/workflows/dev.yml)
+[![Build Status](https://github.com/skm00/HookBridge/actions/workflows/dev.yml/badge.svg?branch=main)](https://github.com/skm00/HookBridge/actions/workflows/dev.yml)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/8.0)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](#license)
 [![GitHub stars](https://img.shields.io/github/stars/skm00/HookBridge?style=social)](https://github.com/skm00/HookBridge/stargazers)
@@ -16,43 +16,46 @@ It is designed for scalable, reliable, event-driven webhook processing with retr
 [![Security Policy](https://img.shields.io/badge/security-policy-brightgreen.svg)](.github/SECURITY.md)
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/skm00)
 
-> **Suggested GitHub About description:** High-throughput webhook processing platform built with .NET 8, Kafka, MongoDB, Kubernetes, and CloudEvents support.
->
-> **Suggested GitHub Topics:** `dotnet`, `aspnetcore`, `webhook`, `webhook-platform`, `kafka`, `mongodb`, `kubernetes`, `event-driven`, `cloud-native`, `microservices`, `cloudevents`, `observability`, `elasticsearch`, `distributed-systems`.
+## GitHub Search Metadata
+
+**Repository About description:** High-throughput webhook processing platform built with .NET 8, Kafka, MongoDB, Kubernetes, and CloudEvents support.
+
+**Optimized GitHub Topics:** `dotnet`, `aspnetcore`, `webhook`, `webhook-platform`, `kafka`, `mongodb`, `kubernetes`, `event-driven`, `cloud-native`, `microservices`, `cloudevents`, `observability`, `elasticsearch`, `distributed-systems`.
 
 ![HookBridge Banner](docs/images/banner.png)
 
-⭐ **If you find HookBridge useful, please star the repository and share it with others.**
+⭐ **If you find HookBridge useful, please star the repository.**
 
 ## Table of Contents
 
 - [Webhook Platform Overview](#webhook-platform-overview)
-- [Why HookBridge? Webhook Gateway vs Direct Delivery](#why-hookbridge-webhook-gateway-vs-direct-delivery)
-- [Features for Scalable Webhook Processing](#features-for-scalable-webhook-processing)
-- [Architecture Overview for Event-Driven Webhook Processing](#architecture-overview-for-event-driven-webhook-processing)
+- [Why HookBridge?](#why-hookbridge)
+- [Features](#features)
+- [Architecture](#architecture)
 - [Technology Stack](#technology-stack)
-- [Use Cases](#use-cases)
-- [Getting Started](#getting-started)
-- [Docker Setup](#docker-setup)
-- [Kubernetes Deployment](#kubernetes-deployment)
-- [Retry Mechanism and Dead Letter Queue](#retry-mechanism-and-dead-letter-queue)
+- [Retry & DLQ](#retry--dlq)
 - [CloudEvents Support](#cloudevents-support)
-- [Webhook Observability](#webhook-observability)
+- [Observability](#observability)
+- [Kubernetes Deployment](#kubernetes-deployment)
+- [Docker Setup](#docker-setup)
+- [Getting Started](#getting-started)
+- [Roadmap](#roadmap)
+- [Sponsors](#sponsors)
+- [Contributing](#contributing)
+- [Use Cases](#use-cases)
 - [Scaling and Reliability](#scaling-and-reliability)
 - [Screenshots](#screenshots)
 - [API Documentation](#api-documentation)
 - [Repository Layout](#repository-layout)
 - [Configuration and Operations](#configuration-and-operations)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [Sponsors](#sponsors)
+- [Community and Support](#community-and-support)
 - [License](#license)
 
 ## Webhook Platform Overview
 
 HookBridge provides a production-oriented **webhook platform** and **webhook gateway** for teams that need to ingest events, buffer traffic, process delivery asynchronously, retry failures, and inspect delivery history without relying on a third-party hosted webhook SaaS.
 
-The project is a **.NET 8 webhook system** built around ASP.NET Core APIs, Kafka webhook processing, MongoDB persistence, CloudEvents support, Docker, Kubernetes deployment assets, and Elastic observability. HookBridge is designed for **scalable webhook processing** in an **event-driven architecture** where webhook delivery must survive endpoint downtime, traffic bursts, duplicate messages, and operational failures.
+The project is a **.NET 8 webhook system** and **.NET webhook** foundation built around ASP.NET Core APIs, Kafka webhook processing, MongoDB persistence, CloudEvents support, Docker, Kubernetes deployment assets, and Elastic observability. HookBridge is designed for **scalable webhook processing** in an **event-driven architecture** where webhook delivery must survive endpoint downtime, traffic bursts, duplicate messages, and operational failures.
 
 Use HookBridge when you need a self-hosted foundation for:
 
@@ -63,7 +66,7 @@ Use HookBridge when you need a self-hosted foundation for:
 - Webhook observability across API ingestion, worker delivery, failures, and health.
 - CloudEvents support for interoperable event-driven platform integrations.
 
-## Why HookBridge? Webhook Gateway vs Direct Delivery
+## Why HookBridge?
 
 Direct webhook delivery is simple at low volume, but it becomes difficult to operate when downstream endpoints are slow, unavailable, or inconsistent. HookBridge adds infrastructure patterns that make webhook delivery more reliable and observable.
 
@@ -77,7 +80,7 @@ Direct webhook delivery is simple at low volume, but it becomes difficult to ope
 | Scalability | Scaling requires changing every producer service. | Scale API, Kafka, MongoDB, and worker components independently. |
 | CloudEvents support | Event formats vary across teams. | CloudEvents support helps standardize event metadata and payloads. |
 
-## Features for Scalable Webhook Processing
+## Features
 
 - **High-throughput webhook ingestion** through an ASP.NET Core API with tenant API keys and validation.
 - **Kafka webhook processing** that buffers inbound events and decouples producers from outbound webhook delivery.
@@ -92,7 +95,7 @@ Direct webhook delivery is simple at low volume, but it becomes difficult to ope
 - **Docker and Kubernetes deployment** with Docker Compose for local development and Helm chart assets for Kubernetes environments.
 - **Developer-friendly APIs** with Swagger/OpenAPI documentation, Postman examples, Thunder Client examples, and demo data.
 
-## Architecture Overview for Event-Driven Webhook Processing
+## Architecture
 
 HookBridge separates ingestion, event streaming, webhook delivery, retry/DLQ handling, persistence, and observability. This event-driven architecture lets producers submit events quickly while workers handle delivery reliability outside the request path.
 
@@ -143,41 +146,76 @@ For deeper design notes, see [Architecture Documentation](docs/architecture.md).
 | Cloud runtime | Kubernetes, Helm |
 | Security | JWT admin auth, tenant API keys, roles, IP allowlists, endpoint validation, outbound auth options |
 
-## Use Cases
+## Retry & DLQ
 
-HookBridge is useful for teams building or operating:
+HookBridge includes a webhook retry mechanism that records every delivery attempt and keeps failed delivery state visible to operators.
 
-- A self-hosted webhook platform for SaaS products.
-- A .NET 8 webhook system for internal or customer-facing integrations.
-- A Kafka webhook processing pipeline for bursty event delivery.
-- A webhook gateway that centralizes retries, DLQ handling, and webhook observability.
-- A CloudEvents .NET event ingestion layer for event-driven architecture adoption.
-- A scalable webhook infrastructure layer for microservices and cloud-native platforms.
-- A developer portal or dashboard for tenants, subscriptions, delivery history, and failed-event replay.
+- Events are accepted through the API and published for worker processing.
+- The worker records delivery attempts, response status, duration, target URL, and errors.
+- Retry policies can use fixed or exponential behavior depending on subscription configuration.
+- Failed events are persisted in a DLQ-style failed-events collection after retry exhaustion.
+- Admin APIs and dashboard pages support failed-event inspection and manual retry.
 
-## Getting Started
+This webhook retry mechanism and dead letter queue model improves reliability for event-driven webhook processing because temporary endpoint outages do not require producers to re-send business events manually.
 
-### Prerequisites
+## CloudEvents Support
 
-- Docker and Docker Compose v2.
-- Git.
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) if running services outside Docker.
-- Node.js 18+ if working on the dashboard.
+HookBridge provides CloudEvents support for CloudEvents v1.0 structured payloads and binary-style HTTP requests, making it easier to integrate with event-driven architecture standards across services and platforms.
 
-### Clone the Repository
+Supported ingestion styles include raw JSON, HookBridge envelopes, and CloudEvents payloads:
 
-```bash
-git clone https://github.com/skm00/HookBridge.git
-cd HookBridge
+```json
+{ "username": "abc" }
 ```
 
-### Restore, Build, and Test
+```json
+{
+  "eventType": "invoice.created",
+  "payload": { "invoiceId": "INV-001" }
+}
+```
+
+```json
+{
+  "specversion": "1.0",
+  "id": "evt_123",
+  "source": "/example",
+  "type": "invoice.created",
+  "data": { "invoiceId": "INV-001" }
+}
+```
+
+For CloudEvents binary-style requests, provide attributes such as `ce-specversion`, `ce-id`, `ce-source`, `ce-type`, and optional `ce-time` as HTTP headers. `CloudEvents.type` maps to the HookBridge event type. If no event type is present, HookBridge uses `default`. Subscription matching supports exact event types, `*`, and empty event type values as wildcards.
+
+Strict CloudEvents validation can be enabled with configuration:
 
 ```bash
-dotnet restore
-dotnet build HookBridge.sln
-dotnet test HookBridge.sln
+CloudEvents__StrictValidation=true
 ```
+
+## Observability
+
+Webhook observability is a first-class part of HookBridge. Local Docker Compose includes Elasticsearch, Kibana, and Elastic APM so teams can inspect ingestion, delivery behavior, retries, failures, and service health.
+
+Useful local endpoints and tools:
+
+- `/health`
+- `/api/v1/health/*`
+- Kibana: <http://localhost:5601>
+- Elastic APM Server: <http://localhost:8200>
+
+Observability data can include structured application logs, worker logs, delivery attempts, response metadata, audit logs, failed events, and health status. This gives operators the information needed to investigate webhook gateway failures, dead letter queue growth, downstream outages, latency spikes, and retry storms.
+
+## Kubernetes Deployment
+
+HookBridge includes Helm/Kubernetes deployment assets for teams that want to run scalable webhook infrastructure in a cloud-native environment. Use these assets as a starting point for Kubernetes webhook deployment across staging and production clusters.
+
+- Helm chart documentation: [`deploy/helm/README.md`](deploy/helm/README.md)
+- Deployment notes: [`docs/deployment.md`](docs/deployment.md)
+- Environment sample: [`deploy/.env.example`](deploy/.env.example)
+- Docker Compose reference: [`deploy/docker-compose.yml`](deploy/docker-compose.yml)
+
+A typical Kubernetes deployment separates the API, worker, Kafka, MongoDB, and observability components so each layer can scale independently. Production deployments should configure ingress, TLS, secrets, resource requests/limits, persistent storage, Kafka retention, MongoDB backups, and Elastic retention policies.
 
 ## Docker Setup
 
@@ -227,76 +265,82 @@ Remove local MongoDB and Elasticsearch volumes as well:
 docker compose -f deploy/docker-compose.yml down -v
 ```
 
-## Kubernetes Deployment
+## Getting Started
 
-HookBridge includes Helm/Kubernetes deployment assets for teams that want to run scalable webhook infrastructure in a cloud-native environment.
+Start locally with Docker Compose for the complete webhook platform, or use the .NET SDK when developing API and worker services directly.
 
-- Helm chart documentation: [`deploy/helm/README.md`](deploy/helm/README.md)
-- Deployment notes: [`docs/deployment.md`](docs/deployment.md)
-- Environment sample: [`deploy/.env.example`](deploy/.env.example)
-- Docker Compose reference: [`deploy/docker-compose.yml`](deploy/docker-compose.yml)
+### Prerequisites
 
-A typical Kubernetes deployment separates the API, worker, Kafka, MongoDB, and observability components so each layer can scale independently. Production deployments should configure ingress, TLS, secrets, resource requests/limits, persistent storage, Kafka retention, MongoDB backups, and Elastic retention policies.
+- Docker and Docker Compose v2.
+- Git.
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) if running services outside Docker.
+- Node.js 18+ if working on the dashboard.
 
-## Retry Mechanism and Dead Letter Queue
-
-HookBridge includes a webhook retry mechanism that records every delivery attempt and keeps failed delivery state visible to operators.
-
-- Events are accepted through the API and published for worker processing.
-- The worker records delivery attempts, response status, duration, target URL, and errors.
-- Retry policies can use fixed or exponential behavior depending on subscription configuration.
-- Failed events are persisted in a DLQ-style failed-events collection after retry exhaustion.
-- Admin APIs and dashboard pages support failed-event inspection and manual retry.
-
-This retry and dead letter queue model improves reliability for event-driven webhook processing because temporary endpoint outages do not require producers to re-send business events manually.
-
-## CloudEvents Support
-
-HookBridge provides CloudEvents support for CloudEvents v1.0 structured payloads and binary-style HTTP requests, making it easier to integrate with event-driven architecture standards across services and platforms.
-
-Supported ingestion styles include raw JSON, HookBridge envelopes, and CloudEvents payloads:
-
-```json
-{ "username": "abc" }
-```
-
-```json
-{
-  "eventType": "invoice.created",
-  "payload": { "invoiceId": "INV-001" }
-}
-```
-
-```json
-{
-  "specversion": "1.0",
-  "id": "evt_123",
-  "source": "/example",
-  "type": "invoice.created",
-  "data": { "invoiceId": "INV-001" }
-}
-```
-
-For CloudEvents binary-style requests, provide attributes such as `ce-specversion`, `ce-id`, `ce-source`, `ce-type`, and optional `ce-time` as HTTP headers. `CloudEvents.type` maps to the HookBridge event type. If no event type is present, HookBridge uses `default`. Subscription matching supports exact event types, `*`, and empty event type values as wildcards.
-
-Strict CloudEvents validation can be enabled with configuration:
+### Clone the Repository
 
 ```bash
-CloudEvents__StrictValidation=true
+git clone https://github.com/skm00/HookBridge.git
+cd HookBridge
 ```
 
-## Webhook Observability
+### Restore, Build, and Test
 
-Webhook observability is a first-class part of HookBridge. Local Docker Compose includes Elasticsearch, Kibana, and Elastic APM so teams can inspect ingestion, delivery behavior, retries, failures, and service health.
+```bash
+dotnet restore
+dotnet build HookBridge.sln
+dotnet test HookBridge.sln
+```
 
-Useful local endpoints and tools:
+## Roadmap
 
-- `/health`
-- `/api/v1/health/*`
-- Kibana: <http://localhost:5601>
-- Elastic APM Server: <http://localhost:8200>
+Near-term roadmap items:
 
-Observability data can include structured application logs, worker logs, delivery attempts, response metadata, audit logs, failed events, and health status. This gives operators the information needed to investigate webhook gateway failures, dead letter queue growth, downstream outages, latency spikes, and retry storms.
+- Harden Kafka topic management and retry/DLQ operational tooling.
+- Expand OpenAPI examples and SDK/client generation guidance.
+- Add more Kubernetes deployment documentation for ingress, TLS, secrets, production observability, and sizing.
+- Improve dashboard workflows for delivery history, endpoint validation, and DLQ replay.
+- Add more integration tests around Kafka, MongoDB, worker retry behavior, CloudEvents support, and duplicate-safe delivery.
+- Document production scaling, consumer lag monitoring, retention tuning, and operational runbooks.
+
+The roadmap is intentionally conservative and implementation-driven. Issues and pull requests should prefer small, verifiable improvements over broad rewrites.
+
+## Sponsors
+
+HookBridge is actively maintained, and community support, feedback, and sponsorships help improve long-term development. Sponsorship helps fund documentation, CI reliability, test coverage, dependency maintenance, demos, and long-term issue triage.
+
+[Sponsor HookBridge on GitHub](https://github.com/sponsors/skm00)
+
+For sponsorship messaging and maintainer notes, see [`docs/sponsorship.md`](docs/sponsorship.md).
+
+## Contributing
+
+⭐ **If you find HookBridge useful, please star the repository.**
+
+Contributions are welcome. Please keep changes focused, documented, and covered by tests where possible.
+
+Recommended workflow:
+
+1. Fork the repository and create a feature branch.
+2. Run `dotnet restore`, `dotnet build HookBridge.sln`, and `dotnet test HookBridge.sln` before opening a pull request.
+3. For dashboard changes, run `npm install`, `npm run typecheck`, and `npm run build` from `src/HookBridge.Dashboard`.
+4. Update README/docs when behavior, configuration, APIs, or deployment steps change.
+5. Keep pull requests small enough to review comfortably.
+
+Good first contribution areas include documentation fixes, test coverage, API examples, dashboard usability improvements, deployment notes, and validation edge cases.
+
+For detailed contribution guidelines, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Use Cases
+
+HookBridge is useful for teams building or operating:
+
+- A self-hosted webhook platform for SaaS products.
+- A .NET 8 webhook system for internal or customer-facing integrations.
+- A Kafka webhook processing pipeline for bursty event delivery.
+- A webhook gateway that centralizes retries, DLQ handling, and webhook observability.
+- A CloudEvents .NET event ingestion layer for event-driven architecture adoption.
+- A scalable webhook infrastructure layer for microservices and cloud-native platforms.
+- A developer portal or dashboard for tenants, subscriptions, delivery history, and failed-event replay.
 
 ## Scaling and Reliability
 
@@ -465,43 +509,6 @@ Protected dashboard routes include `/overview` and operational pages for tenants
 - Deployment notes: [`docs/deployment.md`](docs/deployment.md)
 - Security notes: [`docs/security.md`](docs/security.md)
 - Backup and restore: [`docs/backup-restore.md`](docs/backup-restore.md)
-
-## Roadmap
-
-Near-term roadmap items:
-
-- Harden Kafka topic management and retry/DLQ operational tooling.
-- Expand OpenAPI examples and SDK/client generation guidance.
-- Add more Kubernetes deployment documentation for ingress, TLS, secrets, production observability, and sizing.
-- Improve dashboard workflows for delivery history, endpoint validation, and DLQ replay.
-- Add more integration tests around Kafka, MongoDB, worker retry behavior, CloudEvents support, and duplicate-safe delivery.
-- Document production scaling, consumer lag monitoring, retention tuning, and operational runbooks.
-
-The roadmap is intentionally conservative and implementation-driven. Issues and pull requests should prefer small, verifiable improvements over broad rewrites.
-
-## Contributing
-
-Contributions are welcome. Please keep changes focused, documented, and covered by tests where possible.
-
-Recommended workflow:
-
-1. Fork the repository and create a feature branch.
-2. Run `dotnet restore`, `dotnet build HookBridge.sln`, and `dotnet test HookBridge.sln` before opening a pull request.
-3. For dashboard changes, run `npm install`, `npm run typecheck`, and `npm run build` from `src/HookBridge.Dashboard`.
-4. Update README/docs when behavior, configuration, APIs, or deployment steps change.
-5. Keep pull requests small enough to review comfortably.
-
-Good first contribution areas include documentation fixes, test coverage, API examples, dashboard usability improvements, deployment notes, and validation edge cases.
-
-For detailed contribution guidelines, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-## Sponsors
-
-HookBridge is actively maintained, and community support, feedback, and sponsorships help improve long-term development. Sponsorship helps fund documentation, CI reliability, test coverage, dependency maintenance, demos, and long-term issue triage.
-
-[Sponsor HookBridge on GitHub](https://github.com/sponsors/skm00)
-
-For sponsorship messaging and maintainer notes, see [`docs/sponsorship.md`](docs/sponsorship.md).
 
 ## Community and Support
 
