@@ -1,0 +1,103 @@
+name: .NET CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dotnet-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: 8.0.x
+  CONFIGURATION: Release
+  SOLUTION_FILE: HookBridge.sln
+  TEST_RESULTS_DIR: test-results
+  COVERAGE_REPORTS_DIR: coverage-reports
+
+jobs:
+  build-test-coverage:
+    name: Build, test, and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.sln', '**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
+        run: dotnet restore "$SOLUTION_FILE"
+
+      - name: Build solution
+        run: dotnet build "$SOLUTION_FILE" --configuration "$CONFIGURATION" --no-restore --verbosity minimal
+
+      - name: Run unit tests with coverage
+        shell: bash
+        run: |
+          mkdir -p "$TEST_RESULTS_DIR" "$COVERAGE_REPORTS_DIR"
+          dotnet test "$SOLUTION_FILE" \
+            --configuration "$CONFIGURATION" \
+            --no-restore \
+            --no-build \
+            --collect:"XPlat Code Coverage" \
+            --logger "trx;LogFilePrefix=hookbridge-tests" \
+            --results-directory "$TEST_RESULTS_DIR" \
+            --verbosity normal
+
+      - name: Install coverage report generator
+        if: always()
+        shell: bash
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Generate code coverage report
+        if: always()
+        shell: bash
+        run: |
+          if find "$TEST_RESULTS_DIR" -name 'coverage.cobertura.xml' -print -quit | grep -q .; then
+            reportgenerator \
+              -reports:"$TEST_RESULTS_DIR/**/coverage.cobertura.xml" \
+              -targetdir:"$COVERAGE_REPORTS_DIR" \
+              -reporttypes:"HtmlInline_AzurePipelines;Cobertura;TextSummary"
+          else
+            echo "::warning::No coverage.cobertura.xml files were found under $TEST_RESULTS_DIR."
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ${{ env.TEST_RESULTS_DIR }}/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: ${{ env.COVERAGE_REPORTS_DIR }}/
+          if-no-files-found: warn
+          retention-days: 14
