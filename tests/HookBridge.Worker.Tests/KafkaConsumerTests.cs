@@ -63,7 +63,7 @@ public sealed class KafkaConsumerTests
             enableAutoCommit: true);
 
         var results = new List<WebhookEventMessage>();
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
 
         await foreach (var message in consumer.ConsumeAsync<WebhookEventMessage>("webhook-events", "group-1", cts.Token))
         {
@@ -100,7 +100,7 @@ public sealed class KafkaConsumerTests
         var consumer = CreateKafkaConsumer(logger, _ => kafkaClientMock.Object, enableAutoCommit: true);
 
         WebhookEventMessage? result = null;
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
 
         await foreach (var message in consumer.ConsumeAsync<WebhookEventMessage>("webhook-events", "group-1", cts.Token))
         {
@@ -137,7 +137,7 @@ public sealed class KafkaConsumerTests
         var consumer = CreateKafkaConsumer(logger, _ => kafkaClientMock.Object, enableAutoCommit: true);
 
         WebhookEventMessage? result = null;
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
 
         await foreach (var message in consumer.ConsumeAsync<WebhookEventMessage>("webhook-events", "group-1", cts.Token))
         {
@@ -169,7 +169,7 @@ public sealed class KafkaConsumerTests
 
         var consumer = CreateKafkaConsumer(consumerFactory: _ => kafkaClientMock.Object, enableAutoCommit: false);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
         await foreach (var message in consumer.ConsumeAsync<WebhookEventMessage>("webhook-events", "group-1", cts.Token))
         {
             message.EventId.Should().Be("evt-commit");
@@ -202,7 +202,7 @@ public sealed class KafkaConsumerTests
         var consumer = CreateKafkaConsumer(logger, _ => kafkaClientMock.Object, enableAutoCommit: false);
 
         WebhookEventMessage? result = null;
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
         await foreach (var message in consumer.ConsumeAsync<WebhookEventMessage>("webhook-events", "group-1", cts.Token))
         {
             result = message;
