@@ -61,6 +61,7 @@ jobs:
             --no-restore \
             --no-build \
             --collect:"XPlat Code Coverage" \
+            --settings coverlet.runsettings \
             --logger "trx;LogFilePrefix=hookbridge-tests" \
             --results-directory "$TEST_RESULTS_DIR" \
             --verbosity normal

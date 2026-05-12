@@ -13,7 +13,10 @@ public sealed class KafkaProducer : IKafkaProducer, IDisposable
     private readonly ILogger<KafkaProducer> _logger;
     private bool _disposed;
 
-    public KafkaProducer(IOptions<KafkaSettings> kafkaOptions, ILogger<KafkaProducer> logger)
+    public KafkaProducer(
+        IOptions<KafkaSettings> kafkaOptions,
+        ILogger<KafkaProducer> logger,
+        Func<ProducerConfig, IProducer<string, string>>? producerFactory = null)
     {
         _logger = logger;
         var settings = kafkaOptions.Value;
@@ -58,7 +61,7 @@ public sealed class KafkaProducer : IKafkaProducer, IDisposable
             producerConfig.SaslPassword = settings.SaslPassword;
         }
 
-        _producer = new ProducerBuilder<string, string>(producerConfig).Build();
+        _producer = (producerFactory ?? BuildProducer)(producerConfig);
     }
 
     public async Task ProduceAsync<T>(string topic, string key, T message, CancellationToken cancellationToken = default)
@@ -115,6 +118,11 @@ public sealed class KafkaProducer : IKafkaProducer, IDisposable
 
             throw;
         }
+    }
+
+    private static IProducer<string, string> BuildProducer(ProducerConfig producerConfig)
+    {
+        return new ProducerBuilder<string, string>(producerConfig).Build();
     }
 
     public void Dispose()
