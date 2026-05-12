@@ -11,6 +11,7 @@
       <PackageReference Include="Elastic.Apm.NetCoreAll" Version="1.34.1" />
       <PackageReference Include="Elastic.Apm.AspNetCore" Version="1.34.1" />
       <PackageReference Include="MongoDB.Driver" Version="3.0.0" />
+      <PackageReference Include="Confluent.Kafka" Version="2.8.0" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
