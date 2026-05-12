@@ -23,6 +23,7 @@ It combines ASP.NET Core, Kafka, MongoDB, Docker, and Kubernetes-oriented deploy
 - [Docker Images](#docker-images)
 - [Quick Start](#quick-start)
 - [Local Development (.NET 8)](#local-development-net-8)
+- [Kafka Consumer Swap Buffer Strategy](#kafka-consumer-swap-buffer-strategy)
 - [Architecture](#architecture)
 - [Screenshots](#screenshots)
 - [API Documentation](#api-documentation)
@@ -185,7 +186,7 @@ dotnet run --project src/HookBridge.Worker/HookBridge.Worker.csproj
 
 The worker hosts:
 
-- Webhook event consumer
+- Swap-buffer Kafka consumer for high-throughput webhook event persistence
 - Webhook retry consumer
 - Automated data cleanup worker
 
@@ -198,6 +199,19 @@ npm run dev
 ```
 
 The Docker image serves the dashboard on `http://localhost:3000`. The Vite development server normally runs on `http://localhost:5173`.
+
+
+## Kafka Consumer Swap Buffer Strategy
+
+HookBridge's worker includes a production-oriented swap-buffer Kafka consumer for high-throughput webhook ingestion. It is designed for traffic bursts where Kafka messages must be consumed quickly while MongoDB writes are persisted in efficient batches for webhook audit logs, delivery history, retry queue persistence, DLQ event storage, and observability ingestion.
+
+The consumer keeps the Kafka polling path lightweight by appending each deserialized `WebhookEvent` to an in-memory primary buffer. When the batch size reaches 500 records, the flush interval reaches 5 seconds, or the worker shuts down, the primary and secondary buffers are swapped under a short lock. MongoDB persistence then runs against the swapped batch so Kafka consumption can continue without awaiting every database write.
+
+MongoDB writes use unordered `InsertManyAsync` batches with a unique `EventId` index. The unordered batch lets MongoDB continue inserting valid records when one replayed event hits a duplicate key, while the unique `EventId` requirement makes Kafka at-least-once delivery duplicate-safe.
+
+Kafka auto commit is disabled. The worker commits offsets only after MongoDB persistence succeeds, and it commits the highest processed offset per topic partition. If MongoDB fails, offsets are not committed, allowing Kafka to replay the records. If MongoDB succeeds but the offset commit fails, replayed messages are ignored safely by the unique `EventId` constraint.
+
+Backpressure is handled without Channels or `BlockingCollection`: if MongoDB is still flushing and the active primary buffer reaches `MaxBufferSize`, the worker pauses assigned Kafka partitions and resumes them after the flush completes.
 
 ## Architecture
 
