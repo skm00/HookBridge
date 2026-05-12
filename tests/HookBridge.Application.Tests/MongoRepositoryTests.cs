@@ -39,7 +39,7 @@ public sealed class MongoRepositoryTests
             collection => collection.ReplaceOneAsync(
                 It.IsAny<FilterDefinition<Subscription>>(),
                 subscription,
-                null,
+                It.IsAny<ReplaceOptions>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
