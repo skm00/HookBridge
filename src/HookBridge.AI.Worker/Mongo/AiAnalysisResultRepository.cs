@@ -72,7 +72,7 @@ public sealed class AiAnalysisResultRepository : IAiAnalysisResultRepository
             Limit = limit
         };
 
-        using var cursor = await _collection.FindAsync(filter, options, cancellationToken);
+        var cursor = await _collection.FindAsync(filter, options, cancellationToken);
         return await cursor.ToListAsync(cancellationToken);
     }
 }
