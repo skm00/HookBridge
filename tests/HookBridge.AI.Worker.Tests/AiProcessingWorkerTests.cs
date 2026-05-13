@@ -1,5 +1,7 @@
 using FluentAssertions;
 using HookBridge.AI.Worker.Configuration;
+using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,7 +16,7 @@ public sealed class AiProcessingWorkerTests
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
-        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory);
+        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer());
 
         await worker.StartAsync(CancellationToken.None);
         await WaitForLogAsync(logger, "HookBridge AI Worker starting");
@@ -30,7 +32,7 @@ public sealed class AiProcessingWorkerTests
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
-        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory);
+        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer());
 
         await worker.StartAsync(CancellationToken.None);
         await WaitForLogAsync(logger, "HookBridge AI Worker starting");
@@ -47,7 +49,7 @@ public sealed class AiProcessingWorkerTests
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
-        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory);
+        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer());
 
         using var cancellation = new CancellationTokenSource();
         await worker.StartAsync(cancellation.Token);
@@ -71,7 +73,8 @@ public sealed class AiProcessingWorkerTests
         var worker = new AiProcessingWorker(
             logger,
             Options.Create(new AiOptions { Enabled = false }),
-            kernelFactory);
+            kernelFactory,
+            new TestAiAnalysisConsumer());
 
         await worker.StartAsync(CancellationToken.None);
         await WaitForLogAsync(logger, "AI is disabled");
@@ -88,7 +91,7 @@ public sealed class AiProcessingWorkerTests
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
-        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory);
+        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer());
 
         await worker.StartAsync(CancellationToken.None);
         await kernelFactory.WaitForCreateKernelAsync();
@@ -114,6 +117,16 @@ public sealed class AiProcessingWorkerTests
         while (!predicate())
         {
             await Task.Delay(TimeSpan.FromMilliseconds(10), timeout.Token);
+        }
+    }
+
+    private sealed class TestAiAnalysisConsumer : IAiAnalysisConsumer
+    {
+        public async IAsyncEnumerable<AiAnalysisEventDto> ConsumeAsync(
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            yield break;
         }
     }
 

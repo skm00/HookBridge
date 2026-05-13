@@ -1,4 +1,5 @@
 using HookBridge.AI.Worker.Configuration;
+using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -8,6 +9,7 @@ namespace HookBridge.AI.Worker;
 
 public sealed class AiProcessingWorker : BackgroundService
 {
+    private readonly IAiAnalysisConsumer _analysisConsumer;
     private readonly IKernelFactory _kernelFactory;
     private readonly ILogger<AiProcessingWorker> _logger;
     private readonly IOptions<AiOptions> _options;
@@ -15,11 +17,13 @@ public sealed class AiProcessingWorker : BackgroundService
     public AiProcessingWorker(
         ILogger<AiProcessingWorker> logger,
         IOptions<AiOptions> options,
-        IKernelFactory kernelFactory)
+        IKernelFactory kernelFactory,
+        IAiAnalysisConsumer analysisConsumer)
     {
         _logger = logger;
         _options = options;
         _kernelFactory = kernelFactory;
+        _analysisConsumer = analysisConsumer;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -44,7 +48,21 @@ public sealed class AiProcessingWorker : BackgroundService
 
         try
         {
-            await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
+            await foreach (var analysisEvent in _analysisConsumer.ConsumeAsync(stoppingToken))
+            {
+                _logger.LogInformation(
+                    "AI analysis event ready for processing. EventId: {EventId}, CorrelationId: {CorrelationId}, Source: {Source}, EventType: {EventType}, CreatedAtUtc: {CreatedAtUtc}",
+                    analysisEvent.EventId,
+                    analysisEvent.CorrelationId,
+                    analysisEvent.Source,
+                    analysisEvent.EventType,
+                    analysisEvent.CreatedAtUtc);
+
+                if (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

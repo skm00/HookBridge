@@ -144,3 +144,61 @@ The worker logs a startup message, verifies Semantic Kernel creation when AI is 
 ## Health status
 
 Because this project is a worker process rather than an ASP.NET Core web app, it exposes `AiWorkerHealthStatus` as an in-process health status class. The status reports whether AI processing is enabled and whether the provider, model, and endpoint configuration are usable.
+
+## Kafka AI analysis topic
+
+The AI worker consumes AI analysis events from Kafka topic `hookbridge.ai.analysis`. This topic carries normalized webhook failure and event-analysis requests from HookBridge services into the AI worker so analysis can happen asynchronously without slowing webhook ingestion or delivery retries.
+
+Kafka settings are bound with `IOptions<AiKafkaOptions>` from the `AiKafka` configuration section:
+
+```json
+{
+  "AiKafka": {
+    "BootstrapServers": "localhost:9092",
+    "SecurityProtocol": "Plaintext",
+    "SaslMechanism": "",
+    "SaslUsername": "",
+    "SaslPassword": "",
+    "AiAnalysisTopic": "hookbridge.ai.analysis",
+    "ConsumerGroupId": "hookbridge-ai-worker",
+    "EnableAutoCommit": false
+  }
+}
+```
+
+| Key | Environment variable | Default | Description |
+| --- | --- | --- | --- |
+| `AiKafka:BootstrapServers` | `AiKafka__BootstrapServers` | `localhost:9092` in local settings | Kafka bootstrap broker list. |
+| `AiKafka:SecurityProtocol` | `AiKafka__SecurityProtocol` | `Plaintext` | Confluent.Kafka security protocol, for example `Plaintext`, `Ssl`, `SaslPlaintext`, or `SaslSsl`. |
+| `AiKafka:SaslMechanism` | `AiKafka__SaslMechanism` | Empty | SASL mechanism when a SASL security protocol is used. |
+| `AiKafka:SaslUsername` | `AiKafka__SaslUsername` | Empty | SASL username when a SASL security protocol is used. |
+| `AiKafka:SaslPassword` | `AiKafka__SaslPassword` | Empty | SASL password when a SASL security protocol is used. Store as a secret outside source control. |
+| `AiKafka:AiAnalysisTopic` | `AiKafka__AiAnalysisTopic` | `hookbridge.ai.analysis` | AI analysis event topic name. |
+| `AiKafka:ConsumerGroupId` | `AiKafka__ConsumerGroupId` | `hookbridge-ai-worker` | Consumer group used by `HookBridge.AI.Worker`. |
+| `AiKafka:EnableAutoCommit` | `AiKafka__EnableAutoCommit` | `false` | Whether Kafka offsets are auto-committed by the client. |
+
+Example `AiAnalysisEventDto` message payload:
+
+```json
+{
+  "eventId": "evt_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "correlationId": "corr_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "source": "hookbridge.worker",
+  "eventType": "webhook.delivery.failed",
+  "failureReason": "Target endpoint returned HTTP 500 after retry budget was exhausted.",
+  "payload": "{\"tenantId\":\"tenant_123\",\"subscriptionId\":\"sub_456\",\"statusCode\":500}",
+  "createdAtUtc": "2026-05-13T10:15:30+00:00"
+}
+```
+
+The AI analysis producer serializes this DTO as JSON and uses `CorrelationId` as the Kafka message key when it is present; otherwise it falls back to `EventId`. Producer and consumer abstractions (`IAiAnalysisProducer` and `IAiAnalysisConsumer`) are registered in DI and are mockable for unit or integration tests.
+
+### Local Kafka test command
+
+With a local Kafka broker listening on `localhost:9092`, create the topic and publish a sample message with the standard Kafka CLI tools:
+
+```bash
+kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic hookbridge.ai.analysis --partitions 3 --replication-factor 1
+printf '%s\n' '{"eventId":"evt-local-1","correlationId":"corr-local-1","source":"local-cli","eventType":"webhook.delivery.failed","failureReason":"HTTP 500","payload":"{}","createdAtUtc":"2026-05-13T10:15:30+00:00"}' \
+  | kafka-console-producer --bootstrap-server localhost:9092 --topic hookbridge.ai.analysis --property parse.key=false
+```
