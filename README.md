@@ -165,14 +165,16 @@ The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` a
     "MaxRetries": 3,
     "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
     "EnablePromptLogging": false,
-    "HealthCheckPrompt": "Say HookBridge AI is ready"
+    "HealthCheckPrompt": "Say HookBridge AI is ready",
+    "MaxPromptPayloadLength": 4000,
+    "MaskSensitiveValues": true
   }
 }
 ```
 
-AI options can be set with environment variables such as `AI__Enabled`, `AI__Provider`, `AI__Model`, `AI__Endpoint`, `AI__TimeoutSeconds`, `AI__MaxRetries`, `AI__SystemPrompt`, `AI__EnablePromptLogging`, and `AI__HealthCheckPrompt`. Prompt logging is disabled by default and should remain disabled in production unless explicitly approved for short-lived diagnostics.
+AI options can be set with environment variables such as `AI__Enabled`, `AI__Provider`, `AI__Model`, `AI__Endpoint`, `AI__TimeoutSeconds`, `AI__MaxRetries`, `AI__SystemPrompt`, `AI__EnablePromptLogging`, `AI__HealthCheckPrompt`, `AI__MaxPromptPayloadLength`, and `AI__MaskSensitiveValues`. Prompt logging is disabled by default and should remain disabled in production unless explicitly approved for short-lived diagnostics.
 
-Webhook failure analysis DTOs define the sanitized request/response contracts used by future LLM processing. They capture failure context, UTC timestamps, AI summaries, root-cause guidance, risk levels, confidence, and retry recommendations while keeping sensitive headers out of logs; see the [AI worker documentation](docs/ai-worker.md#webhook-failure-analysis-dtos) for example JSON payloads.
+Webhook failure analysis DTOs and prompt templates define the sanitized request/response contracts used by LLM processing. The prompt builder converts failure context into strict JSON instructions, masks sensitive headers by default, truncates large payloads with `AI:MaxPromptPayloadLength`, and asks for AI summaries, root-cause guidance, risk levels, confidence, and retry recommendations; see the [AI worker documentation](docs/ai-worker.md#webhook-failure-explanation-prompt) for prompt safety rules and example JSON payloads.
 
 Run it locally with:
 
@@ -190,6 +192,8 @@ AI__Endpoint=http://localhost:11434 \
 AI__TimeoutSeconds=30 \
 AI__MaxRetries=3 \
 AI__EnablePromptLogging=false \
+AI__MaxPromptPayloadLength=4000 \
+AI__MaskSensitiveValues=true \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
 

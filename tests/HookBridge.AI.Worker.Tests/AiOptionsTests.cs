@@ -22,7 +22,9 @@ public sealed class AiOptionsTests
             [$"{AiOptions.SectionName}:MaxRetries"] = "5",
             [$"{AiOptions.SectionName}:SystemPrompt"] = "Analyze webhook failures.",
             [$"{AiOptions.SectionName}:EnablePromptLogging"] = "true",
-            [$"{AiOptions.SectionName}:HealthCheckPrompt"] = "Ready?"
+            [$"{AiOptions.SectionName}:HealthCheckPrompt"] = "Ready?",
+            [$"{AiOptions.SectionName}:MaxPromptPayloadLength"] = "2048",
+            [$"{AiOptions.SectionName}:MaskSensitiveValues"] = "false"
         });
 
         var options = CreateOptions(configuration);
@@ -36,6 +38,8 @@ public sealed class AiOptionsTests
         options.SystemPrompt.Should().Be("Analyze webhook failures.");
         options.EnablePromptLogging.Should().BeTrue();
         options.HealthCheckPrompt.Should().Be("Ready?");
+        options.MaxPromptPayloadLength.Should().Be(2048);
+        options.MaskSensitiveValues.Should().BeFalse();
     }
 
     [Fact]
@@ -52,6 +56,8 @@ public sealed class AiOptionsTests
         options.SystemPrompt.Should().Be("You are HookBridge AI, an assistant for webhook failure analysis and event processing.");
         options.EnablePromptLogging.Should().BeFalse();
         options.HealthCheckPrompt.Should().Be("Say HookBridge AI is ready");
+        options.MaxPromptPayloadLength.Should().Be(4000);
+        options.MaskSensitiveValues.Should().BeTrue();
     }
 
     [Fact]
@@ -131,6 +137,20 @@ public sealed class AiOptionsTests
             .WithMessage("*AI:MaxRetries must be 0 or greater.*");
     }
 
+
+    [Fact]
+    public void Validate_WhenMaxPromptPayloadLengthInvalid_ThrowsOptionsValidationException()
+    {
+        var settings = ValidEnabledSettings();
+        settings[$"{AiOptions.SectionName}:MaxPromptPayloadLength"] = "0";
+        var configuration = BuildConfiguration(settings);
+
+        var act = () => CreateOptions(configuration);
+
+        act.Should().Throw<OptionsValidationException>()
+            .WithMessage("*AI:MaxPromptPayloadLength must be greater than 0.*");
+    }
+
     [Fact]
     public void Configure_WithEnvironmentVariables_BindsAllAiSettings()
     {
@@ -144,7 +164,9 @@ public sealed class AiOptionsTests
             ["AI__MaxRetries"] = "7",
             ["AI__SystemPrompt"] = "Environment prompt.",
             ["AI__EnablePromptLogging"] = "true",
-            ["AI__HealthCheckPrompt"] = "Environment health check"
+            ["AI__HealthCheckPrompt"] = "Environment health check",
+            ["AI__MaxPromptPayloadLength"] = "1024",
+            ["AI__MaskSensitiveValues"] = "true"
         });
 
         try
@@ -164,6 +186,8 @@ public sealed class AiOptionsTests
             options.SystemPrompt.Should().Be("Environment prompt.");
             options.EnablePromptLogging.Should().BeTrue();
             options.HealthCheckPrompt.Should().Be("Environment health check");
+            options.MaxPromptPayloadLength.Should().Be(1024);
+            options.MaskSensitiveValues.Should().BeTrue();
         }
         finally
         {
@@ -185,6 +209,8 @@ public sealed class AiOptionsTests
         options.EnablePromptLogging.Should().BeFalse();
         options.TimeoutSeconds.Should().Be(30);
         options.MaxRetries.Should().Be(3);
+        options.MaxPromptPayloadLength.Should().Be(4000);
+        options.MaskSensitiveValues.Should().BeTrue();
     }
 
     [Fact]
@@ -202,6 +228,8 @@ public sealed class AiOptionsTests
         options.MaxRetries.Should().Be(3);
         options.EnablePromptLogging.Should().BeFalse();
         options.HealthCheckPrompt.Should().Be("Say HookBridge AI is ready");
+        options.MaxPromptPayloadLength.Should().Be(4000);
+        options.MaskSensitiveValues.Should().BeTrue();
     }
 
     private static Dictionary<string, string?> ValidEnabledSettings()
@@ -216,7 +244,9 @@ public sealed class AiOptionsTests
             [$"{AiOptions.SectionName}:MaxRetries"] = "3",
             [$"{AiOptions.SectionName}:SystemPrompt"] = "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
             [$"{AiOptions.SectionName}:EnablePromptLogging"] = "false",
-            [$"{AiOptions.SectionName}:HealthCheckPrompt"] = "Say HookBridge AI is ready"
+            [$"{AiOptions.SectionName}:HealthCheckPrompt"] = "Say HookBridge AI is ready",
+            [$"{AiOptions.SectionName}:MaxPromptPayloadLength"] = "4000",
+            [$"{AiOptions.SectionName}:MaskSensitiveValues"] = "true"
         };
     }
 

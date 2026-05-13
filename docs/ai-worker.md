@@ -31,7 +31,9 @@ The worker uses the `AI` configuration section. `Host.CreateApplicationBuilder` 
     "MaxRetries": 3,
     "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
     "EnablePromptLogging": false,
-    "HealthCheckPrompt": "Say HookBridge AI is ready"
+    "HealthCheckPrompt": "Say HookBridge AI is ready",
+    "MaxPromptPayloadLength": 4000,
+    "MaskSensitiveValues": true
   }
 }
 ```
@@ -49,8 +51,10 @@ Configuration keys:
 | `AI:SystemPrompt` | `AI__SystemPrompt` | HookBridge webhook analysis assistant prompt | No | System instruction used by future AI analysis prompts. |
 | `AI:EnablePromptLogging` | `AI__EnablePromptLogging` | `false` | No | Enables prompt logging for troubleshooting. Keep disabled by default to avoid leaking event payloads or sensitive data into logs. |
 | `AI:HealthCheckPrompt` | `AI__HealthCheckPrompt` | `Say HookBridge AI is ready` | No | Lightweight prompt reserved for future provider health checks. |
+| `AI:MaxPromptPayloadLength` | `AI__MaxPromptPayloadLength` | `4000` | Always validated | Maximum characters retained for each prompt payload, response body, and header value before truncation. Must be greater than `0`. |
+| `AI:MaskSensitiveValues` | `AI__MaskSensitiveValues` | `true` | No | Masks sensitive header values before prompt construction. Keep enabled to avoid exposing secrets. |
 
-Options are validated during startup with the .NET options pattern using data annotations, custom conditional validation, and `ValidateOnStart()`. When AI is enabled, `Provider`, `Model`, and `Endpoint` must be present. `TimeoutSeconds` must be greater than `0`, and `MaxRetries` must be `0` or greater. Invalid configuration fails startup clearly before the worker begins processing.
+Options are validated during startup with the .NET options pattern using data annotations, custom conditional validation, and `ValidateOnStart()`. When AI is enabled, `Provider`, `Model`, and `Endpoint` must be present. `TimeoutSeconds` and `MaxPromptPayloadLength` must be greater than `0`, and `MaxRetries` must be `0` or greater. Invalid configuration fails startup clearly before the worker begins processing.
 
 ### Development example
 
@@ -67,7 +71,9 @@ Options are validated during startup with the .NET options pattern using data an
     "MaxRetries": 3,
     "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
     "EnablePromptLogging": false,
-    "HealthCheckPrompt": "Say HookBridge AI is ready"
+    "HealthCheckPrompt": "Say HookBridge AI is ready",
+    "MaxPromptPayloadLength": 4000,
+    "MaskSensitiveValues": true
   }
 }
 ```
@@ -86,6 +92,8 @@ AI__Endpoint=http://localhost:11434 \
 AI__TimeoutSeconds=30 \
 AI__MaxRetries=3 \
 AI__EnablePromptLogging=false \
+AI__MaxPromptPayloadLength=4000 \
+AI__MaskSensitiveValues=true \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
 
@@ -315,5 +323,92 @@ Validation enforces that `eventId` and `eventType` are present, `statusCode` is 
   "generatedAtUtc": "2026-05-13T10:16:02Z",
   "model": "llama3.1",
   "provider": "Ollama"
+}
+```
+
+## Webhook failure explanation prompt
+
+`WebhookFailurePromptBuilder` creates the reusable prompt used to ask an AI provider to explain failed webhook deliveries. The builder accepts a `WebhookFailureAnalysisRequestDto`, normalizes optional values, masks configured sensitive headers, truncates large payload fields, and emits a deterministic instruction that asks the model to return a `WebhookFailureAnalysisResponseDto`-compatible JSON object.
+
+The prompt tells the model to analyze:
+
+- HTTP status code, error message, and failure reason.
+- Retry count and max retry count.
+- Target URL and event type.
+- Request headers, response headers, request payload, and response body context.
+- Whether another retry is safe.
+- Whether manual review is required.
+
+### Prompt safety rules
+
+The prompt builder and prompt template are designed for operational safety:
+
+- Missing or null optional DTO fields are rendered as `[not provided]` so the model is told not to invent data.
+- Sensitive header values are masked by default for header names containing `Authorization`, `Cookie`, `Set-Cookie`, `X-API-Key`, `Api-Key`, `Token`, `Secret`, or `Password`.
+- `AI:MaskSensitiveValues` controls whether sensitive header masking is applied. Keep this enabled outside narrow local debugging scenarios.
+- `AI:MaxPromptPayloadLength` limits each large prompt value, including request payloads and response bodies. The default is `4000` characters.
+- The prompt explicitly instructs the model not to expose secrets and not to reconstruct masked values.
+- The prompt asks for strict JSON only, with no markdown, prose, comments, or code fences.
+- `riskLevel` must be one of `Unknown`, `Low`, `Medium`, `High`, or `Critical`.
+- `suggestedRetryAction` must be one of `None`, `RetryImmediately`, `RetryWithBackoff`, `MoveToDeadLetter`, `PauseEndpoint`, or `RequireManualReview`.
+- `confidenceScore` must be a number between `0` and `1`.
+- Recommendations should remain short and actionable.
+
+Prompt safety configuration is part of the `AI` section:
+
+```json
+{
+  "AI": {
+    "MaxPromptPayloadLength": 4000,
+    "MaskSensitiveValues": true
+  }
+}
+```
+
+### Example input DTO
+
+```json
+{
+  "eventId": "evt_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "correlationId": "corr_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "subscriptionId": "sub_456",
+  "customerId": "tenant_123",
+  "customerIdType": "TenantId",
+  "eventType": "payment.succeeded",
+  "source": "hookbridge.worker",
+  "targetUrl": "https://merchant.example/webhooks",
+  "httpMethod": "POST",
+  "statusCode": 429,
+  "errorMessage": "Too Many Requests",
+  "failureReason": "Target endpoint returned HTTP 429 after several delivery attempts.",
+  "retryCount": 3,
+  "maxRetryCount": 5,
+  "requestHeaders": {
+    "Content-Type": "application/json",
+    "Authorization": "[masked before prompt]"
+  },
+  "responseHeaders": {
+    "Retry-After": "60"
+  },
+  "requestPayload": "{\"eventType\":\"payment.succeeded\"}",
+  "responseBody": "Too Many Requests",
+  "failedAtUtc": "2026-05-13T10:15:30Z"
+}
+```
+
+### Example expected AI JSON response
+
+```json
+{
+  "eventId": "evt_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "correlationId": "corr_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "aiSummary": "The webhook target rejected delivery due to rate limiting after multiple attempts.",
+  "rootCause": "HTTP 429 indicates the target endpoint is throttling requests, and the retry count shows repeated attempts.",
+  "aiRecommendation": "Retry with backoff and honor any Retry-After guidance before escalating.",
+  "riskLevel": "Medium",
+  "confidenceScore": 0.86,
+  "suggestedRetryAction": "RetryWithBackoff",
+  "isRetryRecommended": true,
+  "generatedAtUtc": "2026-05-13T10:16:00Z"
 }
 ```

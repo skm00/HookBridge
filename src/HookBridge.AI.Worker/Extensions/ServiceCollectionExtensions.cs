@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mongo;
+using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -94,6 +95,12 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAiKernelServices(this IServiceCollection services)
     {
         services.AddSingleton<IKernelFactory, SemanticKernelFactory>();
+        return services;
+    }
+
+    public static IServiceCollection AddAiPromptServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IWebhookFailurePromptBuilder, WebhookFailurePromptBuilder>();
         return services;
     }
 

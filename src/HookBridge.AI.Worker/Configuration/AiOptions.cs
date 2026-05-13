@@ -26,4 +26,9 @@ public sealed class AiOptions
     public bool EnablePromptLogging { get; set; }
 
     public string HealthCheckPrompt { get; set; } = "Say HookBridge AI is ready";
+
+    [Range(1, int.MaxValue, ErrorMessage = "AI:MaxPromptPayloadLength must be greater than 0.")]
+    public int MaxPromptPayloadLength { get; set; } = 4000;
+
+    public bool MaskSensitiveValues { get; set; } = true;
 }
