@@ -55,6 +55,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Use a stable per-image scope so cache entries are reused across runs
+      # instead of multiplying by branch or tag. mode=min exports only the layers
+      # needed for future builds, preventing unbounded Buildx cache growth.
       - name: Build and push ${{ matrix.image }}
         uses: docker/build-push-action@v6
         with:
@@ -67,4 +70,11 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/skm00/HookBridge
           cache-from: type=gha,scope=${{ matrix.cache-scope }}
-          cache-to: type=gha,scope=${{ matrix.cache-scope }},mode=max
+          cache-to: type=gha,scope=${{ matrix.cache-scope }},mode=min
+
+      # Remove local Docker layers after the remote cache has been exported. This
+      # keeps Ubuntu runners lean during matrix builds and prevents unused layers
+      # from accumulating across subsequent Docker steps in the same job.
+      - name: Clean up unused Docker layers
+        if: always()
+        run: docker system prune -af

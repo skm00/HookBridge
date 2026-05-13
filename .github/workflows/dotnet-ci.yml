@@ -22,6 +22,7 @@ env:
   TEST_RESULTS_DIR: test-results
   COVERAGE_REPORTS_DIR: coverage-reports
   COVERAGE_LINE_THRESHOLD: 75
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
   build-test-coverage:
@@ -38,16 +39,30 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
+      # Restore NuGet packages from one dependency-based cache key. The cache is
+      # saved only from main, so pull requests and feature branches reuse the
+      # default-branch cache without creating duplicate branch/tag entries.
+      - name: Restore NuGet package cache
+        id: nuget-cache
+        uses: actions/cache/restore@v4
         with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.sln', '**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config') }}
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.sln', '**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/packages.lock.json') }}
           restore-keys: |
             nuget-${{ runner.os }}-
 
       - name: Restore dependencies
         run: dotnet restore "$SOLUTION_FILE"
+
+      # Save NuGet packages after restore on main only. This keeps fast restores
+      # for .NET builds while preventing every pull request branch from consuming
+      # GitHub Actions cache storage with near-identical package archives.
+      - name: Save NuGet package cache
+        if: github.ref == 'refs/heads/main' && steps.nuget-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: ${{ steps.nuget-cache.outputs.cache-primary-key }}
 
       - name: Build solution
         run: dotnet build "$SOLUTION_FILE" --configuration "$CONFIGURATION" --no-restore --verbosity minimal
