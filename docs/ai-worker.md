@@ -586,3 +586,93 @@ The log summarization service returns a deterministic fallback response when AI 
 ### Safety rules for sensitive data
 
 The log summary prompt builder masks sensitive values before prompt construction and truncates oversized messages. Sensitive keys include `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, and `ConnectionString`. Prompt logging should stay disabled in production unless explicitly approved for short-lived diagnostics.
+
+## Endpoint health scoring service
+
+`IEndpointHealthScoringService` provides deterministic endpoint reliability scoring for webhook target endpoints. It accepts an `EndpointHealthScoreRequestDto` with delivery counts, retry count, HTTP error categories, latency metrics, dead-letter counts, last failure context, and a UTC evaluation window. The implementation is pure and integration-test friendly: it uses only the in-memory DTO and a caller-supplied UTC `calculatedAtUtc` timestamp, and it does not call Kafka, MongoDB, Ollama, or external APIs.
+
+### Score formula
+
+The health score starts at `100` and subtracts deterministic penalties before clamping the final integer score to `0..100`:
+
+- Failure rate: up to `50` points, proportional to `FailedDeliveries / TotalDeliveries`.
+- Timeout failures: `2` points each, capped at `15`.
+- HTTP `429` rate limit failures: `3` points each, capped at `15`.
+- HTTP `5xx` server failures: `3` points each, capped at `20`.
+- HTTP `4xx` client failures: `2` points each, capped at `15`.
+- Retry count: `1` point each, capped at `10`.
+- Average latency above `1000ms`: `(AverageLatencyMs - 1000) / 200`, capped at `10`.
+- P95 latency above `2000ms`: `(P95LatencyMs - 2000) / 300`, capped at `15`.
+- Dead-letter records: `10` points each, capped at `25`.
+- Recent last failure: `10` points if within the last hour, `5` points if within the last 24 hours.
+
+Requests are validated before scoring. Delivery counts and latency metrics must be non-negative; `SuccessfulDeliveries + FailedDeliveries` cannot exceed `TotalDeliveries` when `TotalDeliveries > 0`; `EvaluationWindowToUtc` must be greater than `EvaluationWindowFromUtc`; and all date values must be UTC. A request with `TotalDeliveries == 0` returns `Unknown` because there is insufficient delivery data.
+
+### Health status thresholds
+
+| Score | Health status | AI risk level |
+| --- | --- | --- |
+| Insufficient data | `Unknown` | `Unknown` |
+| `90` to `100` | `Healthy` | `Low` |
+| `70` to `89` | `Degraded` | `Medium` |
+| `40` to `69` | `Unhealthy` | `High` |
+| `0` to `39` | `Critical` | `Critical` |
+
+### Recommendation rules
+
+Recommendations are generated from the same deterministic signals used for scoring:
+
+- `429` failures recommend exponential backoff and reduced concurrency.
+- Timeout failures recommend increasing timeouts or checking receiver availability.
+- `5xx` failures recommend retry with backoff and receiver health monitoring.
+- `4xx` failures recommend manual review of endpoint configuration, authentication, and payload compatibility.
+- High average or P95 latency recommends receiver performance investigation.
+- Dead-letter records recommend manual review before replay.
+
+### Example endpoint health score request
+
+```json
+{
+  "endpointId": "endpoint_123",
+  "subscriptionId": "sub_456",
+  "customerId": "cust_789",
+  "customerIdType": "internal",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "totalDeliveries": 100,
+  "successfulDeliveries": 85,
+  "failedDeliveries": 15,
+  "timeoutCount": 1,
+  "rateLimitCount": 0,
+  "clientErrorCount": 0,
+  "serverErrorCount": 2,
+  "retryCount": 2,
+  "deadLetterCount": 0,
+  "averageLatencyMs": 1200,
+  "p95LatencyMs": 2300,
+  "lastFailureStatusCode": 503,
+  "lastFailureReason": "Receiver returned Service Unavailable",
+  "lastSuccessfulDeliveryAtUtc": "2026-05-13T10:10:00Z",
+  "lastFailedDeliveryAtUtc": "2026-05-13T09:45:00Z",
+  "evaluationWindowFromUtc": "2026-05-13T09:30:00Z",
+  "evaluationWindowToUtc": "2026-05-13T10:30:00Z"
+}
+```
+
+### Example endpoint health score response
+
+```json
+{
+  "endpointId": "endpoint_123",
+  "subscriptionId": "sub_456",
+  "customerId": "cust_789",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "healthScore": 72,
+  "healthStatus": "Degraded",
+  "riskLevel": "Medium",
+  "summary": "Endpoint is degraded due to recent delivery failures and increased latency.",
+  "recommendation": "Monitor the endpoint and use retry with backoff. Review receiver performance if latency continues.",
+  "calculatedAtUtc": "2026-05-13T10:30:00Z"
+}
+```

@@ -4,6 +4,7 @@ using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
+using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using Microsoft.Extensions.Configuration;
@@ -110,6 +111,12 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAiLogSummarizationServices(this IServiceCollection services)
     {
         services.AddSingleton<IAiLogSummarizationService, AiLogSummarizationService>();
+        return services;
+    }
+
+    public static IServiceCollection AddEndpointHealthScoringServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
         return services;
     }
 
