@@ -34,6 +34,7 @@ It provides scalable webhook processing, retry mechanisms, DLQ handling, CloudEv
 - [Architecture](#architecture)
 - [Technology Stack](#technology-stack)
 - [Retry & DLQ](#retry--dlq)
+- [AI Analysis Kafka Topic](#ai-analysis-kafka-topic)
 - [CloudEvents Support](#cloudevents-support)
 - [Observability](#observability)
 - [Kubernetes Deployment](#kubernetes-deployment)
@@ -238,6 +239,10 @@ Strict CloudEvents validation can be enabled with configuration:
 ```bash
 CloudEvents__StrictValidation=true
 ```
+
+## AI Analysis Kafka Topic
+
+HookBridge AI analysis events use Kafka topic `hookbridge.ai.analysis`. The topic is consumed by `HookBridge.AI.Worker` for asynchronous webhook failure analysis and event enrichment workflows. The worker binds Kafka settings from the `AiKafka` section, including `BootstrapServers`, `SecurityProtocol`, `SaslMechanism`, `SaslUsername`, `SaslPassword`, `AiAnalysisTopic`, `ConsumerGroupId`, and `EnableAutoCommit`. See [HookBridge AI Worker docs](docs/ai-worker.md#kafka-ai-analysis-topic) for the example message payload and local Kafka test command.
 
 ## Observability
 
