@@ -33,7 +33,9 @@ The worker uses the `AI` configuration section. `Host.CreateApplicationBuilder` 
     "EnablePromptLogging": false,
     "HealthCheckPrompt": "Say HookBridge AI is ready",
     "MaxPromptPayloadLength": 4000,
-    "MaskSensitiveValues": true
+    "MaskSensitiveValues": true,
+    "MaxLogEntriesForSummary": 100,
+    "MaxLogMessageLength": 2000
   }
 }
 ```
@@ -52,9 +54,11 @@ Configuration keys:
 | `AI:EnablePromptLogging` | `AI__EnablePromptLogging` | `false` | No | Enables prompt logging for troubleshooting. Keep disabled by default to avoid leaking event payloads or sensitive data into logs. |
 | `AI:HealthCheckPrompt` | `AI__HealthCheckPrompt` | `Say HookBridge AI is ready` | No | Lightweight prompt reserved for future provider health checks. |
 | `AI:MaxPromptPayloadLength` | `AI__MaxPromptPayloadLength` | `4000` | Always validated | Maximum characters retained for each prompt payload, response body, and header value before truncation. Must be greater than `0`. |
-| `AI:MaskSensitiveValues` | `AI__MaskSensitiveValues` | `true` | No | Masks sensitive header values before prompt construction. Keep enabled to avoid exposing secrets. |
+| `AI:MaskSensitiveValues` | `AI__MaskSensitiveValues` | `true` | No | Masks sensitive header and log values before prompt construction. Keep enabled to avoid exposing secrets. |
+| `AI:MaxLogEntriesForSummary` | `AI__MaxLogEntriesForSummary` | `100` | Always validated | Maximum log entries included in each AI log summarization prompt. Must be greater than `0`. |
+| `AI:MaxLogMessageLength` | `AI__MaxLogMessageLength` | `2000` | Always validated | Maximum characters retained for each log message and exception before truncation. Must be greater than `0`. |
 
-Options are validated during startup with the .NET options pattern using data annotations, custom conditional validation, and `ValidateOnStart()`. When AI is enabled, `Provider`, `Model`, and `Endpoint` must be present. `TimeoutSeconds` and `MaxPromptPayloadLength` must be greater than `0`, and `MaxRetries` must be `0` or greater. Invalid configuration fails startup clearly before the worker begins processing.
+Options are validated during startup with the .NET options pattern using data annotations, custom conditional validation, and `ValidateOnStart()`. When AI is enabled, `Provider`, `Model`, and `Endpoint` must be present. `TimeoutSeconds`, `MaxPromptPayloadLength`, `MaxLogEntriesForSummary`, and `MaxLogMessageLength` must be greater than `0`, and `MaxRetries` must be `0` or greater. Invalid configuration fails startup clearly before the worker begins processing.
 
 ### Development example
 
@@ -73,7 +77,9 @@ Options are validated during startup with the .NET options pattern using data an
     "EnablePromptLogging": false,
     "HealthCheckPrompt": "Say HookBridge AI is ready",
     "MaxPromptPayloadLength": 4000,
-    "MaskSensitiveValues": true
+    "MaskSensitiveValues": true,
+    "MaxLogEntriesForSummary": 100,
+    "MaxLogMessageLength": 2000
   }
 }
 ```
@@ -94,6 +100,8 @@ AI__MaxRetries=3 \
 AI__EnablePromptLogging=false \
 AI__MaxPromptPayloadLength=4000 \
 AI__MaskSensitiveValues=true \
+AI__MaxLogEntriesForSummary=100 \
+AI__MaxLogMessageLength=2000 \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
 
@@ -360,7 +368,9 @@ Prompt safety configuration is part of the `AI` section:
 {
   "AI": {
     "MaxPromptPayloadLength": 4000,
-    "MaskSensitiveValues": true
+    "MaskSensitiveValues": true,
+    "MaxLogEntriesForSummary": 100,
+    "MaxLogMessageLength": 2000
   }
 }
 ```
@@ -513,3 +523,66 @@ Rule-based fallback is used when AI is disabled, the LLM call fails, the LLM ret
 ### Worker flow
 
 The AI worker now consumes `AiAnalysisEventDto` messages from `hookbridge.ai.analysis`, maps the envelope and payload hints into `WebhookFailureAnalysisRequestDto`, calls `IAiRetryRecommendationService`, maps the returned `WebhookFailureAnalysisResponseDto` into `AiAnalysisResult`, and stores the document in the MongoDB `ai_analysis_results` collection. Unit tests mock the LLM client, prompt builder, Kafka consumer, and Mongo repository, so tests do not require real Ollama, Kafka, or MongoDB.
+
+## AI log summarization service
+
+`IAiLogSummarizationService` summarizes webhook-related logs into a short, actionable support explanation. It accepts an `AiLogSummaryRequestDto` containing `EventId`, `CorrelationId`, optional `Source`, optional `Environment`, optional `FromUtc`/`ToUtc`, and a collection of `AiLogEntryDto` records. Each log entry can include `TimestampUtc`, `Level`, `Message`, `Exception`, `ServiceName`, `TraceId`, and `SpanId`.
+
+The service is designed for integration tests and local development: callers can mock `ILocalLlmClient` and `IAiLogSummaryPromptBuilder`, and unit tests do not require Ollama, Kafka, MongoDB, Elasticsearch, or Kibana. AI-generated output remains recommendation-only; operators should review delivery attempts, target endpoint health, and retry history before taking production action.
+
+### Log summary configuration
+
+| Key | Environment variable | Default | Description |
+| --- | --- | --- | --- |
+| `AI:MaxLogEntriesForSummary` | `AI__MaxLogEntriesForSummary` | `100` | Maximum number of log entries included in a summary prompt. Must be greater than `0`. |
+| `AI:MaxLogMessageLength` | `AI__MaxLogMessageLength` | `2000` | Maximum characters retained for each log message or exception before truncation. Must be greater than `0`. |
+
+### Example log summary request
+
+```json
+{
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "source": "hookbridge.worker",
+  "environment": "qa",
+  "fromUtc": "2026-05-13T10:00:00Z",
+  "toUtc": "2026-05-13T10:15:00Z",
+  "logs": [
+    {
+      "timestampUtc": "2026-05-13T10:10:00Z",
+      "level": "Error",
+      "message": "Webhook delivery failed with HTTP 429 Too Many Requests",
+      "exception": null,
+      "serviceName": "HookBridge.Worker",
+      "traceId": "trace_123",
+      "spanId": "span_456"
+    }
+  ]
+}
+```
+
+### Example log summary response
+
+```json
+{
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "summary": "Webhook delivery failed because the target endpoint returned HTTP 429.",
+  "rootCause": "The receiver is rate limiting requests.",
+  "impact": "Webhook delivery may be delayed until retries succeed.",
+  "recommendation": "Retry with exponential backoff and reduce delivery concurrency for this endpoint.",
+  "riskLevel": "Medium",
+  "confidenceScore": 0.85,
+  "generatedAtUtc": "2026-05-13T10:15:00Z",
+  "model": "llama3",
+  "provider": "Ollama"
+}
+```
+
+### Fallback behavior
+
+The log summarization service returns a deterministic fallback response when AI is disabled, logs are empty, the LLM is unavailable, or the LLM returns invalid or unsafe JSON. Fallback logic counts error and warning log entries, selects the most recent error as the likely root cause when one exists, returns a conservative recommendation to review sanitized logs and delivery history, and uses a lower confidence score than an accepted AI-generated response.
+
+### Safety rules for sensitive data
+
+The log summary prompt builder masks sensitive values before prompt construction and truncates oversized messages. Sensitive keys include `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, and `ConnectionString`. Prompt logging should stay disabled in production unless explicitly approved for short-lived diagnostics.

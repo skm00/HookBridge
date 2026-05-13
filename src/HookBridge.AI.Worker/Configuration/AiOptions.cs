@@ -31,4 +31,10 @@ public sealed class AiOptions
     public int MaxPromptPayloadLength { get; set; } = 4000;
 
     public bool MaskSensitiveValues { get; set; } = true;
+
+    [Range(1, int.MaxValue, ErrorMessage = "AI:MaxLogEntriesForSummary must be greater than 0.")]
+    public int MaxLogEntriesForSummary { get; set; } = 100;
+
+    [Range(1, int.MaxValue, ErrorMessage = "AI:MaxLogMessageLength must be greater than 0.")]
+    public int MaxLogMessageLength { get; set; } = 2000;
 }

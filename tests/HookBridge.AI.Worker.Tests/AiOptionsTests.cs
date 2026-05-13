@@ -24,7 +24,9 @@ public sealed class AiOptionsTests
             [$"{AiOptions.SectionName}:EnablePromptLogging"] = "true",
             [$"{AiOptions.SectionName}:HealthCheckPrompt"] = "Ready?",
             [$"{AiOptions.SectionName}:MaxPromptPayloadLength"] = "2048",
-            [$"{AiOptions.SectionName}:MaskSensitiveValues"] = "false"
+            [$"{AiOptions.SectionName}:MaskSensitiveValues"] = "false",
+            [$"{AiOptions.SectionName}:MaxLogEntriesForSummary"] = "50",
+            [$"{AiOptions.SectionName}:MaxLogMessageLength"] = "1024"
         });
 
         var options = CreateOptions(configuration);
@@ -40,6 +42,8 @@ public sealed class AiOptionsTests
         options.HealthCheckPrompt.Should().Be("Ready?");
         options.MaxPromptPayloadLength.Should().Be(2048);
         options.MaskSensitiveValues.Should().BeFalse();
+        options.MaxLogEntriesForSummary.Should().Be(50);
+        options.MaxLogMessageLength.Should().Be(1024);
     }
 
     [Fact]
@@ -58,6 +62,8 @@ public sealed class AiOptionsTests
         options.HealthCheckPrompt.Should().Be("Say HookBridge AI is ready");
         options.MaxPromptPayloadLength.Should().Be(4000);
         options.MaskSensitiveValues.Should().BeTrue();
+        options.MaxLogEntriesForSummary.Should().Be(100);
+        options.MaxLogMessageLength.Should().Be(2000);
     }
 
     [Fact]
@@ -152,6 +158,32 @@ public sealed class AiOptionsTests
     }
 
     [Fact]
+    public void Validate_WhenMaxLogEntriesForSummaryInvalid_ThrowsOptionsValidationException()
+    {
+        var settings = ValidEnabledSettings();
+        settings[$"{AiOptions.SectionName}:MaxLogEntriesForSummary"] = "0";
+        var configuration = BuildConfiguration(settings);
+
+        var act = () => CreateOptions(configuration);
+
+        act.Should().Throw<OptionsValidationException>()
+            .WithMessage("*AI:MaxLogEntriesForSummary must be greater than 0.*");
+    }
+
+    [Fact]
+    public void Validate_WhenMaxLogMessageLengthInvalid_ThrowsOptionsValidationException()
+    {
+        var settings = ValidEnabledSettings();
+        settings[$"{AiOptions.SectionName}:MaxLogMessageLength"] = "0";
+        var configuration = BuildConfiguration(settings);
+
+        var act = () => CreateOptions(configuration);
+
+        act.Should().Throw<OptionsValidationException>()
+            .WithMessage("*AI:MaxLogMessageLength must be greater than 0.*");
+    }
+
+    [Fact]
     public void Configure_WithEnvironmentVariables_BindsAllAiSettings()
     {
         var previousValues = SetEnvironmentVariables(new Dictionary<string, string?>
@@ -166,7 +198,9 @@ public sealed class AiOptionsTests
             ["AI__EnablePromptLogging"] = "true",
             ["AI__HealthCheckPrompt"] = "Environment health check",
             ["AI__MaxPromptPayloadLength"] = "1024",
-            ["AI__MaskSensitiveValues"] = "true"
+            ["AI__MaskSensitiveValues"] = "true",
+            ["AI__MaxLogEntriesForSummary"] = "25",
+            ["AI__MaxLogMessageLength"] = "1200"
         });
 
         try
@@ -188,6 +222,8 @@ public sealed class AiOptionsTests
             options.HealthCheckPrompt.Should().Be("Environment health check");
             options.MaxPromptPayloadLength.Should().Be(1024);
             options.MaskSensitiveValues.Should().BeTrue();
+            options.MaxLogEntriesForSummary.Should().Be(25);
+            options.MaxLogMessageLength.Should().Be(1200);
         }
         finally
         {
@@ -211,6 +247,8 @@ public sealed class AiOptionsTests
         options.MaxRetries.Should().Be(3);
         options.MaxPromptPayloadLength.Should().Be(4000);
         options.MaskSensitiveValues.Should().BeTrue();
+        options.MaxLogEntriesForSummary.Should().Be(100);
+        options.MaxLogMessageLength.Should().Be(2000);
     }
 
     [Fact]
@@ -230,6 +268,8 @@ public sealed class AiOptionsTests
         options.HealthCheckPrompt.Should().Be("Say HookBridge AI is ready");
         options.MaxPromptPayloadLength.Should().Be(4000);
         options.MaskSensitiveValues.Should().BeTrue();
+        options.MaxLogEntriesForSummary.Should().Be(100);
+        options.MaxLogMessageLength.Should().Be(2000);
     }
 
     private static Dictionary<string, string?> ValidEnabledSettings()
