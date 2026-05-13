@@ -6,6 +6,7 @@ using Elastic.Apm.DiagnosticSource;
 using HookBridge.Infrastructure.Configuration;
 using HookBridge.Infrastructure.Logging;
 using HookBridge.Worker;
+using HookBridge.Worker.KafkaSwapBuffer;
 using Serilog;
 
 if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT"))
@@ -20,7 +21,23 @@ builder.Services.AddInfrastructureServices(builder.Configuration, builder.Enviro
 builder.Services.AddApplicationServices();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, WorkerCurrentUserContext>();
-builder.Services.AddHostedService<WebhookEventConsumerWorker>();
+builder.Services.Configure<KafkaConsumerOptions>(builder.Configuration.GetSection("KafkaConsumer"));
+builder.Services.PostConfigure<KafkaConsumerOptions>(options =>
+{
+    var kafkaSettings = builder.Configuration.GetSection("Kafka").Get<KafkaSettings>() ?? new KafkaSettings();
+    if (string.IsNullOrWhiteSpace(options.BootstrapServers))
+    {
+        options.BootstrapServers = kafkaSettings.BootstrapServers;
+    }
+
+    if (string.IsNullOrWhiteSpace(options.GroupId))
+    {
+        options.GroupId = kafkaSettings.ConsumerGroupId;
+    }
+});
+builder.Services.AddSingleton<IKafkaSwapBufferConsumerFactory, KafkaSwapBufferConsumerFactory>();
+builder.Services.AddSingleton<IWebhookEventBatchStore, MongoWebhookEventBatchStore>();
+builder.Services.AddHostedService<SwapBufferKafkaConsumerWorker>();
 builder.Services.AddHostedService<WebhookRetryConsumerWorker>();
 builder.Services.AddHostedService<DataCleanupWorker>();
 builder.Services.AddSingleton<WorkerTransactionRunner>();

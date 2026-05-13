@@ -1,0 +1,8 @@
+# Repository metadata for GitHub Search discoverability.
+# Canonical GitHub About description and optimized Topics for HookBridge.
+# If the Probot Settings app is enabled, this file can sync these values
+# automatically. Otherwise, maintainers can copy them into the repository
+# About panel.
+repository:
+  description: High-throughput webhook processing platform built with .NET 8, Kafka, MongoDB, Kubernetes, and CloudEvents support.
+  topics: dotnet, aspnetcore, webhook, webhook-platform, kafka, mongodb, kubernetes, event-driven, cloud-native, microservices, cloudevents, observability, elasticsearch, distributed-systems
