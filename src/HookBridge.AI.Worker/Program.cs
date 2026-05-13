@@ -9,6 +9,7 @@ builder.Services.AddAiKafkaOptions(builder.Configuration);
 builder.Services.AddAiMongoOptions(builder.Configuration);
 builder.Services.AddSingleton<AiWorkerHealthStatus>();
 builder.Services.AddAiKernelServices();
+builder.Services.AddAiPromptServices();
 builder.Services.AddAiKafkaServices();
 builder.Services.AddAiMongoServices();
 builder.Services.AddHostedService<AiProcessingWorker>();
