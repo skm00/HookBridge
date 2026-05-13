@@ -33,7 +33,7 @@ public sealed class AiAnalysisResultMongoTests
 
         var document = result.ToBsonDocument();
 
-        document.Should().ContainKey("_id");
+        document.Contains("_id").Should().BeTrue();
         document["eventId"].AsString.Should().Be("evt-1");
         document["correlationId"].AsString.Should().Be("corr-1");
         document["source"].AsString.Should().Be("hookbridge.worker");
