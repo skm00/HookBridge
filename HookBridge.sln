@@ -20,6 +20,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Application.Test
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Worker.Tests", "tests\HookBridge.Worker.Tests\HookBridge.Worker.Tests.csproj", "{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.AI.Worker", "src\HookBridge.AI.Worker\HookBridge.AI.Worker.csproj", "{23A30E4C-F6F5-4016-A15C-9A8E12210103}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.AI.Worker.Tests", "tests\HookBridge.AI.Worker.Tests\HookBridge.AI.Worker.Tests.csproj", "{E53BE178-3E5E-450E-BDE8-847D82D9D79A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -62,6 +66,14 @@ Global
 		{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23A30E4C-F6F5-4016-A15C-9A8E12210103}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23A30E4C-F6F5-4016-A15C-9A8E12210103}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23A30E4C-F6F5-4016-A15C-9A8E12210103}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23A30E4C-F6F5-4016-A15C-9A8E12210103}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E53BE178-3E5E-450E-BDE8-847D82D9D79A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E53BE178-3E5E-450E-BDE8-847D82D9D79A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E53BE178-3E5E-450E-BDE8-847D82D9D79A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E53BE178-3E5E-450E-BDE8-847D82D9D79A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
