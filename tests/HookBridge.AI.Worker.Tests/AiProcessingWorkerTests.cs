@@ -4,6 +4,7 @@ using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Services;
+using HookBridge.AI.Worker.Services.RetryRecommendations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
@@ -17,7 +18,7 @@ public sealed class AiProcessingWorkerTests
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
-        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository());
+        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository(), new TestAiRetryRecommendationService());
 
         await worker.StartAsync(CancellationToken.None);
         await WaitForLogAsync(logger, "HookBridge AI Worker starting");
@@ -33,7 +34,7 @@ public sealed class AiProcessingWorkerTests
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
-        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository());
+        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository(), new TestAiRetryRecommendationService());
 
         await worker.StartAsync(CancellationToken.None);
         await WaitForLogAsync(logger, "HookBridge AI Worker starting");
@@ -50,7 +51,7 @@ public sealed class AiProcessingWorkerTests
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
-        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository());
+        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository(), new TestAiRetryRecommendationService());
 
         using var cancellation = new CancellationTokenSource();
         await worker.StartAsync(cancellation.Token);
@@ -75,7 +76,7 @@ public sealed class AiProcessingWorkerTests
             logger,
             Options.Create(new AiOptions { Enabled = false }),
             kernelFactory,
-            new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository());
+            new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository(), new TestAiRetryRecommendationService());
 
         await worker.StartAsync(CancellationToken.None);
         await WaitForLogAsync(logger, "AI is disabled");
@@ -92,7 +93,7 @@ public sealed class AiProcessingWorkerTests
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
-        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository());
+        var worker = new AiProcessingWorker(logger, Options.Create(new AiOptions()), kernelFactory, new TestAiAnalysisConsumer(), new TestAiAnalysisResultRepository(), new TestAiRetryRecommendationService());
 
         await worker.StartAsync(CancellationToken.None);
         await kernelFactory.WaitForCreateKernelAsync();
@@ -107,7 +108,7 @@ public sealed class AiProcessingWorkerTests
 
 
     [Fact]
-    public async Task StartAsync_WhenEventConsumed_StoresPlaceholderAnalysisResult()
+    public async Task StartAsync_WhenEventConsumed_StoresAiRetryRecommendationResult()
     {
         var logger = new TestLogger<AiProcessingWorker>();
         var kernelFactory = new TestKernelFactory();
@@ -128,7 +129,8 @@ public sealed class AiProcessingWorkerTests
             Options.Create(new AiOptions { Provider = "Ollama", Model = "llama3.1" }),
             kernelFactory,
             consumer,
-            repository);
+            repository,
+            new TestAiRetryRecommendationService());
 
         await worker.StartAsync(CancellationToken.None);
         await repository.WaitForInsertAsync();
@@ -141,10 +143,10 @@ public sealed class AiProcessingWorkerTests
         result.Source.Should().Be("unit-test");
         result.EventType.Should().Be("webhook.delivery.failed");
         result.FailureReason.Should().Be("HTTP 500");
-        result.AiSummary.Should().Contain("HTTP 500");
+        result.AiSummary.Should().Contain("test recommendation");
         result.AiRecommendation.Should().NotBeNullOrWhiteSpace();
-        result.RiskLevel.Should().Be("Unknown");
-        result.ConfidenceScore.Should().Be(0);
+        result.RiskLevel.Should().Be("Medium");
+        result.ConfidenceScore.Should().Be(0.8);
         result.Provider.Should().Be("Ollama");
         result.Model.Should().Be("llama3.1");
         result.CreatedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
@@ -163,6 +165,30 @@ public sealed class AiProcessingWorkerTests
         while (!predicate())
         {
             await Task.Delay(TimeSpan.FromMilliseconds(10), timeout.Token);
+        }
+    }
+
+    private sealed class TestAiRetryRecommendationService : IAiRetryRecommendationService
+    {
+        public Task<WebhookFailureAnalysisResponseDto> AnalyzeAsync(
+            WebhookFailureAnalysisRequestDto request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new WebhookFailureAnalysisResponseDto
+            {
+                EventId = request.EventId,
+                CorrelationId = request.CorrelationId,
+                AiSummary = $"test recommendation for {request.FailureReason}",
+                RootCause = request.FailureReason ?? string.Empty,
+                AiRecommendation = "Retry with exponential backoff after checking endpoint health.",
+                RiskLevel = AiRiskLevel.Medium,
+                ConfidenceScore = 0.8,
+                SuggestedRetryAction = SuggestedRetryAction.RetryWithBackoff,
+                IsRetryRecommended = true,
+                GeneratedAtUtc = DateTime.UtcNow,
+                Model = "llama3.1",
+                Provider = "Ollama"
+            });
         }
     }
 

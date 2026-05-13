@@ -1,7 +1,10 @@
 using FluentAssertions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.Extensions;
+using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
+using HookBridge.AI.Worker.Services.RetryRecommendations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,6 +28,25 @@ public sealed class SemanticKernelFactoryTests
         var factory = provider.GetRequiredService<IKernelFactory>();
 
         factory.Should().BeOfType<SemanticKernelFactory>();
+    }
+
+
+    [Fact]
+    public void AddAiRetryRecommendationServices_RegistersRetryRecommendationService()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddOptions();
+        services.Configure<AiOptions>(_ => { });
+        services.AddSingleton<IWebhookFailurePromptBuilder, TestPromptBuilder>();
+        services.AddSingleton<ILocalLlmClient, TestLocalLlmClient>();
+
+        services.AddAiRetryRecommendationServices();
+
+        using var provider = services.BuildServiceProvider();
+        var service = provider.GetRequiredService<IAiRetryRecommendationService>();
+
+        service.Should().BeOfType<AiRetryRecommendationService>();
     }
 
     [Fact]
@@ -83,4 +105,16 @@ public sealed class SemanticKernelFactoryTests
     {
         return new SemanticKernelFactory(Options.Create(options), logger);
     }
+
+    private sealed class TestPromptBuilder : IWebhookFailurePromptBuilder
+    {
+        public string BuildPrompt(WebhookFailureAnalysisRequestDto request) => "prompt";
+    }
+
+    private sealed class TestLocalLlmClient : ILocalLlmClient
+    {
+        public Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+            => Task.FromResult("{}");
+    }
+
 }
