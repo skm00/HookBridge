@@ -139,13 +139,38 @@ For deeper design notes, see [Architecture Documentation](docs/architecture.md).
 | API and webhook gateway | .NET 8, ASP.NET Core, Swagger/OpenAPI |
 | Event streaming | Apache Kafka, Confluent.Kafka |
 | Persistence | MongoDB |
-| Background processing | .NET Worker Service, Kafka consumers, retry workers, cleanup workers |
+| Background processing | .NET Worker Service, Kafka consumers, retry workers, cleanup workers, AI worker |
 | Event format | CloudEvents v1.0 structured and binary-style HTTP support |
 | Observability | Serilog, health checks, Elasticsearch, Kibana, Elastic APM |
 | Dashboard | React/Vite dashboard assets |
 | Local runtime | Docker Compose |
 | Cloud runtime | Kubernetes, Helm |
 | Security | JWT admin auth, tenant API keys, roles, IP allowlists, endpoint validation, outbound auth options |
+
+## Agentic AI Worker
+
+`HookBridge.AI.Worker` is a .NET 8 Worker Service for future Agentic AI background processing. It runs separately from the API and webhook delivery workers so AI-related jobs can evolve without affecting ingestion or delivery throughput.
+
+The worker currently starts cleanly, loads the `AI` configuration section through `IOptions<AiOptions>`, logs startup and shutdown, and remains idle until cancellation. The default local configuration targets Ollama:
+
+```json
+{
+  "AI": {
+    "Enabled": true,
+    "Provider": "Ollama",
+    "Model": "llama3",
+    "Endpoint": "http://localhost:11434"
+  }
+}
+```
+
+Run it locally with:
+
+```bash
+dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
+```
+
+Ensure Ollama is available at `http://localhost:11434`, or override the endpoint with `AI__Endpoint`. See [AI Worker documentation](docs/ai-worker.md) for details.
 
 ## Retry & DLQ
 
