@@ -191,7 +191,7 @@ AI__EnablePromptLogging=false \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
 
-See [AI Worker documentation](docs/ai-worker.md) for the full configuration table, development example, production recommendation, environment variable examples, Semantic Kernel usage, and Ollama model examples.
+See [AI Worker documentation](docs/ai-worker.md) for the full configuration table, development example, production recommendation, environment variable examples, Semantic Kernel usage, Ollama model examples, and MongoDB AI result storage settings.
 
 ## Retry & DLQ
 
@@ -242,7 +242,7 @@ CloudEvents__StrictValidation=true
 
 ## AI Analysis Kafka Topic
 
-HookBridge AI analysis events use Kafka topic `hookbridge.ai.analysis`. The topic is consumed by `HookBridge.AI.Worker` for asynchronous webhook failure analysis and event enrichment workflows. The worker binds Kafka settings from the `AiKafka` section, including `BootstrapServers`, `SecurityProtocol`, `SaslMechanism`, `SaslUsername`, `SaslPassword`, `AiAnalysisTopic`, `ConsumerGroupId`, and `EnableAutoCommit`. See [HookBridge AI Worker docs](docs/ai-worker.md#kafka-ai-analysis-topic) for the example message payload and local Kafka test command.
+HookBridge AI analysis events use Kafka topic `hookbridge.ai.analysis`. The topic is consumed by `HookBridge.AI.Worker` for asynchronous webhook failure analysis and event enrichment workflows. The worker binds Kafka settings from the `AiKafka` section, including `BootstrapServers`, `SecurityProtocol`, `SaslMechanism`, `SaslUsername`, `SaslPassword`, `AiAnalysisTopic`, `ConsumerGroupId`, and `EnableAutoCommit`. AI analysis results are persisted to MongoDB using the `AiMongo` section, with the default collection name `ai_analysis_results`. See [HookBridge AI Worker docs](docs/ai-worker.md#kafka-ai-analysis-topic) for the example message payload and local Kafka test command, and [MongoDB AI analysis result storage](docs/ai-worker.md#mongodb-ai-analysis-result-storage) for the required MongoDB configuration and example stored document.
 
 ## Observability
 

@@ -1,5 +1,7 @@
 using HookBridge.AI.Worker.Configuration;
+using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
+using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -11,6 +13,7 @@ public sealed class AiProcessingWorker : BackgroundService
 {
     private readonly IAiAnalysisConsumer _analysisConsumer;
     private readonly IKernelFactory _kernelFactory;
+    private readonly IAiAnalysisResultRepository _analysisResultRepository;
     private readonly ILogger<AiProcessingWorker> _logger;
     private readonly IOptions<AiOptions> _options;
 
@@ -18,12 +21,14 @@ public sealed class AiProcessingWorker : BackgroundService
         ILogger<AiProcessingWorker> logger,
         IOptions<AiOptions> options,
         IKernelFactory kernelFactory,
-        IAiAnalysisConsumer analysisConsumer)
+        IAiAnalysisConsumer analysisConsumer,
+        IAiAnalysisResultRepository analysisResultRepository)
     {
         _logger = logger;
         _options = options;
         _kernelFactory = kernelFactory;
         _analysisConsumer = analysisConsumer;
+        _analysisResultRepository = analysisResultRepository;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -58,6 +63,15 @@ public sealed class AiProcessingWorker : BackgroundService
                     analysisEvent.EventType,
                     analysisEvent.CreatedAtUtc);
 
+                var analysisResult = CreatePlaceholderResult(analysisEvent, options);
+                await _analysisResultRepository.InsertAsync(analysisResult, stoppingToken);
+
+                _logger.LogInformation(
+                    "AI analysis result stored. EventId: {EventId}, CorrelationId: {CorrelationId}, ResultId: {ResultId}",
+                    analysisResult.EventId,
+                    analysisResult.CorrelationId,
+                    analysisResult.Id);
+
                 if (stoppingToken.IsCancellationRequested)
                 {
                     break;
@@ -72,5 +86,28 @@ public sealed class AiProcessingWorker : BackgroundService
         {
             _logger.LogInformation("HookBridge AI Worker shutting down.");
         }
+    }
+
+    private static AiAnalysisResult CreatePlaceholderResult(
+        AiAnalysisEventDto analysisEvent,
+        AiOptions options)
+    {
+        return new AiAnalysisResult
+        {
+            EventId = analysisEvent.EventId,
+            CorrelationId = analysisEvent.CorrelationId,
+            Source = analysisEvent.Source,
+            EventType = analysisEvent.EventType,
+            FailureReason = analysisEvent.FailureReason,
+            AiSummary = string.IsNullOrWhiteSpace(analysisEvent.FailureReason)
+                ? "AI analysis placeholder created for webhook event processing."
+                : $"AI analysis placeholder created for failure: {analysisEvent.FailureReason}",
+            AiRecommendation = "Review the webhook payload, delivery history, and target endpoint health before retrying.",
+            RiskLevel = "Unknown",
+            ConfidenceScore = 0,
+            Model = options.Model,
+            Provider = options.Provider,
+            CreatedAtUtc = DateTime.UtcNow
+        };
     }
 }
