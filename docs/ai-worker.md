@@ -260,3 +260,60 @@ AiMongo__DatabaseName=hookbridge_ai \
 AiMongo__AiAnalysisResultsCollectionName=ai_analysis_results \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
+
+## Webhook failure analysis DTOs
+
+HookBridge AI uses dedicated webhook failure analysis DTOs to keep the LLM-facing contract clean, reusable, and decoupled from Kafka and MongoDB storage details. `WebhookFailureAnalysisRequestDto` represents the sanitized failure context sent for analysis, including event identifiers, subscription/customer context, endpoint details, retry state, HTTP status, headers, payload/body snippets, and the UTC failure timestamp. `WebhookFailureAnalysisResponseDto` captures the AI output, including summary, root cause, recommendation, risk level, retry guidance, confidence, generation timestamp, model, and provider.
+
+Header fields are intended for already-sanitized metadata only. Avoid storing or logging sensitive header values such as `Authorization`, API keys, cookies, or signatures. Keep prompt logging disabled unless an incident response workflow explicitly requires it and sensitive data has been redacted.
+
+Validation enforces that `eventId` and `eventType` are present, `statusCode` is between `100` and `599` when supplied, retry counts are non-negative, `failedAtUtc` uses UTC, and `targetUrl` is an absolute HTTP or HTTPS URL when supplied.
+
+### Example failure analysis request
+
+```json
+{
+  "eventId": "evt_01HXAMPLE123",
+  "correlationId": "corr_01HXAMPLE123",
+  "subscriptionId": "sub_123",
+  "customerId": "tenant_456",
+  "customerIdType": "TenantId",
+  "eventType": "webhook.delivery.failed",
+  "source": "hookbridge.worker",
+  "targetUrl": "https://api.example.com/webhooks/orders",
+  "httpMethod": "POST",
+  "statusCode": 500,
+  "errorMessage": "Internal Server Error",
+  "failureReason": "Target endpoint returned HTTP 500 after retry attempt 2.",
+  "retryCount": 2,
+  "maxRetryCount": 5,
+  "requestHeaders": {
+    "content-type": "application/json"
+  },
+  "responseHeaders": {
+    "retry-after": "30"
+  },
+  "requestPayload": "{\"orderId\":\"ord_123\",\"status\":\"paid\"}",
+  "responseBody": "{\"error\":\"temporarily unavailable\"}",
+  "failedAtUtc": "2026-05-13T10:15:30Z"
+}
+```
+
+### Example failure analysis response
+
+```json
+{
+  "eventId": "evt_01HXAMPLE123",
+  "correlationId": "corr_01HXAMPLE123",
+  "aiSummary": "The target endpoint returned repeated HTTP 500 responses, which indicates a likely server-side outage or unhandled exception.",
+  "rootCause": "The downstream webhook receiver appears temporarily unavailable.",
+  "aiRecommendation": "Check the receiver health and retry with exponential backoff. Move the event to dead-letter if the endpoint continues to fail after the configured retry limit.",
+  "riskLevel": "High",
+  "confidenceScore": 0.91,
+  "suggestedRetryAction": "RetryWithBackoff",
+  "isRetryRecommended": true,
+  "generatedAtUtc": "2026-05-13T10:16:02Z",
+  "model": "llama3.1",
+  "provider": "Ollama"
+}
+```

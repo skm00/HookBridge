@@ -32,6 +32,9 @@ public sealed class AiAnalysisResult
     [BsonElement("aiSummary")]
     public string AiSummary { get; set; } = string.Empty;
 
+    [BsonElement("rootCause")]
+    public string RootCause { get; set; } = string.Empty;
+
     [BsonElement("aiRecommendation")]
     public string AiRecommendation { get; set; } = string.Empty;
 
@@ -40,6 +43,12 @@ public sealed class AiAnalysisResult
 
     [BsonElement("confidenceScore")]
     public double ConfidenceScore { get; set; }
+
+    [BsonElement("suggestedRetryAction")]
+    public string SuggestedRetryAction { get; set; } = string.Empty;
+
+    [BsonElement("isRetryRecommended")]
+    public bool IsRetryRecommended { get; set; }
 
     [BsonElement("model")]
     public string Model { get; set; } = string.Empty;

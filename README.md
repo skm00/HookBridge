@@ -172,6 +172,8 @@ The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` a
 
 AI options can be set with environment variables such as `AI__Enabled`, `AI__Provider`, `AI__Model`, `AI__Endpoint`, `AI__TimeoutSeconds`, `AI__MaxRetries`, `AI__SystemPrompt`, `AI__EnablePromptLogging`, and `AI__HealthCheckPrompt`. Prompt logging is disabled by default and should remain disabled in production unless explicitly approved for short-lived diagnostics.
 
+Webhook failure analysis DTOs define the sanitized request/response contracts used by future LLM processing. They capture failure context, UTC timestamps, AI summaries, root-cause guidance, risk levels, confidence, and retry recommendations while keeping sensitive headers out of logs; see the [AI worker documentation](docs/ai-worker.md#webhook-failure-analysis-dtos) for example JSON payloads.
+
 Run it locally with:
 
 ```bash
