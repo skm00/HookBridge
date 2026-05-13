@@ -5,7 +5,35 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura,json</Format>
-          <ExcludeByFile>**/bin/**/*.cs,**/obj/**/*.cs,**/Migrations/**/*.cs,**/Program.cs</ExcludeByFile>
+          <ExcludeByFile>**/bin/**/*.cs,
+            **/obj/**/*.cs,
+            **/Migrations/**/*.cs,
+            **/Program.cs,
+            **/Properties/**/*.cs,
+            **/*Designer.cs,
+            **/HookBridge.Application/DTOs/ApiKeys/ApiKeyResponseDto.cs,
+            **/HookBridge.Application/DTOs/ApiKeys/ApiKeyValidationResult.cs,
+            **/HookBridge.Application/DTOs/ApiKeys/CreateApiKeyRequestDto.cs,
+            **/HookBridge.Application/DTOs/ApiKeys/CreateApiKeyResponseDto.cs,
+            **/HookBridge.Application/DTOs/ApiKeys/UpdateApiKeyRequestDto.cs,
+            **/HookBridge.Application/DTOs/AuditLogs/AuditLogResponseDto.cs,
+            **/HookBridge.Application/DTOs/AuditLogs/AuditLogSearchRequestDto.cs,
+            **/HookBridge.Application/DTOs/Auth/AuthDtos.cs,
+            **/HookBridge.Application/DTOs/Billing/BillingDtos.cs,
+            **/HookBridge.Application/DTOs/Dashboard/DashboardOverviewResponseDto.cs,
+            **/HookBridge.Application/DTOs/DeliveryAttempts/DeliveryAttemptDtos.cs,
+            **/HookBridge.Application/DTOs/EndpointValidation/EndpointValidationDtos.cs,
+            **/HookBridge.Application/DTOs/Events/EventIngestionResponseDto.cs,
+            **/HookBridge.Application/DTOs/Events/IncomingEventDtos.cs,
+            **/HookBridge.Application/DTOs/FailedEvents/FailedEventDtos.cs,
+            **/HookBridge.Application/DTOs/Notifications/NotificationResponseDto.cs,
+            **/HookBridge.Application/DTOs/Notifications/NotificationSearchRequestDto.cs,
+            **/HookBridge.Application/DTOs/Subscriptions/SubscriptionDtos.cs,
+            **/HookBridge.Application/DTOs/System/ProductionReadinessResponseDto.cs,
+            **/HookBridge.Application/DTOs/Tenants/CreateTenantRequestDto.cs,
+            **/HookBridge.Application/DTOs/Tenants/TenantResponseDto.cs,
+            **/HookBridge.Application/DTOs/Tenants/UpdateTenantRequestDto.cs,
+            **/HookBridge.Application/DTOs/Usage/CurrentUsageResponseDto.cs</ExcludeByFile>
           <Exclude>[*.Tests]*,[xunit.*]*</Exclude>
           <IncludeTestAssembly>false</IncludeTestAssembly>
           <SingleHit>false</SingleHit>

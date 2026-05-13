@@ -15,7 +15,7 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
         var store = new FakeStore();
         var worker = CreateWorker(consumer, store, options => options.BatchSize = 2);
 
-        await RunForAsync(worker, TimeSpan.FromMilliseconds(250));
+        await RunUntilIdleAsync(worker, consumer);
 
         Assert.Contains(store.Batches, batch => batch.Count == 2);
     }
@@ -31,7 +31,7 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
             options.FlushIntervalSeconds = 0;
         });
 
-        await RunForAsync(worker, TimeSpan.FromMilliseconds(300));
+        await RunUntilIdleAsync(worker, consumer);
 
         Assert.Single(store.Batches);
         Assert.Single(store.Batches[0]);
@@ -54,16 +54,24 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
         };
         var worker = CreateWorker(consumer, store, options => options.BatchSize = 1);
         using var cts = new CancellationTokenSource();
+        consumer.CancelWhenIdle = () => cts.Cancel();
 
         var runTask = worker.RunAsync(cts.Token);
-        await insertStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        try
+        {
+            await insertStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
-        Assert.Empty(consumer.CommittedOffsets);
+            Assert.Empty(consumer.CommittedOffsets);
 
-        releaseInsert.SetResult();
-        await WaitUntilAsync(() => consumer.CommittedOffsets.Count == 1);
-        await cts.CancelAsync();
-        await runTask;
+            releaseInsert.SetResult();
+            await WaitUntilAsync(() => consumer.CommittedOffsets.Count == 1);
+        }
+        finally
+        {
+            releaseInsert.TrySetResult();
+            await cts.CancelAsync();
+            await runTask.WaitAsync(TimeSpan.FromSeconds(2));
+        }
     }
 
     [Fact]
@@ -73,7 +81,7 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
         var store = new FakeStore();
         var worker = CreateWorker(consumer, store, options => options.BatchSize = 2);
 
-        await RunForAsync(worker, TimeSpan.FromMilliseconds(250));
+        await RunUntilIdleAsync(worker, consumer);
 
         var committed = Assert.Single(consumer.CommittedOffsets);
         Assert.Equal("webhook-events", committed.Topic);
@@ -91,7 +99,7 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
         };
         var worker = CreateWorker(consumer, store, options => options.BatchSize = 2);
 
-        await RunForAsync(worker, TimeSpan.FromMilliseconds(250));
+        await RunUntilIdleAsync(worker, consumer);
 
         Assert.Single(store.Batches);
         Assert.Single(consumer.CommittedOffsets);
@@ -117,7 +125,7 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
         };
         var worker = CreateWorker(consumer, store, options => options.BatchSize = 1);
 
-        await RunForAsync(worker, TimeSpan.FromMilliseconds(700));
+        await RunUntilIdleAsync(worker, consumer);
 
         Assert.True(callCount >= 2);
         Assert.NotEmpty(consumer.CommittedOffsets);
@@ -130,7 +138,7 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
         var store = new FakeStore();
         var worker = CreateWorker(consumer, store, options => options.BatchSize = 500);
 
-        await RunForAsync(worker, TimeSpan.FromMilliseconds(150));
+        await RunUntilIdleAsync(worker, consumer);
 
         Assert.Single(store.Batches);
         Assert.Single(store.Batches[0]);
@@ -162,10 +170,11 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
             new TestLogger<SwapBufferKafkaConsumerWorker>());
     }
 
-    private static async Task RunForAsync(TestSwapBufferKafkaConsumerWorker worker, TimeSpan duration)
+    private static async Task RunUntilIdleAsync(TestSwapBufferKafkaConsumerWorker worker, FakeConsumer consumer)
     {
-        using var cts = new CancellationTokenSource(duration);
-        await worker.RunAsync(cts.Token);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        consumer.CancelWhenIdle = () => cts.Cancel();
+        await worker.RunAsync(cts.Token).WaitAsync(TimeSpan.FromSeconds(3));
     }
 
     private static IReadOnlyList<ConsumeResult<string, WebhookEvent>> Messages(params string[] eventIds)
@@ -192,7 +201,7 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         while (!condition())
         {
-            await Task.Delay(25, cts.Token);
+            await Task.Delay(10, cts.Token);
         }
     }
 
@@ -235,6 +244,8 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
 
         public List<TopicPartitionOffset> CommittedOffsets { get; } = [];
 
+        public Action? CancelWhenIdle { get; set; }
+
         public void Subscribe(string topic) { }
 
         public ConsumeResult<string, WebhookEvent>? Consume(TimeSpan timeout)
@@ -244,7 +255,7 @@ public sealed class SwapBufferKafkaConsumerWorkerTests
                 return message;
             }
 
-            Thread.Sleep(timeout);
+            CancelWhenIdle?.Invoke();
             return null;
         }
 

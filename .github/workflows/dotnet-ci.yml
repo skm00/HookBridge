@@ -61,8 +61,11 @@ jobs:
             --no-restore \
             --no-build \
             --collect:"XPlat Code Coverage" \
+            --settings coverlet.runsettings \
             --logger "trx;LogFilePrefix=hookbridge-tests" \
             --results-directory "$TEST_RESULTS_DIR" \
+            --blame-hang \
+            --blame-hang-timeout 20m \
             --verbosity normal
 
       - name: Install coverage report generator

@@ -243,6 +243,40 @@ public sealed class FailedEventServiceTests
         Assert.Equal(new DateTime(2026, 4, 27, 12, 0, 0, DateTimeKind.Utc), failedEvent.UpdatedAt);
     }
 
+    [Fact]
+    public async Task MarkRetrySucceededAsync_WhenFailedEventIsMissing_DoesNotCreateOrPublishSideEffects()
+    {
+        var fixture = new Fixture();
+
+        await fixture.Service.MarkRetrySucceededAsync(
+            "missing",
+            new WebhookDeliveryResult { IsSuccess = true, HttpStatusCode = 200 },
+            1,
+            "https://example.com/current",
+            "corr-missing");
+
+        Assert.Empty(fixture.KafkaProducer.Published);
+        Assert.Empty(fixture.Audit.Logged);
+        Assert.Empty(fixture.Notifications.Created);
+    }
+
+    [Fact]
+    public async Task MarkRetryExhaustedAsync_WhenFailedEventIsMissing_DoesNotCreateOrPublishSideEffects()
+    {
+        var fixture = new Fixture();
+
+        await fixture.Service.MarkRetryExhaustedAsync(
+            "missing",
+            new WebhookDeliveryResult { IsSuccess = false, HttpStatusCode = 503, ErrorMessage = "unavailable" },
+            3,
+            "https://example.com/current",
+            "corr-missing");
+
+        Assert.Empty(fixture.KafkaProducer.Published);
+        Assert.Empty(fixture.Audit.Logged);
+        Assert.Empty(fixture.Notifications.Created);
+    }
+
     private sealed class Fixture
     {
         public InMemoryFailedEventRepository Repository { get; } = new();

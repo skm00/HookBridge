@@ -3,5 +3,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\bin\**\*;$(MSBuildProjectDirectory)\obj\**\*</DefaultItemExcludes>
+    <DefaultItemExcludesInProjectFolder>$(DefaultItemExcludesInProjectFolder);bin\**\*;obj\**\*</DefaultItemExcludesInProjectFolder>
+  </PropertyGroup>
+
+  <!--
+    Keep Windows intermediate paths short so Visual Studio/MSBuild can load and
+    build the solution even when the repository is checked out in a deep folder.
+  -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT' and '$(TEMP)' != ''">
+    <BaseIntermediateOutputPath>$(TEMP)\HookBridge\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
   </PropertyGroup>
 </Project>
