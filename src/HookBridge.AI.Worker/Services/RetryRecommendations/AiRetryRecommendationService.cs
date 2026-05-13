@@ -3,6 +3,7 @@ using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
+using HookBridge.AI.Worker.Services.Fallback;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -18,17 +19,20 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
     private readonly AiOptions _options;
     private readonly IWebhookFailurePromptBuilder _promptBuilder;
     private readonly ILocalLlmClient _llmClient;
+    private readonly IAiFallbackService _fallbackService;
     private readonly ILogger<AiRetryRecommendationService> _logger;
 
     public AiRetryRecommendationService(
         IOptions<AiOptions> options,
         IWebhookFailurePromptBuilder promptBuilder,
         ILocalLlmClient llmClient,
+        IAiFallbackService fallbackService,
         ILogger<AiRetryRecommendationService> logger)
     {
         _options = options.Value;
         _promptBuilder = promptBuilder;
         _llmClient = llmClient;
+        _fallbackService = fallbackService;
         _logger = logger;
     }
 
@@ -52,7 +56,7 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
                 "AI retry recommendation fallback used because AI is disabled. EventId: {EventId}, CorrelationId: {CorrelationId}",
                 request.EventId,
                 request.CorrelationId);
-            return CreateFallbackResponse(request, "AI is disabled; rule-based retry recommendation was used.");
+            return await CreateFallbackResponseAsync(request, AiFallbackReason.AiDisabled, "AI is disabled; deterministic fallback retry recommendation was used.", cancellationToken: cancellationToken);
         }
 
         try
@@ -60,14 +64,29 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
             var prompt = _promptBuilder.BuildPrompt(request);
             var llmResponse = await _llmClient.GenerateAsync(prompt, cancellationToken);
 
-            if (!TryParseAndValidate(llmResponse, out var parsed, out var validationFailure))
+            if (!llmResponse.IsSuccess)
+            {
+                _logger.LogWarning(
+                    "AI retry recommendation fallback used because LLM request failed. EventId: {EventId}, CorrelationId: {CorrelationId}, FallbackReason: {FallbackReason}, Provider: {Provider}, Model: {Model}, DurationMs: {DurationMs}, StatusCode: {StatusCode}",
+                    request.EventId,
+                    request.CorrelationId,
+                    llmResponse.FallbackReason,
+                    _options.Provider,
+                    _options.Model,
+                    llmResponse.DurationMs,
+                    llmResponse.StatusCode);
+                return await CreateFallbackResponseAsync(request, llmResponse.FallbackReason, llmResponse.ErrorMessage, llmResponse.DurationMs, cancellationToken);
+            }
+
+            if (!TryParseAndValidate(llmResponse.ResponseText, out var parsed, out var validationFailure))
             {
                 _logger.LogWarning(
                     "AI retry recommendation response validation failed. EventId: {EventId}, CorrelationId: {CorrelationId}, Reason: {Reason}",
                     request.EventId,
                     request.CorrelationId,
                     validationFailure);
-                return CreateFallbackResponse(request, $"AI response could not be used: {validationFailure}");
+                var reason = validationFailure.Contains("invalid JSON", StringComparison.OrdinalIgnoreCase) ? AiFallbackReason.InvalidJson : AiFallbackReason.InvalidResponse;
+                return await CreateFallbackResponseAsync(request, reason, $"AI response could not be used: {validationFailure}", llmResponse.DurationMs, cancellationToken);
             }
 
             var normalized = NormalizeAndApplySafetyRules(parsed, request);
@@ -91,7 +110,7 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
                 "AI retry recommendation fallback used because LLM analysis failed. EventId: {EventId}, CorrelationId: {CorrelationId}",
                 request.EventId,
                 request.CorrelationId);
-            return CreateFallbackResponse(request, "LLM analysis was unavailable; rule-based retry recommendation was used.");
+            return await CreateFallbackResponseAsync(request, AiFallbackReason.UnknownError, "LLM analysis was unavailable; deterministic fallback retry recommendation was used.", cancellationToken: cancellationToken);
         }
     }
 
@@ -203,67 +222,23 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
         return response;
     }
 
-    private WebhookFailureAnalysisResponseDto CreateFallbackResponse(WebhookFailureAnalysisRequestDto request, string reason)
+    private Task<WebhookFailureAnalysisResponseDto> CreateFallbackResponseAsync(
+        WebhookFailureAnalysisRequestDto request,
+        AiFallbackReason reason,
+        string message,
+        long durationMs = 0,
+        CancellationToken cancellationToken = default)
     {
-        var action = GetFallbackAction(request);
-        var riskLevel = GetFallbackRiskLevel(request, action);
-        var isRetryRecommended = action == SuggestedRetryAction.RetryWithBackoff;
-
-        _logger.LogInformation(
-            "Rule-based retry recommendation selected. EventId: {EventId}, CorrelationId: {CorrelationId}, StatusCode: {StatusCode}, SuggestedRetryAction: {SuggestedRetryAction}",
-            request.EventId,
-            request.CorrelationId,
-            request.StatusCode,
-            action);
-
-        return new WebhookFailureAnalysisResponseDto
+        if (!_options.EnableFallback)
         {
-            EventId = request.EventId,
-            CorrelationId = request.CorrelationId,
-            AiSummary = BuildFallbackSummary(request),
-            RootCause = BuildFallbackRootCause(request),
-            AiRecommendation = reason,
-            RiskLevel = riskLevel,
-            ConfidenceScore = 0.65,
-            SuggestedRetryAction = action,
-            IsRetryRecommended = isRetryRecommended,
-            GeneratedAtUtc = DateTime.UtcNow,
-            Model = _options.Model,
-            Provider = _options.Provider
-        };
-    }
-
-    private static SuggestedRetryAction GetFallbackAction(WebhookFailureAnalysisRequestDto request)
-    {
-        if (HasReachedMaxRetryCount(request))
-        {
-            return SuggestedRetryAction.MoveToDeadLetter;
+            _logger.LogWarning(
+                "AI fallback is disabled but retry recommendation needs fallback. EventId: {EventId}, CorrelationId: {CorrelationId}, FallbackReason: {FallbackReason}",
+                request.EventId,
+                request.CorrelationId,
+                reason);
         }
 
-        return request.StatusCode switch
-        {
-            429 => SuggestedRetryAction.RetryWithBackoff,
-            408 or 500 or 502 or 503 or 504 => SuggestedRetryAction.RetryWithBackoff,
-            401 or 403 => SuggestedRetryAction.RequireManualReview,
-            400 or 404 => SuggestedRetryAction.RequireManualReview,
-            _ => SuggestedRetryAction.RequireManualReview
-        };
-    }
-
-    private static AiRiskLevel GetFallbackRiskLevel(WebhookFailureAnalysisRequestDto request, SuggestedRetryAction action)
-    {
-        if (action == SuggestedRetryAction.MoveToDeadLetter)
-        {
-            return AiRiskLevel.High;
-        }
-
-        return request.StatusCode switch
-        {
-            401 or 403 => AiRiskLevel.High,
-            400 or 404 => AiRiskLevel.Medium,
-            429 or 500 or 502 or 503 or 504 or 408 => AiRiskLevel.Medium,
-            _ => AiRiskLevel.Unknown
-        };
+        return _fallbackService.CreateRetryRecommendationAsync(request, reason, message, durationMs, cancellationToken);
     }
 
     private static void ApplyRetrySafetyRules(

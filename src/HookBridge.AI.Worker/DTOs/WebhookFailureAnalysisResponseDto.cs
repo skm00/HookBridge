@@ -28,4 +28,6 @@ public sealed class WebhookFailureAnalysisResponseDto
     public string Model { get; set; } = string.Empty;
 
     public string Provider { get; set; } = string.Empty;
+
+    public AiFallbackMetadataDto? Fallback { get; set; }
 }

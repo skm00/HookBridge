@@ -26,4 +26,6 @@ public sealed class AiLogSummaryResponseDto
     public string Model { get; set; } = string.Empty;
 
     public string Provider { get; set; } = string.Empty;
+
+    public AiFallbackMetadataDto? Fallback { get; set; }
 }

@@ -5,10 +5,12 @@ using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.EndpointHealthScoring;
+using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -104,19 +106,29 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAiRetryRecommendationServices(this IServiceCollection services)
     {
-        services.AddSingleton<IAiRetryRecommendationService, AiRetryRecommendationService>();
+        services.AddAiFallbackServices();
+        services.TryAddSingleton<IAiRetryRecommendationService, AiRetryRecommendationService>();
         return services;
     }
 
     public static IServiceCollection AddAiLogSummarizationServices(this IServiceCollection services)
     {
-        services.AddSingleton<IAiLogSummarizationService, AiLogSummarizationService>();
+        services.AddAiFallbackServices();
+        services.TryAddSingleton<IAiLogSummarizationService, AiLogSummarizationService>();
+        return services;
+    }
+
+    public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
+        services.TryAddSingleton<IAiFallbackService, AiFallbackService>();
         return services;
     }
 
     public static IServiceCollection AddEndpointHealthScoringServices(this IServiceCollection services)
     {
-        services.AddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
+        services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
+        services.TryAddSingleton<IAiFallbackService, AiFallbackService>();
         return services;
     }
 

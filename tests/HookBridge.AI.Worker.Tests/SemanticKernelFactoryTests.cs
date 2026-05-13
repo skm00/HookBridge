@@ -113,8 +113,8 @@ public sealed class SemanticKernelFactoryTests
 
     private sealed class TestLocalLlmClient : ILocalLlmClient
     {
-        public Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
-            => Task.FromResult("{}");
+        public Task<LlmResponseResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+            => Task.FromResult(LlmResponseResult.Success("{}", 1));
     }
 
 }

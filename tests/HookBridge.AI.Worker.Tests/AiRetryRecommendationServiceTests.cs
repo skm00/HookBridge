@@ -4,6 +4,8 @@ using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
+using HookBridge.AI.Worker.Services.Fallback;
+using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using Microsoft.Extensions.Options;
 
 namespace HookBridge.AI.Worker.Tests;
@@ -119,6 +121,44 @@ public sealed class AiRetryRecommendationServiceTests
         result.AiRecommendation.Should().Contain("LLM analysis was unavailable");
     }
 
+
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenLlmReturnsEmptyResponse_UsesInvalidResponseFallbackMetadata()
+    {
+        var service = CreateService(llmResponse: string.Empty);
+
+        var result = await service.AnalyzeAsync(CreateRequest(statusCode: 500));
+
+        result.Fallback.Should().NotBeNull();
+        result.Fallback!.FallbackReason.Should().Be(AiFallbackReason.InvalidResponse);
+        result.SuggestedRetryAction.Should().Be(SuggestedRetryAction.RetryWithBackoff);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenModelUnavailable_UsesFallbackMetadata()
+    {
+        var service = CreateService(llmClient: new TestLocalLlmClient(AiFallbackReason.ModelUnavailable, "Configured model is unavailable."));
+
+        var result = await service.AnalyzeAsync(CreateRequest(statusCode: 500));
+
+        result.Fallback.Should().NotBeNull();
+        result.Fallback!.FallbackReason.Should().Be(AiFallbackReason.ModelUnavailable);
+        result.SuggestedRetryAction.Should().Be(SuggestedRetryAction.RetryWithBackoff);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenTimeout_UsesFallbackMetadata()
+    {
+        var service = CreateService(llmClient: new TestLocalLlmClient(AiFallbackReason.Timeout, "LLM timed out."));
+
+        var result = await service.AnalyzeAsync(CreateRequest(statusCode: 429));
+
+        result.Fallback.Should().NotBeNull();
+        result.Fallback!.FallbackReason.Should().Be(AiFallbackReason.Timeout);
+        result.SuggestedRetryAction.Should().Be(SuggestedRetryAction.RetryWithBackoff);
+    }
+
     [Fact]
     public async Task AnalyzeAsync_WithOutOfRangeConfidenceScore_ClampsValue()
     {
@@ -190,6 +230,7 @@ public sealed class AiRetryRecommendationServiceTests
             options,
             new TestPromptBuilder(),
             llmClient ?? new TestLocalLlmClient(llmResponse ?? ValidAiJson()),
+            new AiFallbackService(options, new EndpointHealthScoringService(), new TestLogger<AiFallbackService>()),
             new TestLogger<AiRetryRecommendationService>());
     }
 
@@ -243,6 +284,7 @@ public sealed class AiRetryRecommendationServiceTests
         private readonly string? _response;
         private readonly Exception? _exception;
         private readonly bool _shouldThrowIfCalled;
+        private readonly AiFallbackReason? _failureReason;
 
         public int CallCount { get; private set; }
 
@@ -257,7 +299,13 @@ public sealed class AiRetryRecommendationServiceTests
             _exception = exception;
         }
 
-        public Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+        public TestLocalLlmClient(AiFallbackReason failureReason, string errorMessage)
+        {
+            _failureReason = failureReason;
+            _response = errorMessage;
+        }
+
+        public Task<LlmResponseResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
         {
             CallCount++;
 
@@ -268,10 +316,17 @@ public sealed class AiRetryRecommendationServiceTests
 
             if (_exception is not null)
             {
-                throw _exception;
+                return Task.FromResult(LlmResponseResult.Failure(AiFallbackReason.ProviderUnavailable, "LLM analysis was unavailable", 1));
             }
 
-            return Task.FromResult(_response ?? string.Empty);
+            if (_failureReason.HasValue)
+            {
+                return Task.FromResult(LlmResponseResult.Failure(_failureReason.Value, _response ?? "LLM failed", 1));
+            }
+
+            return Task.FromResult(string.IsNullOrWhiteSpace(_response)
+                ? LlmResponseResult.Failure(AiFallbackReason.InvalidResponse, "empty response", 0)
+                : LlmResponseResult.Success(_response, 1));
         }
     }
 }

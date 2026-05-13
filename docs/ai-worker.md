@@ -31,6 +31,9 @@ The worker uses the `AI` configuration section. `Host.CreateApplicationBuilder` 
     "MaxRetries": 3,
     "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
     "EnablePromptLogging": false,
+    "EnableFallback": true,
+    "LlmRequestTimeoutSeconds": 30,
+    "MaxFallbackSummaryLength": 1000,
     "HealthCheckPrompt": "Say HookBridge AI is ready",
     "MaxPromptPayloadLength": 4000,
     "MaskSensitiveValues": true,
@@ -52,6 +55,9 @@ Configuration keys:
 | `AI:MaxRetries` | `AI__MaxRetries` | `3` | Always validated | Maximum retry attempts for AI provider operations. Must be `0` or greater. |
 | `AI:SystemPrompt` | `AI__SystemPrompt` | HookBridge webhook analysis assistant prompt | No | System instruction used by future AI analysis prompts. |
 | `AI:EnablePromptLogging` | `AI__EnablePromptLogging` | `false` | No | Enables prompt logging for troubleshooting. Keep disabled by default to avoid leaking event payloads or sensitive data into logs. |
+| `AI:EnableFallback` | `AI__EnableFallback` | `true` | Always validated | Enables deterministic fallback responses when AI is disabled or the LLM provider/model is unavailable. |
+| `AI:LlmRequestTimeoutSeconds` | `AI__LlmRequestTimeoutSeconds` | `30` | Always validated | Timeout budget, in seconds, for each LLM generation request before fallback is used. Must be greater than `0`. |
+| `AI:MaxFallbackSummaryLength` | `AI__MaxFallbackSummaryLength` | `1000` | Always validated | Maximum characters retained in deterministic fallback summary and recommendation fields. Must be greater than `0`. |
 | `AI:HealthCheckPrompt` | `AI__HealthCheckPrompt` | `Say HookBridge AI is ready` | No | Lightweight prompt reserved for future provider health checks. |
 | `AI:MaxPromptPayloadLength` | `AI__MaxPromptPayloadLength` | `4000` | Always validated | Maximum characters retained for each prompt payload, response body, and header value before truncation. Must be greater than `0`. |
 | `AI:MaskSensitiveValues` | `AI__MaskSensitiveValues` | `true` | No | Masks sensitive header and log values before prompt construction. Keep enabled to avoid exposing secrets. |
@@ -75,6 +81,9 @@ Options are validated during startup with the .NET options pattern using data an
     "MaxRetries": 3,
     "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
     "EnablePromptLogging": false,
+    "EnableFallback": true,
+    "LlmRequestTimeoutSeconds": 30,
+    "MaxFallbackSummaryLength": 1000,
     "HealthCheckPrompt": "Say HookBridge AI is ready",
     "MaxPromptPayloadLength": 4000,
     "MaskSensitiveValues": true,
@@ -98,6 +107,9 @@ AI__Endpoint=http://localhost:11434 \
 AI__TimeoutSeconds=30 \
 AI__MaxRetries=3 \
 AI__EnablePromptLogging=false \
+AI__EnableFallback=true \
+AI__LlmRequestTimeoutSeconds=30 \
+AI__MaxFallbackSummaryLength=1000 \
 AI__MaxPromptPayloadLength=4000 \
 AI__MaskSensitiveValues=true \
 AI__MaxLogEntriesForSummary=100 \
@@ -111,6 +123,72 @@ To disable AI safely while keeping the worker process available:
 AI__Enabled=false \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
+
+## Deterministic fallback behavior
+
+Fallback exists so webhook processing remains safe when local AI is unavailable, slow, misconfigured, or produces unusable output. The worker treats expected LLM availability failures as data through `LlmResponseResult` instead of crashing the worker. Fallback responses include `fallback` metadata with `usedFallback`, `fallbackReason`, `fallbackMessage`, `provider`, `model`, and a UTC generation timestamp.
+
+Fallback is used for these conditions:
+
+- AI is disabled (`AiDisabled`).
+- The provider cannot be reached (`ProviderUnavailable`).
+- The configured model is missing or Ollama reports a model-related error (`ModelUnavailable`).
+- The request times out (`Timeout`).
+- The provider returns a non-success status, empty response, or malformed response (`InvalidResponse`).
+- The response body is not valid JSON when JSON is required (`InvalidJson`).
+- Required provider/model/endpoint configuration is invalid (`ConfigurationError`).
+
+### Fallback decision table
+
+| Signal | Suggested action | Risk | Notes |
+| --- | --- | --- | --- |
+| HTTP `429` | `RetryWithBackoff` | `Medium` | Rate limiting should never retry immediately. |
+| HTTP `408` or `504` | `RetryWithBackoff` | `Medium` | Timeout-style failures are treated as transient. |
+| HTTP `500`, `502`, or `503` | `RetryWithBackoff` | `High` | Server-side failures are retryable with backoff but higher risk. |
+| HTTP `400` | `RequireManualReview` | `Medium` | Bad requests may indicate payload/schema issues. |
+| HTTP `401` or `403` | `RequireManualReview` | `High` | Authentication and authorization failures require operator review. |
+| HTTP `404` | `MoveToDeadLetter` | `High` | The endpoint may be removed or misconfigured. |
+| `RetryCount >= MaxRetryCount` | `MoveToDeadLetter` | `Critical` | Max retry budget takes precedence over status-code rules. |
+| Unknown status | `RequireManualReview` | `Unknown` | Avoid unsafe automatic retries when evidence is incomplete. |
+
+Log summary fallback is also deterministic: empty logs return a safe “no logs available” summary, error logs summarize the latest error after sensitive-value masking, warning-only logs summarize warning count, and logs without errors or warnings are marked low risk. Endpoint health scoring remains deterministic and does not require an LLM; fallback health summaries use `EndpointHealthScoringService`.
+
+### Example fallback response
+
+```json
+{
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "aiSummary": "Fallback analysis was used. LLM provider was unavailable. Deterministic fallback rules were used.",
+  "rootCause": "The target endpoint returned HTTP 429, which usually indicates rate limiting.",
+  "aiRecommendation": "LLM provider was unavailable. Retry with exponential backoff and reduce delivery concurrency if rate limiting or transient failures continue.",
+  "riskLevel": "Medium",
+  "confidenceScore": 0.65,
+  "suggestedRetryAction": "RetryWithBackoff",
+  "isRetryRecommended": true,
+  "generatedAtUtc": "2026-05-13T10:30:00Z",
+  "model": "llama3",
+  "provider": "Ollama",
+  "fallback": {
+    "usedFallback": true,
+    "fallbackReason": "ProviderUnavailable",
+    "fallbackMessage": "LLM provider was unavailable. Deterministic fallback rules were used.",
+    "provider": "Ollama",
+    "model": "llama3",
+    "generatedAtUtc": "2026-05-13T10:30:00Z"
+  }
+}
+```
+
+### Disabling fallback
+
+Fallback is enabled by default. To disable the setting for experiments or strict provider-validation environments, set:
+
+```bash
+AI__EnableFallback=false
+```
+
+The production recommendation is to keep fallback enabled, keep prompt logging disabled, set a conservative `AI__LlmRequestTimeoutSeconds`, and alert on fallback usage by reason/provider/model/duration. Fallback logs are structured and intentionally exclude full prompts, payloads, secrets, and headers.
 
 ## Ollama model example
 

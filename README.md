@@ -165,6 +165,9 @@ The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` a
     "MaxRetries": 3,
     "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
     "EnablePromptLogging": false,
+    "EnableFallback": true,
+    "LlmRequestTimeoutSeconds": 30,
+    "MaxFallbackSummaryLength": 1000,
     "HealthCheckPrompt": "Say HookBridge AI is ready",
     "MaxPromptPayloadLength": 4000,
     "MaskSensitiveValues": true,
@@ -174,9 +177,9 @@ The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` a
 }
 ```
 
-AI options can be set with environment variables such as `AI__Enabled`, `AI__Provider`, `AI__Model`, `AI__Endpoint`, `AI__TimeoutSeconds`, `AI__MaxRetries`, `AI__SystemPrompt`, `AI__EnablePromptLogging`, `AI__HealthCheckPrompt`, `AI__MaxPromptPayloadLength`, `AI__MaskSensitiveValues`, `AI__MaxLogEntriesForSummary`, and `AI__MaxLogMessageLength`. Prompt logging is disabled by default and should remain disabled in production unless explicitly approved for short-lived diagnostics.
+AI options can be set with environment variables such as `AI__Enabled`, `AI__Provider`, `AI__Model`, `AI__Endpoint`, `AI__TimeoutSeconds`, `AI__MaxRetries`, `AI__SystemPrompt`, `AI__EnablePromptLogging`, `AI__EnableFallback`, `AI__LlmRequestTimeoutSeconds`, `AI__MaxFallbackSummaryLength`, `AI__HealthCheckPrompt`, `AI__MaxPromptPayloadLength`, `AI__MaskSensitiveValues`, `AI__MaxLogEntriesForSummary`, and `AI__MaxLogMessageLength`. Prompt logging is disabled by default and should remain disabled in production unless explicitly approved for short-lived diagnostics.
 
-Webhook failure analysis DTOs, prompt templates, and the AI retry recommendation service define the sanitized request/response contracts used by LLM processing. The prompt builder converts failure context into strict JSON instructions, masks sensitive headers by default, truncates large payloads with `AI:MaxPromptPayloadLength`, and asks for AI summaries, root-cause guidance, risk levels, confidence, and retry recommendations. `IAiRetryRecommendationService` validates model JSON, normalizes metadata, applies safety overrides such as never retrying `429` immediately, and falls back to deterministic rule-based recommendations when AI is disabled or unavailable; see the [AI retry recommendation service documentation](docs/ai-worker.md#ai-retry-recommendation-service) for the fallback decision table and example payloads.
+Webhook failure analysis DTOs, prompt templates, and the AI retry recommendation service define the sanitized request/response contracts used by LLM processing. The prompt builder converts failure context into strict JSON instructions, masks sensitive headers by default, truncates large payloads with `AI:MaxPromptPayloadLength`, and asks for AI summaries, root-cause guidance, risk levels, confidence, and retry recommendations. `IAiRetryRecommendationService` validates model JSON, normalizes metadata, applies safety overrides such as never retrying `429` immediately, and falls back to deterministic rule-based recommendations with fallback metadata when AI is disabled, unavailable, timed out, missing a model, or returns invalid/empty JSON; see the [AI retry recommendation service documentation](docs/ai-worker.md#ai-retry-recommendation-service) for the fallback decision table and example payloads.
 
 AI log summarization is also available through `IAiLogSummarizationService` for debugging and support workflows. It turns webhook-related log entries into a concise JSON response with summary, likely root cause, impact, recommendation, risk level, confidence, model, and provider metadata. `AiLogSummaryPromptBuilder` builds deterministic strict-JSON prompts, masks sensitive values (`Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, and `ConnectionString`), truncates large messages with `AI:MaxLogMessageLength`, and limits prompt size with `AI:MaxLogEntriesForSummary`. When AI is disabled, logs are empty, the LLM is unavailable, or model JSON is invalid, the service falls back to a rule-based summary that counts errors/warnings, selects the most recent error as likely root cause, and returns a lower-confidence safe recommendation. See [AI Worker documentation](docs/ai-worker.md#ai-log-summarization-service) for example request/response payloads and safety behavior.
 
@@ -199,6 +202,9 @@ AI__Endpoint=http://localhost:11434 \
 AI__TimeoutSeconds=30 \
 AI__MaxRetries=3 \
 AI__EnablePromptLogging=false \
+AI__EnableFallback=true \
+AI__LlmRequestTimeoutSeconds=30 \
+AI__MaxFallbackSummaryLength=1000 \
 AI__MaxPromptPayloadLength=4000 \
 AI__MaskSensitiveValues=true \
 AI__MaxLogEntriesForSummary=100 \
@@ -206,7 +212,7 @@ AI__MaxLogMessageLength=2000 \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
 
-See [AI Worker documentation](docs/ai-worker.md) for the full configuration table, development example, production recommendation, environment variable examples, Semantic Kernel usage, Ollama model examples, retry recommendation behavior, and MongoDB AI result storage settings.
+See [AI Worker documentation](docs/ai-worker.md) for the full configuration table, fallback decision table, example fallback response, how to disable fallback, production recommendation, environment variable examples, Semantic Kernel usage, Ollama model examples, retry recommendation behavior, and MongoDB AI result storage settings.
 
 ## Retry & DLQ
 
