@@ -3,6 +3,7 @@ using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mapping;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Services;
+using HookBridge.AI.Worker.Services.RetryRecommendations;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,7 @@ public sealed class AiProcessingWorker : BackgroundService
     private readonly IAiAnalysisConsumer _analysisConsumer;
     private readonly IKernelFactory _kernelFactory;
     private readonly IAiAnalysisResultRepository _analysisResultRepository;
+    private readonly IAiRetryRecommendationService _retryRecommendationService;
     private readonly ILogger<AiProcessingWorker> _logger;
     private readonly IOptions<AiOptions> _options;
 
@@ -22,13 +24,15 @@ public sealed class AiProcessingWorker : BackgroundService
         IOptions<AiOptions> options,
         IKernelFactory kernelFactory,
         IAiAnalysisConsumer analysisConsumer,
-        IAiAnalysisResultRepository analysisResultRepository)
+        IAiAnalysisResultRepository analysisResultRepository,
+        IAiRetryRecommendationService retryRecommendationService)
     {
         _logger = logger;
         _options = options;
         _kernelFactory = kernelFactory;
         _analysisConsumer = analysisConsumer;
         _analysisResultRepository = analysisResultRepository;
+        _retryRecommendationService = retryRecommendationService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -64,7 +68,8 @@ public sealed class AiProcessingWorker : BackgroundService
                     analysisEvent.CreatedAtUtc);
 
                 var request = WebhookFailureAnalysisMapper.ToWebhookFailureAnalysisRequest(analysisEvent);
-                var analysisResult = WebhookFailureAnalysisMapper.ToAiAnalysisResultPlaceholder(request, options);
+                var recommendation = await _retryRecommendationService.AnalyzeAsync(request, stoppingToken);
+                var analysisResult = WebhookFailureAnalysisMapper.ToAiAnalysisResult(recommendation, request);
                 await _analysisResultRepository.InsertAsync(analysisResult, stoppingToken);
 
                 _logger.LogInformation(

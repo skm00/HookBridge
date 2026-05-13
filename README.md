@@ -174,7 +174,7 @@ The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` a
 
 AI options can be set with environment variables such as `AI__Enabled`, `AI__Provider`, `AI__Model`, `AI__Endpoint`, `AI__TimeoutSeconds`, `AI__MaxRetries`, `AI__SystemPrompt`, `AI__EnablePromptLogging`, `AI__HealthCheckPrompt`, `AI__MaxPromptPayloadLength`, and `AI__MaskSensitiveValues`. Prompt logging is disabled by default and should remain disabled in production unless explicitly approved for short-lived diagnostics.
 
-Webhook failure analysis DTOs and prompt templates define the sanitized request/response contracts used by LLM processing. The prompt builder converts failure context into strict JSON instructions, masks sensitive headers by default, truncates large payloads with `AI:MaxPromptPayloadLength`, and asks for AI summaries, root-cause guidance, risk levels, confidence, and retry recommendations; see the [AI worker documentation](docs/ai-worker.md#webhook-failure-explanation-prompt) for prompt safety rules and example JSON payloads.
+Webhook failure analysis DTOs, prompt templates, and the AI retry recommendation service define the sanitized request/response contracts used by LLM processing. The prompt builder converts failure context into strict JSON instructions, masks sensitive headers by default, truncates large payloads with `AI:MaxPromptPayloadLength`, and asks for AI summaries, root-cause guidance, risk levels, confidence, and retry recommendations. `IAiRetryRecommendationService` validates model JSON, normalizes metadata, applies safety overrides such as never retrying `429` immediately, and falls back to deterministic rule-based recommendations when AI is disabled or unavailable; see the [AI retry recommendation service documentation](docs/ai-worker.md#ai-retry-recommendation-service) for the fallback decision table and example payloads.
 
 Run it locally with:
 
@@ -197,7 +197,7 @@ AI__MaskSensitiveValues=true \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
 
-See [AI Worker documentation](docs/ai-worker.md) for the full configuration table, development example, production recommendation, environment variable examples, Semantic Kernel usage, Ollama model examples, and MongoDB AI result storage settings.
+See [AI Worker documentation](docs/ai-worker.md) for the full configuration table, development example, production recommendation, environment variable examples, Semantic Kernel usage, Ollama model examples, retry recommendation behavior, and MongoDB AI result storage settings.
 
 ## Retry & DLQ
 

@@ -4,6 +4,7 @@ using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
+using HookBridge.AI.Worker.Services.RetryRecommendations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -95,6 +96,13 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAiKernelServices(this IServiceCollection services)
     {
         services.AddSingleton<IKernelFactory, SemanticKernelFactory>();
+        services.AddSingleton<ILocalLlmClient, SemanticKernelLocalLlmClient>();
+        return services;
+    }
+
+    public static IServiceCollection AddAiRetryRecommendationServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IAiRetryRecommendationService, AiRetryRecommendationService>();
         return services;
     }
 

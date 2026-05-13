@@ -412,3 +412,104 @@ Prompt safety configuration is part of the `AI` section:
   "generatedAtUtc": "2026-05-13T10:16:00Z"
 }
 ```
+
+## AI retry recommendation service
+
+`IAiRetryRecommendationService` provides deterministic, testable webhook retry recommendations for failed deliveries. The implementation, `AiRetryRecommendationService`, accepts a `WebhookFailureAnalysisRequestDto`, builds a sanitized prompt through `IWebhookFailurePromptBuilder`, asks the configured local LLM for strict JSON, validates the result, applies safety rules, normalizes metadata, and returns a `WebhookFailureAnalysisResponseDto`.
+
+The service is recommendation-only. It does **not** execute retries, pause endpoints, or move messages itself. Downstream systems can inspect the recommendation and decide how to apply production policy.
+
+### Safety behavior
+
+The service never trusts the model blindly:
+
+- The LLM must return strict JSON that matches `WebhookFailureAnalysisResponseDto` fields used by the prompt.
+- Required text fields must be present and non-empty.
+- `riskLevel` must be a valid `AiRiskLevel` value.
+- `suggestedRetryAction` must be a valid `SuggestedRetryAction` value.
+- `confidenceScore` is normalized to the range `0..1`.
+- `eventId` and `correlationId` are always copied from the original request, not from model output.
+- `generatedAtUtc` is normalized to UTC.
+- `model` and `provider` are populated from `AiOptions` when the model omits them.
+- Full payloads and secrets are not logged.
+
+Hard safety overrides are applied after successful AI parsing:
+
+| Condition | Forced safe action | Reason |
+| --- | --- | --- |
+| `StatusCode == 429` and the model suggests `RetryImmediately` | `RetryWithBackoff` | Rate-limited endpoints must not be retried immediately. |
+| `RetryCount >= MaxRetryCount` when `MaxRetryCount > 0` | `MoveToDeadLetter` | The retry budget has been exhausted. |
+| `StatusCode == 401` or `StatusCode == 403` | `RequireManualReview` | Authentication and authorization failures need operator review or credential fixes. |
+
+### Fallback decision table
+
+Rule-based fallback is used when AI is disabled, the LLM call fails, the LLM returns invalid JSON, or the JSON is missing required/valid fields.
+
+| Failure context | Fallback `suggestedRetryAction` | Retry recommended |
+| --- | --- | --- |
+| `RetryCount >= MaxRetryCount` and `MaxRetryCount > 0` | `MoveToDeadLetter` | No |
+| HTTP `429` | `RetryWithBackoff` | Yes |
+| HTTP `408` or `504` | `RetryWithBackoff` | Yes |
+| HTTP `500`, `502`, or `503` | `RetryWithBackoff` | Yes |
+| HTTP `401` or `403` | `RequireManualReview` | No |
+| HTTP `400` or `404` | `RequireManualReview` | No |
+| Unknown or missing status | `RequireManualReview` | No |
+
+### Example input
+
+```json
+{
+  "eventId": "evt_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "correlationId": "corr_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "subscriptionId": "sub_456",
+  "eventType": "webhook.delivery.failed",
+  "source": "hookbridge.worker",
+  "targetUrl": "https://example.test/webhooks",
+  "httpMethod": "POST",
+  "statusCode": 500,
+  "failureReason": "Target endpoint returned HTTP 500.",
+  "retryCount": 2,
+  "maxRetryCount": 5,
+  "failedAtUtc": "2026-05-13T10:15:30Z"
+}
+```
+
+### Example AI response
+
+```json
+{
+  "eventId": "evt_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "correlationId": "corr_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "aiSummary": "The target endpoint returned a transient server error during webhook delivery.",
+  "rootCause": "The downstream service responded with HTTP 500, which usually indicates a temporary server-side failure.",
+  "aiRecommendation": "Retry with exponential backoff and monitor subsequent endpoint health.",
+  "riskLevel": "Medium",
+  "confidenceScore": 0.82,
+  "suggestedRetryAction": "RetryWithBackoff",
+  "isRetryRecommended": true,
+  "generatedAtUtc": "2026-05-13T10:16:00Z"
+}
+```
+
+### Example fallback response
+
+```json
+{
+  "eventId": "evt_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "correlationId": "corr_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "aiSummary": "Rule-based analysis evaluated failed webhook delivery status code 429.",
+  "rootCause": "The target endpoint reported rate limiting.",
+  "aiRecommendation": "LLM analysis was unavailable; rule-based retry recommendation was used.",
+  "riskLevel": "Medium",
+  "confidenceScore": 0.65,
+  "suggestedRetryAction": "RetryWithBackoff",
+  "isRetryRecommended": true,
+  "generatedAtUtc": "2026-05-13T10:16:00Z",
+  "model": "llama3",
+  "provider": "Ollama"
+}
+```
+
+### Worker flow
+
+The AI worker now consumes `AiAnalysisEventDto` messages from `hookbridge.ai.analysis`, maps the envelope and payload hints into `WebhookFailureAnalysisRequestDto`, calls `IAiRetryRecommendationService`, maps the returned `WebhookFailureAnalysisResponseDto` into `AiAnalysisResult`, and stores the document in the MongoDB `ai_analysis_results` collection. Unit tests mock the LLM client, prompt builder, Kafka consumer, and Mongo repository, so tests do not require real Ollama, Kafka, or MongoDB.
