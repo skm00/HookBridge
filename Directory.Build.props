@@ -4,4 +4,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <!--
+    Keep Windows intermediate paths short so Visual Studio/MSBuild can load and
+    build the solution even when the repository is checked out in a deep folder.
+  -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT' and '$(TEMP)' != ''">
+    <BaseIntermediateOutputPath>$(TEMP)\HookBridge\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
 </Project>
