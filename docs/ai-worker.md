@@ -202,3 +202,61 @@ kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic 
 printf '%s\n' '{"eventId":"evt-local-1","correlationId":"corr-local-1","source":"local-cli","eventType":"webhook.delivery.failed","failureReason":"HTTP 500","payload":"{}","createdAtUtc":"2026-05-13T10:15:30+00:00"}' \
   | kafka-console-producer --bootstrap-server localhost:9092 --topic hookbridge.ai.analysis --property parse.key=false
 ```
+
+## MongoDB AI analysis result storage
+
+The AI worker stores each consumed Kafka AI analysis event as an `AiAnalysisResult` document in MongoDB. The default collection name is `ai_analysis_results`.
+
+MongoDB settings are bound with `IOptions<AiMongoOptions>` from the `AiMongo` configuration section and validated during startup:
+
+```json
+{
+  "AiMongo": {
+    "ConnectionString": "mongodb://localhost:27017",
+    "DatabaseName": "hookbridge_ai",
+    "AiAnalysisResultsCollectionName": "ai_analysis_results"
+  }
+}
+```
+
+| Key | Environment variable | Default/local example | Description |
+| --- | --- | --- | --- |
+| `AiMongo:ConnectionString` | `AiMongo__ConnectionString` | `mongodb://localhost:27017` | Required MongoDB connection string for the AI worker. Store production credentials as secrets outside source control. |
+| `AiMongo:DatabaseName` | `AiMongo__DatabaseName` | `hookbridge_ai` | Required database containing AI worker collections. |
+| `AiMongo:AiAnalysisResultsCollectionName` | `AiMongo__AiAnalysisResultsCollectionName` | `ai_analysis_results` | Required collection used for stored AI analysis result documents. |
+
+The worker creates indexes for AI analysis lookups at startup:
+
+- `eventId` ascending
+- `correlationId` ascending
+- `createdAtUtc` descending
+
+Example stored document:
+
+```json
+{
+  "_id": "6644a3f65d3f2e0d9f9a8b01",
+  "eventId": "evt_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "correlationId": "corr_01HXZ9R8J6K8BNK7Y5J6W5N4M2",
+  "source": "hookbridge.worker",
+  "eventType": "webhook.delivery.failed",
+  "failureReason": "Target endpoint returned HTTP 500 after retry budget was exhausted.",
+  "aiSummary": "AI analysis placeholder created for failure: Target endpoint returned HTTP 500 after retry budget was exhausted.",
+  "aiRecommendation": "Review the webhook payload, delivery history, and target endpoint health before retrying.",
+  "riskLevel": "Unknown",
+  "confidenceScore": 0,
+  "model": "llama3",
+  "provider": "Ollama",
+  "createdAtUtc": "2026-05-13T10:16:00Z"
+}
+```
+
+Local MongoDB example using Docker:
+
+```bash
+docker run --name hookbridge-mongo -p 27017:27017 -d mongo:7
+AiMongo__ConnectionString=mongodb://localhost:27017 \
+AiMongo__DatabaseName=hookbridge_ai \
+AiMongo__AiAnalysisResultsCollectionName=ai_analysis_results \
+dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
+```
