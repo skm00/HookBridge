@@ -1,6 +1,6 @@
 using HookBridge.AI.Worker.Configuration;
-using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
+using HookBridge.AI.Worker.Mapping;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Services;
 using Microsoft.Extensions.Hosting;
@@ -63,7 +63,8 @@ public sealed class AiProcessingWorker : BackgroundService
                     analysisEvent.EventType,
                     analysisEvent.CreatedAtUtc);
 
-                var analysisResult = CreatePlaceholderResult(analysisEvent, options);
+                var request = WebhookFailureAnalysisMapper.ToWebhookFailureAnalysisRequest(analysisEvent);
+                var analysisResult = WebhookFailureAnalysisMapper.ToAiAnalysisResultPlaceholder(request, options);
                 await _analysisResultRepository.InsertAsync(analysisResult, stoppingToken);
 
                 _logger.LogInformation(
@@ -86,28 +87,5 @@ public sealed class AiProcessingWorker : BackgroundService
         {
             _logger.LogInformation("HookBridge AI Worker shutting down.");
         }
-    }
-
-    private static AiAnalysisResult CreatePlaceholderResult(
-        AiAnalysisEventDto analysisEvent,
-        AiOptions options)
-    {
-        return new AiAnalysisResult
-        {
-            EventId = analysisEvent.EventId,
-            CorrelationId = analysisEvent.CorrelationId,
-            Source = analysisEvent.Source,
-            EventType = analysisEvent.EventType,
-            FailureReason = analysisEvent.FailureReason,
-            AiSummary = string.IsNullOrWhiteSpace(analysisEvent.FailureReason)
-                ? "AI analysis placeholder created for webhook event processing."
-                : $"AI analysis placeholder created for failure: {analysisEvent.FailureReason}",
-            AiRecommendation = "Review the webhook payload, delivery history, and target endpoint health before retrying.",
-            RiskLevel = "Unknown",
-            ConfidenceScore = 0,
-            Model = options.Model,
-            Provider = options.Provider,
-            CreatedAtUtc = DateTime.UtcNow
-        };
     }
 }
