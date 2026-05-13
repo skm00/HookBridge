@@ -151,7 +151,7 @@ For deeper design notes, see [Architecture Documentation](docs/architecture.md).
 
 `HookBridge.AI.Worker` is a .NET 8 Worker Service for future Agentic AI background processing. It runs separately from the API and webhook delivery workers so AI-related jobs can evolve without affecting ingestion or delivery throughput.
 
-The worker currently starts cleanly, loads the `AI` configuration section through `IOptions<AiOptions>`, logs startup and shutdown, and remains idle until cancellation. The default local configuration targets Ollama:
+The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` and builds kernels with `IKernelFactory`/`SemanticKernelFactory`. When `AI:Enabled` is `true`, startup verifies that a Semantic Kernel instance can be created from configuration. When `AI:Enabled` is `false`, Semantic Kernel initialization is skipped safely and the worker logs that AI is disabled. The default local configuration targets Ollama:
 
 ```json
 {
@@ -170,7 +170,17 @@ Run it locally with:
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
 
-Ensure Ollama is available at `http://localhost:11434`, or override the endpoint with `AI__Endpoint`. See [AI Worker documentation](docs/ai-worker.md) for details.
+Ensure Ollama is available at `http://localhost:11434`, or override the endpoint and model with environment variables:
+
+```bash
+AI__Enabled=true \
+AI__Provider=Ollama \
+AI__Model=llama3 \
+AI__Endpoint=http://localhost:11434 \
+dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
+```
+
+See [AI Worker documentation](docs/ai-worker.md) for Semantic Kernel usage, required configuration, and Ollama model examples.
 
 ## Retry & DLQ
 
