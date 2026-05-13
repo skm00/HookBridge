@@ -26,4 +26,6 @@ public sealed class EndpointHealthScoreResponseDto
     public string Recommendation { get; set; } = string.Empty;
 
     public DateTime CalculatedAtUtc { get; set; }
+
+    public AiFallbackMetadataDto? Fallback { get; set; }
 }

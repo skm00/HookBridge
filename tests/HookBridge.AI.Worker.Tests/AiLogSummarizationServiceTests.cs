@@ -5,6 +5,8 @@ using HookBridge.AI.Worker.Extensions;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.LogSummaries;
+using HookBridge.AI.Worker.Services.Fallback;
+using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -58,8 +60,8 @@ public sealed class AiLogSummarizationServiceTests
         var result = await service.SummarizeAsync(request);
 
         llmClient.CallCount.Should().Be(0);
-        result.Summary.Should().Contain("No webhook-related logs");
-        result.RootCause.Should().Contain("No error-level log entry");
+        result.Summary.Should().Contain("No logs are available");
+        result.RootCause.Should().Contain("No logs are available");
         result.ConfidenceScore.Should().Be(0.1);
     }
 
@@ -165,6 +167,7 @@ public sealed class AiLogSummarizationServiceTests
             options,
             new TestPromptBuilder(),
             llmClient ?? new TestLocalLlmClient(llmResponse ?? ValidAiJson()),
+            new AiFallbackService(options, new EndpointHealthScoringService(), new TestLogger<AiFallbackService>()),
             new TestLogger<AiLogSummarizationService>());
     }
 
@@ -240,7 +243,7 @@ public sealed class AiLogSummarizationServiceTests
             _exception = exception;
         }
 
-        public Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+        public Task<LlmResponseResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
         {
             CallCount++;
 
@@ -251,10 +254,12 @@ public sealed class AiLogSummarizationServiceTests
 
             if (_exception is not null)
             {
-                throw _exception;
+                return Task.FromResult(LlmResponseResult.Failure(AiFallbackReason.ProviderUnavailable, "LLM summarization was unavailable", 1));
             }
 
-            return Task.FromResult(_response ?? string.Empty);
+            return Task.FromResult(string.IsNullOrWhiteSpace(_response)
+                ? LlmResponseResult.Failure(AiFallbackReason.InvalidResponse, "empty response", 0)
+                : LlmResponseResult.Success(_response, 1));
         }
     }
 }

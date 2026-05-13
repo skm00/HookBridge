@@ -25,6 +25,14 @@ public sealed class AiOptions
 
     public bool EnablePromptLogging { get; set; }
 
+    public bool EnableFallback { get; set; } = true;
+
+    [Range(1, int.MaxValue, ErrorMessage = "AI:LlmRequestTimeoutSeconds must be greater than 0.")]
+    public int LlmRequestTimeoutSeconds { get; set; } = 30;
+
+    [Range(1, int.MaxValue, ErrorMessage = "AI:MaxFallbackSummaryLength must be greater than 0.")]
+    public int MaxFallbackSummaryLength { get; set; } = 1000;
+
     public string HealthCheckPrompt { get; set; } = "Say HookBridge AI is ready";
 
     [Range(1, int.MaxValue, ErrorMessage = "AI:MaxPromptPayloadLength must be greater than 0.")]
