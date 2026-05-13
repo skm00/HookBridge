@@ -11,6 +11,7 @@ builder.Services.AddSingleton<AiWorkerHealthStatus>();
 builder.Services.AddAiKernelServices();
 builder.Services.AddAiPromptServices();
 builder.Services.AddAiRetryRecommendationServices();
+builder.Services.AddAiLogSummarizationServices();
 builder.Services.AddAiKafkaServices();
 builder.Services.AddAiMongoServices();
 builder.Services.AddHostedService<AiProcessingWorker>();

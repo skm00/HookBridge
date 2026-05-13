@@ -5,6 +5,7 @@ using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
+using HookBridge.AI.Worker.Services.LogSummaries;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -106,9 +107,16 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddAiLogSummarizationServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IAiLogSummarizationService, AiLogSummarizationService>();
+        return services;
+    }
+
     public static IServiceCollection AddAiPromptServices(this IServiceCollection services)
     {
         services.AddSingleton<IWebhookFailurePromptBuilder, WebhookFailurePromptBuilder>();
+        services.AddSingleton<IAiLogSummaryPromptBuilder, AiLogSummaryPromptBuilder>();
         return services;
     }
 
