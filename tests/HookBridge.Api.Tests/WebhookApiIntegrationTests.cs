@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using FluentAssertions;
+using HookBridge.AI.Worker.Mongo;
+using HookBridge.Application.DTOs.AiAnalysis;
 using HookBridge.Api.Health;
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Application.DTOs.Common;
@@ -145,6 +147,52 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         consumed.Should().ContainSingle(x => x.EventId == "evt_kafka_1");
     }
 
+    [Fact]
+    public async Task GetAiAnalysisByEventId_WhenResultExists_ShouldReturnSuccessfulJsonResponseShape()
+    {
+        _factory.State.AiAnalysisResults.Add(new AiAnalysisResult
+        {
+            Id = "663f0c7a9f1e2a5a12345678",
+            EventId = "evt_ai_integration",
+            CorrelationId = "corr_ai",
+            Source = "HookBridge.Worker",
+            EventType = "WebhookDeliveryFailed",
+            FailureReason = "Too Many Requests",
+            AiSummary = "The target endpoint is rate limiting requests.",
+            RootCause = "HTTP 429 indicates rate limiting.",
+            AiRecommendation = "Retry using exponential backoff.",
+            RiskLevel = "Medium",
+            ConfidenceScore = 0.86,
+            SuggestedRetryAction = "RetryWithBackoff",
+            IsRetryRecommended = true,
+            Model = "llama3",
+            Provider = "Ollama",
+            CreatedAtUtc = new DateTime(2026, 5, 13, 10, 30, 0, DateTimeKind.Utc),
+        });
+
+        var response = await _client.GetAsync("/api/ai-analysis/events/evt_ai_integration");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<AiAnalysisResultResponseDto>>();
+        body!.Success.Should().BeTrue();
+        body.Data!.Id.Should().Be("663f0c7a9f1e2a5a12345678");
+        body.Data.EventId.Should().Be("evt_ai_integration");
+        body.Data.CorrelationId.Should().Be("corr_ai");
+        body.Data.Source.Should().Be("HookBridge.Worker");
+        body.Data.EventType.Should().Be("WebhookDeliveryFailed");
+        body.Data.FailureReason.Should().Be("Too Many Requests");
+        body.Data.AiSummary.Should().Be("The target endpoint is rate limiting requests.");
+        body.Data.RootCause.Should().Be("HTTP 429 indicates rate limiting.");
+        body.Data.AiRecommendation.Should().Be("Retry using exponential backoff.");
+        body.Data.RiskLevel.Should().Be("Medium");
+        body.Data.ConfidenceScore.Should().Be(0.86);
+        body.Data.SuggestedRetryAction.Should().Be("RetryWithBackoff");
+        body.Data.IsRetryRecommended.Should().BeTrue();
+        body.Data.Model.Should().Be("llama3");
+        body.Data.Provider.Should().Be("Ollama");
+        body.Data.CreatedAtUtc.Should().Be(new DateTime(2026, 5, 13, 10, 30, 0, DateTimeKind.Utc));
+    }
+
     [Theory]
     [InlineData("/health")]
     [InlineData("/api/v1/health/kafka")]
@@ -212,6 +260,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                 services.RemoveAll<ICurrentUserContext>();
                 services.RemoveAll<IMongoDatabase>();
                 services.RemoveAll<IElasticsearchHealthService>();
+                services.RemoveAll<IAiAnalysisResultRepository>();
 
                 services.AddSingleton(State);
                 services.AddScoped<ISubscriptionService, InMemorySubscriptionService>();
@@ -222,6 +271,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                 services.AddSingleton<IKafkaAdminService, HealthyKafkaAdminService>();
                 services.AddScoped<ICurrentUserContext, TestCurrentUserContext>();
                 services.AddSingleton<IElasticsearchHealthService, HealthyElasticsearchHealthService>();
+                services.AddScoped<IAiAnalysisResultRepository, InMemoryAiAnalysisResultRepository>();
 
                 var mongoDatabase = new Mock<IMongoDatabase>();
                 mongoDatabase
@@ -260,6 +310,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         public List<EventIngestionRequestDto> IncomingEvents { get; } = [];
         public List<FailedEventRecord> FailedEvents { get; } = [];
         public List<PublishedMessage> PublishedMessages { get; } = [];
+        public List<AiAnalysisResult> AiAnalysisResults { get; } = [];
         public bool SubscriptionServiceShouldRejectInvalidRequests { get; set; }
 
         public void Reset()
@@ -268,6 +319,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
             IncomingEvents.Clear();
             FailedEvents.Clear();
             PublishedMessages.Clear();
+            AiAnalysisResults.Clear();
             SubscriptionServiceShouldRejectInvalidRequests = false;
         }
 
@@ -287,6 +339,27 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
     public sealed record StoredSubscription(string Id, string TenantId, string EventType, string TargetUrl);
     public sealed record FailedEventRecord(string EventId, string SubscriptionId, string Status);
     public sealed record PublishedMessage(string Topic, string Key, object Message);
+
+    private sealed class InMemoryAiAnalysisResultRepository(IntegrationTestState state) : IAiAnalysisResultRepository
+    {
+        public Task InsertAsync(AiAnalysisResult result, CancellationToken cancellationToken = default)
+        {
+            state.AiAnalysisResults.Add(result);
+            return Task.CompletedTask;
+        }
+
+        public Task<AiAnalysisResult?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult(state.AiAnalysisResults.FirstOrDefault(x => x.Id == id));
+
+        public Task<AiAnalysisResult?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
+            => Task.FromResult(state.AiAnalysisResults.FirstOrDefault(x => x.EventId == eventId));
+
+        public Task<IReadOnlyList<AiAnalysisResult>> GetByCorrelationIdAsync(string correlationId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AiAnalysisResult>>(state.AiAnalysisResults.Where(x => x.CorrelationId == correlationId).ToList());
+
+        public Task<IReadOnlyList<AiAnalysisResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AiAnalysisResult>>(state.AiAnalysisResults.OrderByDescending(x => x.CreatedAtUtc).Take(limit).ToList());
+    }
 
     private sealed class InMemorySubscriptionService(IntegrationTestState state) : ISubscriptionService
     {

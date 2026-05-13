@@ -1,6 +1,8 @@
 using System.Text;
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
+using HookBridge.AI.Worker.Configuration;
+using HookBridge.AI.Worker.Mongo;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.Extensions;
 using HookBridge.Api.Health;
@@ -141,6 +143,28 @@ builder.Services.AddScoped<TenantAccessValidator>();
 builder.Services.AddScoped<IClientIpResolver, ClientIpResolver>();
 builder.Services.AddScoped<IIpAllowlistService, IpAllowlistService>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
+builder.Services.AddOptions<AiMongoOptions>()
+    .Configure<IConfiguration>((options, configuration) =>
+    {
+        configuration.GetSection(AiMongoOptions.SectionName).Bind(options);
+
+        if (string.IsNullOrWhiteSpace(options.ConnectionString))
+        {
+            options.ConnectionString = configuration["MongoDb:ConnectionString"] ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(options.DatabaseName))
+        {
+            options.DatabaseName = configuration["MongoDb:DatabaseName"] ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(options.AiAnalysisResultsCollectionName))
+        {
+            options.AiAnalysisResultsCollectionName = AiMongoOptions.DefaultAiAnalysisResultsCollectionName;
+        }
+    });
+builder.Services.AddSingleton<IAiAnalysisResultCollectionProvider, AiAnalysisResultCollectionProvider>();
+builder.Services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();

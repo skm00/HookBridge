@@ -468,6 +468,7 @@ Swagger includes versioned API documentation and auth schemes for:
 
 - Bearer JWT admin APIs under `/api/v1/admin/...`
 - Tenant event ingestion with `x-api-key`
+- AI analysis lookup at `GET /api/ai-analysis/events/{eventId}` for retrieving stored webhook failure analysis results by EventId
 - Public auth, billing webhook, and health endpoints
 
 Export the OpenAPI document locally:
@@ -477,6 +478,14 @@ curl http://localhost:5000/swagger/v1/swagger.json -o swagger.v1.json
 ```
 
 Additional API examples are available in [`docs/api.md`](docs/api.md) and [`docs/api-examples.md`](docs/api-examples.md).
+
+### Example AI Analysis Lookup
+
+```bash
+curl http://localhost:5000/api/ai-analysis/events/evt_12345
+```
+
+A successful response contains the stored AI summary, root cause, recommendation, retry action, risk level, confidence score, model, provider, and creation timestamp. The endpoint returns `200 OK` when a result exists, `400 Bad Request` for an empty or invalid EventId, `404 Not Found` when no analysis exists, and `500 Internal Server Error` only for unexpected retrieval errors.
 
 ### Example Ingestion Request
 
