@@ -18,7 +18,7 @@ When `AI:Enabled` is `true`, worker startup calls `IKernelFactory.CreateKernel()
 
 ## Required configuration
 
-The worker uses the `AI` configuration section:
+The worker uses the `AI` configuration section. `Host.CreateApplicationBuilder` loads `appsettings.json`, environment-specific files such as `appsettings.Development.json` or `appsettings.Production.json`, and environment variables, so every setting can be overridden with the .NET double-underscore environment variable format.
 
 ```json
 {
@@ -26,21 +26,75 @@ The worker uses the `AI` configuration section:
     "Enabled": true,
     "Provider": "Ollama",
     "Model": "llama3",
-    "Endpoint": "http://localhost:11434"
+    "Endpoint": "http://localhost:11434",
+    "TimeoutSeconds": 30,
+    "MaxRetries": 3,
+    "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
+    "EnablePromptLogging": false,
+    "HealthCheckPrompt": "Say HookBridge AI is ready"
   }
 }
 ```
 
 Configuration keys:
 
-| Key | Required when enabled | Description |
-| --- | --- | --- |
-| `AI:Enabled` | Yes | Enables or disables Semantic Kernel initialization. Set to `false` to run the worker without AI services. |
-| `AI:Provider` | Yes | AI provider name. Currently supported value: `Ollama`. |
-| `AI:Model` | Yes | Ollama model name to use for chat completion. |
-| `AI:Endpoint` | Yes | Absolute HTTP or HTTPS URL for the Ollama API endpoint. |
+| Key | Environment variable | Default | Required when enabled | Description |
+| --- | --- | --- | --- | --- |
+| `AI:Enabled` | `AI__Enabled` | `true` in base and development, `false` in production | Yes | Enables or disables Semantic Kernel initialization. Set to `false` to run the worker without AI services. |
+| `AI:Provider` | `AI__Provider` | `Ollama` | Yes | AI provider name. Currently supported value: `Ollama`. |
+| `AI:Model` | `AI__Model` | `llama3` | Yes | Ollama model name to use for chat completion. |
+| `AI:Endpoint` | `AI__Endpoint` | `http://localhost:11434` | Yes | Absolute HTTP or HTTPS URL for the Ollama API endpoint. |
+| `AI:TimeoutSeconds` | `AI__TimeoutSeconds` | `30` | Always validated | Timeout budget, in seconds, for AI provider operations. Must be greater than `0`. |
+| `AI:MaxRetries` | `AI__MaxRetries` | `3` | Always validated | Maximum retry attempts for AI provider operations. Must be `0` or greater. |
+| `AI:SystemPrompt` | `AI__SystemPrompt` | HookBridge webhook analysis assistant prompt | No | System instruction used by future AI analysis prompts. |
+| `AI:EnablePromptLogging` | `AI__EnablePromptLogging` | `false` | No | Enables prompt logging for troubleshooting. Keep disabled by default to avoid leaking event payloads or sensitive data into logs. |
+| `AI:HealthCheckPrompt` | `AI__HealthCheckPrompt` | `Say HookBridge AI is ready` | No | Lightweight prompt reserved for future provider health checks. |
 
-Missing or invalid endpoint/model configuration is logged and surfaced as an `InvalidOperationException` during kernel creation.
+Options are validated during startup with the .NET options pattern using data annotations, custom conditional validation, and `ValidateOnStart()`. When AI is enabled, `Provider`, `Model`, and `Endpoint` must be present. `TimeoutSeconds` must be greater than `0`, and `MaxRetries` must be `0` or greater. Invalid configuration fails startup clearly before the worker begins processing.
+
+### Development example
+
+`appsettings.Development.json` enables AI with local Ollama defaults and prompt logging disabled:
+
+```json
+{
+  "AI": {
+    "Enabled": true,
+    "Provider": "Ollama",
+    "Model": "llama3",
+    "Endpoint": "http://localhost:11434",
+    "TimeoutSeconds": 30,
+    "MaxRetries": 3,
+    "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
+    "EnablePromptLogging": false,
+    "HealthCheckPrompt": "Say HookBridge AI is ready"
+  }
+}
+```
+
+### Production recommendation
+
+`appsettings.Production.json` keeps AI disabled by default. Production deployments should enable AI only after a provider endpoint, model, timeouts, retries, logging policy, and data-handling review are explicitly configured through deployment-specific configuration or secrets. Do not enable prompt logging in production unless a short-lived incident response process explicitly requires it.
+
+### Environment variable examples
+
+```bash
+AI__Enabled=true \
+AI__Provider=Ollama \
+AI__Model=llama3 \
+AI__Endpoint=http://localhost:11434 \
+AI__TimeoutSeconds=30 \
+AI__MaxRetries=3 \
+AI__EnablePromptLogging=false \
+dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
+```
+
+To disable AI safely while keeping the worker process available:
+
+```bash
+AI__Enabled=false \
+dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
+```
 
 ## Ollama model example
 

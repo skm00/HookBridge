@@ -35,16 +35,25 @@ public sealed class SemanticKernelFactory : IKernelFactory
         var kernel = builder.Build();
 
         _logger.LogInformation(
-            "Semantic Kernel created successfully for AI provider {Provider}, model {Model}, endpoint {Endpoint}.",
+            "Semantic Kernel created successfully for AI provider {Provider}, model {Model}, endpoint {Endpoint}, timeout {TimeoutSeconds}s, max retries {MaxRetries}.",
             options.Provider,
             options.Model,
-            options.Endpoint);
+            options.Endpoint,
+            options.TimeoutSeconds,
+            options.MaxRetries);
 
         return kernel;
     }
 
     private void ValidateOptions(AiOptions options)
     {
+        if (string.IsNullOrWhiteSpace(options.Provider))
+        {
+            throw LogAndCreateConfigurationException(
+                "AI provider configuration is missing. Set AI:Provider to Ollama when AI is enabled.",
+                "AI provider configuration is missing. Set AI:Provider to Ollama when AI is enabled.");
+        }
+
         if (!string.Equals(options.Provider, OllamaProvider, StringComparison.OrdinalIgnoreCase))
         {
             throw LogAndCreateConfigurationException(
@@ -73,6 +82,20 @@ public sealed class SemanticKernelFactory : IKernelFactory
             throw LogAndCreateConfigurationException(
                 "AI model configuration is missing. Set AI:Model to an Ollama model name.",
                 "AI model configuration is missing. Set AI:Model to an Ollama model name.");
+        }
+
+        if (options.TimeoutSeconds <= 0)
+        {
+            throw LogAndCreateConfigurationException(
+                "AI timeout configuration is invalid. Set AI:TimeoutSeconds to a value greater than 0.",
+                "AI timeout configuration is invalid. Set AI:TimeoutSeconds to a value greater than 0.");
+        }
+
+        if (options.MaxRetries < 0)
+        {
+            throw LogAndCreateConfigurationException(
+                "AI retry configuration is invalid. Set AI:MaxRetries to a value of 0 or greater.",
+                "AI retry configuration is invalid. Set AI:MaxRetries to a value of 0 or greater.");
         }
     }
 
