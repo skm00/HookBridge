@@ -151,7 +151,7 @@ For deeper design notes, see [Architecture Documentation](docs/architecture.md).
 
 `HookBridge.AI.Worker` is a .NET 8 Worker Service for future Agentic AI background processing. It runs separately from the API and webhook delivery workers so AI-related jobs can evolve without affecting ingestion or delivery throughput.
 
-The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` and builds kernels with `IKernelFactory`/`SemanticKernelFactory`. When `AI:Enabled` is `true`, startup verifies that a Semantic Kernel instance can be created from configuration. When `AI:Enabled` is `false`, Semantic Kernel initialization is skipped safely and the worker logs that AI is disabled. The default local configuration targets Ollama:
+The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` and builds kernels with `IKernelFactory`/`SemanticKernelFactory`. When `AI:Enabled` is `true`, startup validates the complete `AI` options section and verifies that a Semantic Kernel instance can be created from configuration. When `AI:Enabled` is `false`, Semantic Kernel initialization is skipped safely and the worker logs that AI is disabled. The default development configuration targets Ollama, while production disables AI by default:
 
 ```json
 {
@@ -159,10 +159,17 @@ The worker registers Microsoft Semantic Kernel through `AddAiKernelServices()` a
     "Enabled": true,
     "Provider": "Ollama",
     "Model": "llama3",
-    "Endpoint": "http://localhost:11434"
+    "Endpoint": "http://localhost:11434",
+    "TimeoutSeconds": 30,
+    "MaxRetries": 3,
+    "SystemPrompt": "You are HookBridge AI, an assistant for webhook failure analysis and event processing.",
+    "EnablePromptLogging": false,
+    "HealthCheckPrompt": "Say HookBridge AI is ready"
   }
 }
 ```
+
+AI options can be set with environment variables such as `AI__Enabled`, `AI__Provider`, `AI__Model`, `AI__Endpoint`, `AI__TimeoutSeconds`, `AI__MaxRetries`, `AI__SystemPrompt`, `AI__EnablePromptLogging`, and `AI__HealthCheckPrompt`. Prompt logging is disabled by default and should remain disabled in production unless explicitly approved for short-lived diagnostics.
 
 Run it locally with:
 
@@ -177,10 +184,13 @@ AI__Enabled=true \
 AI__Provider=Ollama \
 AI__Model=llama3 \
 AI__Endpoint=http://localhost:11434 \
+AI__TimeoutSeconds=30 \
+AI__MaxRetries=3 \
+AI__EnablePromptLogging=false \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
 
-See [AI Worker documentation](docs/ai-worker.md) for Semantic Kernel usage, required configuration, and Ollama model examples.
+See [AI Worker documentation](docs/ai-worker.md) for the full configuration table, development example, production recommendation, environment variable examples, Semantic Kernel usage, and Ollama model examples.
 
 ## Retry & DLQ
 
