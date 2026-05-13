@@ -2,23 +2,23 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Api", "src\HookBridge.Api\HookBridge.Api.csproj", "{11111111-1111-1111-1111-111111111111}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Api", "src\HookBridge.Api\HookBridge.Api.csproj", "{5EA6936D-06A0-58EA-95DF-42F86C5BF318}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Worker", "src\HookBridge.Worker\HookBridge.Worker.csproj", "{22222222-2222-2222-2222-222222222222}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Worker", "src\HookBridge.Worker\HookBridge.Worker.csproj", "{DBDE298F-03D1-5707-B5D5-1D5B9CCAA2CC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Domain", "src\HookBridge.Domain\HookBridge.Domain.csproj", "{33333333-3333-3333-3333-333333333333}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Domain", "src\HookBridge.Domain\HookBridge.Domain.csproj", "{1CD94491-7AE7-5BB5-9FC0-691675F0AE8F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Application", "src\HookBridge.Application\HookBridge.Application.csproj", "{44444444-4444-4444-4444-444444444444}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Application", "src\HookBridge.Application\HookBridge.Application.csproj", "{D025D340-DCC7-5A24-8EDB-FA9A3F4EF3B6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Infrastructure", "src\HookBridge.Infrastructure\HookBridge.Infrastructure.csproj", "{55555555-5555-5555-5555-555555555555}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Infrastructure", "src\HookBridge.Infrastructure\HookBridge.Infrastructure.csproj", "{852A434F-97D7-58CA-87F8-1CC499011586}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Shared", "src\HookBridge.Shared\HookBridge.Shared.csproj", "{66666666-6666-6666-6666-666666666666}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Shared", "src\HookBridge.Shared\HookBridge.Shared.csproj", "{571647E2-E978-59D2-A846-39232205B6A1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Api.Tests", "tests\HookBridge.Api.Tests\HookBridge.Api.Tests.csproj", "{77777777-7777-7777-7777-777777777777}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Api.Tests", "tests\HookBridge.Api.Tests\HookBridge.Api.Tests.csproj", "{6683458F-879C-5B23-8A03-A24DDB6BCB50}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Application.Tests", "tests\HookBridge.Application.Tests\HookBridge.Application.Tests.csproj", "{88888888-8888-8888-8888-888888888888}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Application.Tests", "tests\HookBridge.Application.Tests\HookBridge.Application.Tests.csproj", "{C8D8FBC1-DBC8-5206-88EB-2BD2F1B4AE80}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HookBridge.Worker.Tests", "tests\HookBridge.Worker.Tests\HookBridge.Worker.Tests.csproj", "{99999999-9999-9999-9999-999999999999}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HookBridge.Worker.Tests", "tests\HookBridge.Worker.Tests\HookBridge.Worker.Tests.csproj", "{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,41 +26,44 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{11111111-1111-1111-1111-111111111111}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{11111111-1111-1111-1111-111111111111}.Release|Any CPU.Build.0 = Release|Any CPU
-		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.Build.0 = Release|Any CPU
-		{33333333-3333-3333-3333-333333333333}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{33333333-3333-3333-3333-333333333333}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{33333333-3333-3333-3333-333333333333}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{33333333-3333-3333-3333-333333333333}.Release|Any CPU.Build.0 = Release|Any CPU
-		{44444444-4444-4444-4444-444444444444}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{44444444-4444-4444-4444-444444444444}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{44444444-4444-4444-4444-444444444444}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{44444444-4444-4444-4444-444444444444}.Release|Any CPU.Build.0 = Release|Any CPU
-		{55555555-5555-5555-5555-555555555555}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{55555555-5555-5555-5555-555555555555}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{55555555-5555-5555-5555-555555555555}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{55555555-5555-5555-5555-555555555555}.Release|Any CPU.Build.0 = Release|Any CPU
-		{66666666-6666-6666-6666-666666666666}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{66666666-6666-6666-6666-666666666666}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{66666666-6666-6666-6666-666666666666}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{66666666-6666-6666-6666-666666666666}.Release|Any CPU.Build.0 = Release|Any CPU
-		{77777777-7777-7777-7777-777777777777}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{77777777-7777-7777-7777-777777777777}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{77777777-7777-7777-7777-777777777777}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{77777777-7777-7777-7777-777777777777}.Release|Any CPU.Build.0 = Release|Any CPU
-		{88888888-8888-8888-8888-888888888888}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{88888888-8888-8888-8888-888888888888}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{88888888-8888-8888-8888-888888888888}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{88888888-8888-8888-8888-888888888888}.Release|Any CPU.Build.0 = Release|Any CPU
-		{99999999-9999-9999-9999-999999999999}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{99999999-9999-9999-9999-999999999999}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{99999999-9999-9999-9999-999999999999}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{99999999-9999-9999-9999-999999999999}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5EA6936D-06A0-58EA-95DF-42F86C5BF318}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5EA6936D-06A0-58EA-95DF-42F86C5BF318}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5EA6936D-06A0-58EA-95DF-42F86C5BF318}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5EA6936D-06A0-58EA-95DF-42F86C5BF318}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBDE298F-03D1-5707-B5D5-1D5B9CCAA2CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBDE298F-03D1-5707-B5D5-1D5B9CCAA2CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBDE298F-03D1-5707-B5D5-1D5B9CCAA2CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBDE298F-03D1-5707-B5D5-1D5B9CCAA2CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CD94491-7AE7-5BB5-9FC0-691675F0AE8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CD94491-7AE7-5BB5-9FC0-691675F0AE8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CD94491-7AE7-5BB5-9FC0-691675F0AE8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CD94491-7AE7-5BB5-9FC0-691675F0AE8F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D025D340-DCC7-5A24-8EDB-FA9A3F4EF3B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D025D340-DCC7-5A24-8EDB-FA9A3F4EF3B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D025D340-DCC7-5A24-8EDB-FA9A3F4EF3B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D025D340-DCC7-5A24-8EDB-FA9A3F4EF3B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{852A434F-97D7-58CA-87F8-1CC499011586}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{852A434F-97D7-58CA-87F8-1CC499011586}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{852A434F-97D7-58CA-87F8-1CC499011586}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{852A434F-97D7-58CA-87F8-1CC499011586}.Release|Any CPU.Build.0 = Release|Any CPU
+		{571647E2-E978-59D2-A846-39232205B6A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{571647E2-E978-59D2-A846-39232205B6A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{571647E2-E978-59D2-A846-39232205B6A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{571647E2-E978-59D2-A846-39232205B6A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6683458F-879C-5B23-8A03-A24DDB6BCB50}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6683458F-879C-5B23-8A03-A24DDB6BCB50}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6683458F-879C-5B23-8A03-A24DDB6BCB50}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6683458F-879C-5B23-8A03-A24DDB6BCB50}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8D8FBC1-DBC8-5206-88EB-2BD2F1B4AE80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8D8FBC1-DBC8-5206-88EB-2BD2F1B4AE80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8D8FBC1-DBC8-5206-88EB-2BD2F1B4AE80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8D8FBC1-DBC8-5206-88EB-2BD2F1B4AE80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44AD29D8-B3C5-5A96-8862-0F794C9A7CEE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 EndGlobal
