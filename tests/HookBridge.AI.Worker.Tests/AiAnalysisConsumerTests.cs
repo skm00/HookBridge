@@ -59,7 +59,42 @@ public sealed class AiAnalysisConsumerTests
 
         result.Should().NotBeNull();
         result!.EventId.Should().Be("evt-after-invalid");
-        logger.Records.Should().Contain(record => record.Message.Contains("Invalid AI analysis event JSON", StringComparison.Ordinal));
+        logger.Records.Should().Contain(record =>
+            record.Level == Microsoft.Extensions.Logging.LogLevel.Warning &&
+            record.Message.Contains("Invalid AI analysis Kafka message skipped", StringComparison.Ordinal));
+    }
+
+
+    [Fact]
+    public async Task ConsumeAsync_WhenInvalidJson_LogsWarningWithoutPayload()
+    {
+        const string sensitivePayload = "{\"authorization\":\"secret-token\",\"cookie\":\"session=secret\"";
+        var kafkaClient = new Mock<IConsumer<string, string>>();
+        kafkaClient.Setup(client => client.Subscribe(AiKafkaTopics.Analysis));
+        kafkaClient.SetupSequence(client => client.Consume(It.IsAny<CancellationToken>()))
+            .Returns(BuildResult("corr-invalid", sensitivePayload))
+            .Throws(new OperationCanceledException());
+        var logger = new TestLogger<AiAnalysisConsumer>();
+        var consumer = CreateConsumer(kafkaClient.Object, logger);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        try
+        {
+            await foreach (var _ in consumer.ConsumeAsync(cts.Token))
+            {
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Test consumer uses cancellation to stop the async stream after the invalid message.
+        }
+
+        logger.Records.Should().Contain(record =>
+            record.Level == Microsoft.Extensions.Logging.LogLevel.Warning &&
+            record.Message.Contains("Invalid AI analysis Kafka message skipped", StringComparison.Ordinal));
+        logger.Records.Should().NotContain(record =>
+            record.Message.Contains("secret-token", StringComparison.Ordinal) ||
+            record.Message.Contains("session=secret", StringComparison.Ordinal));
     }
 
     [Fact]

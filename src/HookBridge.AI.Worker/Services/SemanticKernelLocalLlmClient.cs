@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Logging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
@@ -31,6 +32,11 @@ public sealed class SemanticKernelLocalLlmClient : ILocalLlmClient
 
         if (string.IsNullOrWhiteSpace(_options.Provider) || string.IsNullOrWhiteSpace(_options.Model) || string.IsNullOrWhiteSpace(_options.Endpoint))
         {
+            _logger.LogWarning(
+                "LLM request skipped because provider configuration is incomplete. Provider: {Provider}, Model: {Model}, FallbackReason: {FallbackReason}",
+                _options.Provider,
+                _options.Model,
+                AiFallbackReason.ConfigurationError);
             return LlmResponseResult.Failure(
                 AiFallbackReason.ConfigurationError,
                 "AI provider, model, or endpoint is not configured.",
@@ -48,6 +54,12 @@ public sealed class SemanticKernelLocalLlmClient : ILocalLlmClient
 
             try
             {
+                _logger.LogInformation(
+                    AiWorkerLogMessages.LlmRequestStarted,
+                    _options.Provider,
+                    _options.Model,
+                    attempt,
+                    attempts);
                 var kernel = _kernel ??= _kernelFactory.CreateKernel();
                 var result = await kernel.InvokePromptAsync(prompt, cancellationToken: timeout.Token);
                 stopwatch.Stop();
@@ -62,6 +74,13 @@ public sealed class SemanticKernelLocalLlmClient : ILocalLlmClient
                 }
                 else
                 {
+                    _logger.LogInformation(
+                        AiWorkerLogMessages.LlmRequestCompleted,
+                        _options.Provider,
+                        _options.Model,
+                        attempt,
+                        attempts,
+                        stopwatch.ElapsedMilliseconds);
                     return LlmResponseResult.Success(responseText, stopwatch.ElapsedMilliseconds);
                 }
             }

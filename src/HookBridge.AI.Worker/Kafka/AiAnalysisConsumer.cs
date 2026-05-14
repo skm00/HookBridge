@@ -3,6 +3,7 @@ using System.Text.Json;
 using Confluent.Kafka;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Logging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -31,7 +32,7 @@ public sealed class AiAnalysisConsumer : IAiAnalysisConsumer
         consumer.Subscribe(_options.AiAnalysisTopic);
 
         _logger.LogInformation(
-            "AI analysis Kafka consumer subscribed. Topic: {Topic}, ConsumerGroupId: {ConsumerGroupId}",
+            AiWorkerLogMessages.KafkaConsumerStarted,
             _options.AiAnalysisTopic,
             _options.ConsumerGroupId);
 
@@ -61,6 +62,14 @@ public sealed class AiAnalysisConsumer : IAiAnalysisConsumer
                 continue;
             }
 
+            _logger.LogInformation(
+                AiWorkerLogMessages.KafkaMessageReceived,
+                consumeResult.Topic,
+                _options.ConsumerGroupId,
+                consumeResult.Message.Key,
+                consumeResult.Partition,
+                consumeResult.Offset);
+
             AiAnalysisEventDto? analysisEvent;
             try
             {
@@ -72,8 +81,9 @@ public sealed class AiAnalysisConsumer : IAiAnalysisConsumer
             {
                 _logger.LogWarning(
                     ex,
-                    "Invalid AI analysis event JSON. Topic: {Topic}, Key: {Key}, Partition: {Partition}, Offset: {Offset}",
+                    AiWorkerLogMessages.InvalidMessageSkipped,
                     consumeResult.Topic,
+                    _options.ConsumerGroupId,
                     consumeResult.Message.Key,
                     consumeResult.Partition,
                     consumeResult.Offset);
@@ -83,8 +93,9 @@ public sealed class AiAnalysisConsumer : IAiAnalysisConsumer
             if (analysisEvent is null)
             {
                 _logger.LogWarning(
-                    "AI analysis event JSON deserialized to null. Topic: {Topic}, Key: {Key}, Partition: {Partition}, Offset: {Offset}",
+                    AiWorkerLogMessages.InvalidMessageSkipped,
                     consumeResult.Topic,
+                    _options.ConsumerGroupId,
                     consumeResult.Message.Key,
                     consumeResult.Partition,
                     consumeResult.Offset);
@@ -92,9 +103,9 @@ public sealed class AiAnalysisConsumer : IAiAnalysisConsumer
             }
 
             _logger.LogInformation(
-                "AI analysis event consumed. Topic: {Topic}, Key: {Key}, EventId: {EventId}, CorrelationId: {CorrelationId}, Source: {Source}, EventType: {EventType}, Partition: {Partition}, Offset: {Offset}",
+                "AI analysis event consumed. KafkaTopic: {KafkaTopic}, ConsumerGroupId: {ConsumerGroupId}, EventId: {EventId}, CorrelationId: {CorrelationId}, Source: {Source}, EventType: {EventType}, Partition: {Partition}, Offset: {Offset}",
                 consumeResult.Topic,
-                consumeResult.Message.Key,
+                _options.ConsumerGroupId,
                 analysisEvent.EventId,
                 analysisEvent.CorrelationId,
                 analysisEvent.Source,
