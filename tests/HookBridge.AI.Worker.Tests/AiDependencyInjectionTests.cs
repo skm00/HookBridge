@@ -2,6 +2,7 @@ using FluentAssertions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
+using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Extensions;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
@@ -114,6 +115,30 @@ public sealed class AiDependencyInjectionTests
         services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IAiAnomalyConsumer) &&
             descriptor.ImplementationType == typeof(AiAnomalyConsumer) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+
+    }
+
+    [Fact]
+    public void AddAiMongoServices_RegistersAnomalyRecordRepository()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddOptions();
+        services.Configure<AiMongoOptions>(options =>
+        {
+            options.ConnectionString = "mongodb://localhost:27017";
+            options.DatabaseName = "hookbridge_ai_tests";
+        });
+        services.AddAiMongoServices();
+
+        services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAiAnomalyRecordRepository) &&
+            descriptor.ImplementationType == typeof(AiAnomalyRecordRepository) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAiAnomalyRecordCollectionProvider) &&
+            descriptor.ImplementationType == typeof(AiAnomalyRecordCollectionProvider) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
     }
 

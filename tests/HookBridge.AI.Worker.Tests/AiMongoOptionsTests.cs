@@ -16,7 +16,8 @@ public sealed class AiMongoOptionsTests
         {
             [$"{AiMongoOptions.SectionName}:ConnectionString"] = "mongodb://localhost:27017",
             [$"{AiMongoOptions.SectionName}:DatabaseName"] = "hookbridge_ai",
-            [$"{AiMongoOptions.SectionName}:AiAnalysisResultsCollectionName"] = "custom_results"
+            [$"{AiMongoOptions.SectionName}:AiAnalysisResultsCollectionName"] = "custom_results",
+            [$"{AiMongoOptions.SectionName}:AiAnomalyRecordsCollectionName"] = "custom_anomaly_records"
         });
 
         var options = CreateOptions(configuration);
@@ -24,6 +25,7 @@ public sealed class AiMongoOptionsTests
         options.ConnectionString.Should().Be("mongodb://localhost:27017");
         options.DatabaseName.Should().Be("hookbridge_ai");
         options.AiAnalysisResultsCollectionName.Should().Be("custom_results");
+        options.AiAnomalyRecordsCollectionName.Should().Be("custom_anomaly_records");
     }
 
     [Fact]
@@ -33,6 +35,7 @@ public sealed class AiMongoOptionsTests
 
         options.AiAnalysisResultsCollectionName.Should().Be("ai_analysis_results");
         options.WebhookFailureAnomalyDetectionResultsCollectionName.Should().Be("webhook_failure_anomaly_detection_results");
+        options.AiAnomalyRecordsCollectionName.Should().Be("ai_anomaly_records");
     }
 
     [Fact]

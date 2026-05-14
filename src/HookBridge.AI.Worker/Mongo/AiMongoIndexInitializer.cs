@@ -9,12 +9,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly IAiAnalysisResultCollectionProvider _collectionProvider;
     private readonly ICustomerEndpointRiskScoreCollectionProvider? _riskScoreCollectionProvider;
     private readonly IWebhookFailureAnomalyDetectionCollectionProvider? _failureAnomalyCollectionProvider;
+    private readonly IAiAnomalyRecordCollectionProvider? _anomalyRecordCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, logger)
+        : this(collectionProvider, null, null, null, logger)
     {
     }
 
@@ -22,7 +23,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, logger)
     {
     }
 
@@ -31,10 +32,21 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, logger)
+    {
+    }
+
+    public AiMongoIndexInitializer(
+        IAiAnalysisResultCollectionProvider collectionProvider,
+        ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
+        IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
+        IAiAnomalyRecordCollectionProvider? anomalyRecordCollectionProvider,
+        ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
         _riskScoreCollectionProvider = riskScoreCollectionProvider;
         _failureAnomalyCollectionProvider = failureAnomalyCollectionProvider;
+        _anomalyRecordCollectionProvider = anomalyRecordCollectionProvider;
         _logger = logger;
     }
 
@@ -57,6 +69,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
             await failureAnomalyCollection.Indexes.CreateManyAsync(CreateWebhookFailureAnomalyDetectionIndexModels(), cancellationToken);
         }
 
+        if (_anomalyRecordCollectionProvider is not null)
+        {
+            var anomalyRecordCollection = _anomalyRecordCollectionProvider.GetCollection();
+            await anomalyRecordCollection.Indexes.CreateManyAsync(CreateAiAnomalyRecordIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -75,6 +93,29 @@ public sealed class AiMongoIndexInitializer : IHostedService
             new CreateIndexModel<AiAnalysisResult>(
                 Builders<AiAnalysisResult>.IndexKeys.Descending(result => result.CreatedAtUtc),
                 new CreateIndexOptions { Name = "idx_ai_analysis_results_created_at_utc_desc" })
+        };
+    }
+
+
+    public static IReadOnlyList<CreateIndexModel<AiAnomalyRecord>> CreateAiAnomalyRecordIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.AnomalyId), new CreateIndexOptions { Name = "idx_ai_anomaly_records_anomaly_id_unique", Unique = true }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.EventId), new CreateIndexOptions { Name = "idx_ai_anomaly_records_event_id" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.CorrelationId), new CreateIndexOptions { Name = "idx_ai_anomaly_records_correlation_id" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.CustomerId), new CreateIndexOptions { Name = "idx_ai_anomaly_records_customer_id" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.SubscriptionId), new CreateIndexOptions { Name = "idx_ai_anomaly_records_subscription_id" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.EndpointId), new CreateIndexOptions { Name = "idx_ai_anomaly_records_endpoint_id" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.Environment), new CreateIndexOptions { Name = "idx_ai_anomaly_records_environment" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.EventType), new CreateIndexOptions { Name = "idx_ai_anomaly_records_event_type" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.AnomalyType), new CreateIndexOptions { Name = "idx_ai_anomaly_records_anomaly_type" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.RiskLevel), new CreateIndexOptions { Name = "idx_ai_anomaly_records_risk_level" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.AnomalyScore), new CreateIndexOptions { Name = "idx_ai_anomaly_records_anomaly_score" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Descending(record => record.CreatedAtUtc), new CreateIndexOptions { Name = "idx_ai_anomaly_records_created_at_utc_desc" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.CustomerId).Descending(record => record.CreatedAtUtc), new CreateIndexOptions { Name = "idx_ai_anomaly_records_customer_id_created_at_desc" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.EndpointId).Descending(record => record.CreatedAtUtc), new CreateIndexOptions { Name = "idx_ai_anomaly_records_endpoint_id_created_at_desc" }),
+            new CreateIndexModel<AiAnomalyRecord>(Builders<AiAnomalyRecord>.IndexKeys.Ascending(record => record.RiskLevel).Descending(record => record.CreatedAtUtc), new CreateIndexOptions { Name = "idx_ai_anomaly_records_risk_level_created_at_desc" })
         };
     }
 

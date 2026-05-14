@@ -28,6 +28,7 @@ builder.Services.AddHostedService<FluentValidationRuleGenerationWorker>();
 builder.Services.AddHostedService<WebhookTransformationRecommendationWorker>();
 builder.Services.AddHostedService<CustomerEndpointRiskScoreWorker>();
 builder.Services.AddHostedService<WebhookFailureAnomalyDetectionWorker>();
+builder.Services.AddHostedService<AiAnomalyRecordPersistenceWorker>();
 
 var host = builder.Build();
 host.Run();

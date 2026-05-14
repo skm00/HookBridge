@@ -80,6 +80,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.WebhookFailureAnomalyDetectionResultsCollectionName),
                 "AiMongo:WebhookFailureAnomalyDetectionResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AiAnomalyRecordsCollectionName),
+                "AiMongo:AiAnomalyRecordsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -257,6 +260,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICustomerEndpointRiskScoreRepository, CustomerEndpointRiskScoreRepository>();
         services.AddSingleton<IWebhookFailureAnomalyDetectionCollectionProvider, WebhookFailureAnomalyDetectionCollectionProvider>();
         services.AddSingleton<IWebhookFailureAnomalyDetectionRepository, WebhookFailureAnomalyDetectionRepository>();
+        services.AddSingleton<IAiAnomalyRecordCollectionProvider, AiAnomalyRecordCollectionProvider>();
+        services.AddSingleton<IAiAnomalyRecordRepository, AiAnomalyRecordRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;
