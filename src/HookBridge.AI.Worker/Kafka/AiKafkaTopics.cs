@@ -10,4 +10,6 @@ public static class AiKafkaTopics
     public const string SchemaDetection = "hookbridge.ai.schema-detection";
 
     public const string DtoSuggestion = "hookbridge.ai.dto-suggestion";
+
+    public const string ValidationRuleGeneration = "hookbridge.ai.validation-rule-generation";
 }

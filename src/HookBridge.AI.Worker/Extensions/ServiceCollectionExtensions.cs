@@ -10,6 +10,7 @@ using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.JsonToDtoSuggestion;
+using HookBridge.AI.Worker.Services.FluentValidationRuleGeneration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -64,6 +65,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.JsonToDtoSuggestionResultsCollectionName),
                 "AiMongo:JsonToDtoSuggestionResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.FluentValidationRuleGenerationResultsCollectionName),
+                "AiMongo:FluentValidationRuleGenerationResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -103,6 +107,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.JsonToDtoSuggestionTopic),
                 "AiKafka:JsonToDtoSuggestionTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.FluentValidationRuleGenerationTopic),
+                "AiKafka:FluentValidationRuleGenerationTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -144,6 +151,12 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddFluentValidationRuleGenerationServices(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IFluentValidationRuleGenerationAgent, FluentValidationRuleGenerationAgent>();
+        return services;
+    }
+
     public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
@@ -164,6 +177,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiLogSummaryPromptBuilder, AiLogSummaryPromptBuilder>();
         services.AddSingleton<IPayloadSchemaDetectionPromptBuilder, PayloadSchemaDetectionPromptBuilder>();
         services.AddSingleton<IJsonToDtoPromptBuilder, JsonToDtoPromptBuilder>();
+        services.AddSingleton<IFluentValidationPromptBuilder, FluentValidationPromptBuilder>();
         return services;
     }
 
@@ -173,6 +187,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiAnalysisConsumer, AiAnalysisConsumer>();
         services.AddSingleton<IPayloadSchemaDetectionConsumer, PayloadSchemaDetectionConsumer>();
         services.AddSingleton<IJsonToDtoSuggestionConsumer, JsonToDtoSuggestionConsumer>();
+        services.AddSingleton<IFluentValidationRuleGenerationConsumer, FluentValidationRuleGenerationConsumer>();
         return services;
     }
 
@@ -189,6 +204,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPayloadSchemaDetectionRepository, PayloadSchemaDetectionRepository>();
         services.AddSingleton<IJsonToDtoSuggestionCollectionProvider, JsonToDtoSuggestionCollectionProvider>();
         services.AddSingleton<IJsonToDtoSuggestionRepository, JsonToDtoSuggestionRepository>();
+        services.AddSingleton<IFluentValidationRuleGenerationCollectionProvider, FluentValidationRuleGenerationCollectionProvider>();
+        services.AddSingleton<IFluentValidationRuleGenerationRepository, FluentValidationRuleGenerationRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;
