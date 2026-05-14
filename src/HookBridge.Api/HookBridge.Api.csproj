@@ -6,7 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\HookBridge.Application\HookBridge.Application.csproj" />
-    <ProjectReference Include="..\HookBridge.AI.Worker\HookBridge.AI.Worker.csproj" />
+    <ProjectReference Include="..\HookBridge.AI.Worker\HookBridge.AI.Worker.csproj" AdditionalProperties="DisableWorkerAppSettingsPublish=true" />
     <ProjectReference Include="..\HookBridge.Infrastructure\HookBridge.Infrastructure.csproj" />
     <ProjectReference Include="..\HookBridge.Shared\HookBridge.Shared.csproj" />
       <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
