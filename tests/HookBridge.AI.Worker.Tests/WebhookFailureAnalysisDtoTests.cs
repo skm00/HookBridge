@@ -1,9 +1,11 @@
 using System.Text.Json;
 using FluentAssertions;
+using HookBridge.Api.Mappers;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Mapping;
 using HookBridge.AI.Worker.Validation;
+using HookBridge.AI.Worker.Mongo;
 
 namespace HookBridge.AI.Worker.Tests;
 
@@ -155,6 +157,108 @@ public sealed class WebhookFailureAnalysisDtoTests
         result.Model.Should().Be("llama3.1");
         result.Provider.Should().Be("Ollama");
         result.CreatedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+
+
+    [Fact]
+    public void Mapper_FromAiAnalysisEventDto_WithPayloadHints_MapsOptionalFailureContext()
+    {
+        var analysisEvent = new AiAnalysisEventDto
+        {
+            EventId = "evt-payload",
+            CorrelationId = null,
+            Source = "hookbridge.worker",
+            EventType = "webhook.delivery.failed",
+            FailureReason = null,
+            Payload = """
+            {
+              "subscriptionId": "sub-payload",
+              "customerId": "cust-payload",
+              "customerIdType": "TenantId",
+              "targetUrl": "https://receiver.example/webhook",
+              "httpMethod": "POST",
+              "statusCode": "429",
+              "errorMessage": "Too Many Requests",
+              "failureReason": "Rate limited",
+              "retryCount": 2,
+              "maxRetryCount": "5"
+            }
+            """,
+            CreatedAtUtc = new DateTimeOffset(2026, 5, 13, 10, 15, 30, TimeSpan.Zero)
+        };
+
+        var request = WebhookFailureAnalysisMapper.ToWebhookFailureAnalysisRequest(analysisEvent);
+
+        request.SubscriptionId.Should().Be("sub-payload");
+        request.CustomerId.Should().Be("cust-payload");
+        request.CustomerIdType.Should().Be("TenantId");
+        request.TargetUrl.Should().Be("https://receiver.example/webhook");
+        request.HttpMethod.Should().Be("POST");
+        request.StatusCode.Should().Be(429);
+        request.ErrorMessage.Should().Be("Too Many Requests");
+        request.FailureReason.Should().Be("Rate limited");
+        request.RetryCount.Should().Be(2);
+        request.MaxRetryCount.Should().Be(5);
+    }
+
+    [Fact]
+    public void Mapper_FromAiAnalysisResult_ToResponseDto_MapsAllFieldsAndUtcTimestamp()
+    {
+        var result = new AiAnalysisResult
+        {
+            Id = "663f0c7a9f1e2a5a12345678",
+            EventId = "evt-result",
+            CorrelationId = "corr-result",
+            Source = "hookbridge.worker",
+            EventType = "webhook.delivery.failed",
+            FailureReason = "HTTP 429",
+            AiSummary = "Endpoint is rate limiting.",
+            RootCause = "Receiver returned HTTP 429.",
+            AiRecommendation = "Retry with backoff.",
+            RiskLevel = nameof(AiRiskLevel.Medium),
+            ConfidenceScore = 0.82,
+            SuggestedRetryAction = nameof(SuggestedRetryAction.RetryWithBackoff),
+            IsRetryRecommended = true,
+            Model = "llama3.1",
+            Provider = "Ollama",
+            CreatedAtUtc = new DateTime(2026, 5, 13, 11, 0, 0, DateTimeKind.Unspecified)
+        };
+
+        var dto = AiAnalysisResultMapper.ToResponseDto(result);
+
+        dto.Id.Should().Be(result.Id);
+        dto.EventId.Should().Be(result.EventId);
+        dto.CorrelationId.Should().Be(result.CorrelationId);
+        dto.Source.Should().Be(result.Source);
+        dto.EventType.Should().Be(result.EventType);
+        dto.FailureReason.Should().Be(result.FailureReason);
+        dto.AiSummary.Should().Be(result.AiSummary);
+        dto.RootCause.Should().Be(result.RootCause);
+        dto.AiRecommendation.Should().Be(result.AiRecommendation);
+        dto.RiskLevel.Should().Be(result.RiskLevel);
+        dto.ConfidenceScore.Should().Be(result.ConfidenceScore);
+        dto.SuggestedRetryAction.Should().Be(result.SuggestedRetryAction);
+        dto.IsRetryRecommended.Should().BeTrue();
+        dto.Model.Should().Be(result.Model);
+        dto.Provider.Should().Be(result.Provider);
+        dto.CreatedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Fact]
+    public void Mapper_NullInputs_ThrowArgumentNullException()
+    {
+        Action mapEvent = () => WebhookFailureAnalysisMapper.ToWebhookFailureAnalysisRequest(null!);
+        Action mapResponse = () => WebhookFailureAnalysisMapper.ToAiAnalysisResult((WebhookFailureAnalysisResponseDto)null!);
+        Action mapResponseWithRequest = () => WebhookFailureAnalysisMapper.ToAiAnalysisResult(new WebhookFailureAnalysisResponseDto(), null!);
+        Action mapPlaceholder = () => WebhookFailureAnalysisMapper.ToAiAnalysisResultPlaceholder(null!, new AiOptions());
+        Action mapApiResponse = () => AiAnalysisResultMapper.ToResponseDto(null!);
+
+        mapEvent.Should().Throw<ArgumentNullException>();
+        mapResponse.Should().Throw<ArgumentNullException>();
+        mapResponseWithRequest.Should().Throw<ArgumentNullException>();
+        mapPlaceholder.Should().Throw<ArgumentNullException>();
+        mapApiResponse.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]

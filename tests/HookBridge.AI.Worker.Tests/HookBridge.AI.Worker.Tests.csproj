@@ -17,7 +17,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
     <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="8.0.0" />
     <PackageReference Include="FluentAssertions" Version="6.12.1" />
     <PackageReference Include="FluentValidation" Version="11.11.0" />
@@ -29,5 +31,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\HookBridge.AI.Worker\HookBridge.AI.Worker.csproj" />
+    <ProjectReference Include="..\..\src\HookBridge.Api\HookBridge.Api.csproj" />
   </ItemGroup>
 </Project>
