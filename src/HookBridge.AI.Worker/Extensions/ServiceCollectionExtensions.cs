@@ -8,6 +8,7 @@ using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.LogSummaries;
+using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -56,6 +57,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiAnalysisResultsCollectionName),
                 "AiMongo:AiAnalysisResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.PayloadSchemaDetectionResultsCollectionName),
+                "AiMongo:PayloadSchemaDetectionResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -90,6 +94,9 @@ public static class ServiceCollectionExtensions
                 options => !string.IsNullOrWhiteSpace(options.AiAnalysisTopic),
                 "AiKafka:AiAnalysisTopic is required.")
             .Validate(
+                options => !string.IsNullOrWhiteSpace(options.PayloadSchemaDetectionTopic),
+                "AiKafka:PayloadSchemaDetectionTopic is required.")
+            .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
             .ValidateOnStart();
@@ -118,6 +125,12 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddPayloadSchemaDetectionServices(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IPayloadSchemaDetectionAgent, PayloadSchemaDetectionAgent>();
+        return services;
+    }
+
     public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
@@ -136,6 +149,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IWebhookFailurePromptBuilder, WebhookFailurePromptBuilder>();
         services.AddSingleton<IAiLogSummaryPromptBuilder, AiLogSummaryPromptBuilder>();
+        services.AddSingleton<IPayloadSchemaDetectionPromptBuilder, PayloadSchemaDetectionPromptBuilder>();
         return services;
     }
 
@@ -143,6 +157,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IAiAnalysisProducer, AiAnalysisProducer>();
         services.AddSingleton<IAiAnalysisConsumer, AiAnalysisConsumer>();
+        services.AddSingleton<IPayloadSchemaDetectionConsumer, PayloadSchemaDetectionConsumer>();
         return services;
     }
 
@@ -155,6 +170,8 @@ public static class ServiceCollectionExtensions
         });
         services.AddSingleton<IAiAnalysisResultCollectionProvider, AiAnalysisResultCollectionProvider>();
         services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
+        services.AddSingleton<IPayloadSchemaDetectionCollectionProvider, PayloadSchemaDetectionCollectionProvider>();
+        services.AddSingleton<IPayloadSchemaDetectionRepository, PayloadSchemaDetectionRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

@@ -7,10 +7,13 @@ public sealed class AiMongoOptions
 {
     public const string SectionName = "AiMongo";
     public const string DefaultAiAnalysisResultsCollectionName = "ai_analysis_results";
+    public const string DefaultPayloadSchemaDetectionResultsCollectionName = "payload_schema_detection_results";
 
     public string ConnectionString { get; set; } = string.Empty;
 
     public string DatabaseName { get; set; } = string.Empty;
 
     public string AiAnalysisResultsCollectionName { get; set; } = DefaultAiAnalysisResultsCollectionName;
+
+    public string PayloadSchemaDetectionResultsCollectionName { get; set; } = DefaultPayloadSchemaDetectionResultsCollectionName;
 }

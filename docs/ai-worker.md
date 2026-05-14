@@ -878,3 +878,96 @@ reportgenerator \
 Open `CoverageReport/index.html` for the HTML report, use `CoverageReport/Cobertura.xml` for coverage tooling, or read `CoverageReport/SummaryGithub.md` for the Markdown summary. The GitHub Actions workflow uploads the same directory as the `hookbridge-coverage-report` artifact and appends the Markdown/text summary to the workflow job summary.
 
 Coverage must stay at or above 80% line coverage and 70% branch coverage. The shared `coverlet.runsettings` file excludes only safe generated/build artifacts (`bin/**`, `obj/**`, `Migrations/**`, `Generated/**`, `*.g.cs`) and `Program.cs`; it does not exclude core AI Worker service, prompt, Kafka, Mongo repository, or LLM client code. The integration test stage runs in GitHub Actions by default. If maintainers need an emergency skip, set the GitHub Actions variable `SKIP_INTEGRATION_TESTS=true`; do not use that variable for normal pull request validation.
+
+## Payload Schema Detection Agent
+
+HookBridge AI Worker includes a Payload Schema Detection Agent for inspecting incoming webhook JSON payloads before operators or downstream services formalize DTO contracts. The agent combines local LLM analysis with deterministic fallback rules so unit and integration tests can mock the LLM client and never require a real Ollama, Kafka, or MongoDB dependency.
+
+### Purpose
+
+The agent analyzes a webhook payload and returns:
+
+- the likely schema name and event type;
+- a short human-readable summary;
+- important fields with JSON paths, inferred types, required hints, sample values, and descriptions;
+- missing fields and validation issues;
+- a suggested DTO name;
+- confidence, risk, model, provider, and fallback metadata.
+
+Schema detection requests are consumed from Kafka topic `hookbridge.ai.schema-detection` and results are persisted to MongoDB collection `payload_schema_detection_results`.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "source": "HookBridge.API",
+  "eventType": "OrderCreated",
+  "customerId": "cust_123",
+  "payload": {
+    "orderId": "ORD-1001",
+    "status": "Created",
+    "customer": {
+      "id": "C001",
+      "name": "Test Customer"
+    },
+    "items": [
+      {
+        "sku": "SKU-001",
+        "quantity": 2
+      }
+    ]
+  },
+  "headers": {
+    "X-API-Key": "[MASKED]"
+  },
+  "receivedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "detectedSchemaName": "OrderCreated",
+  "detectedEventType": "OrderCreated",
+  "summary": "Payload appears to represent an order creation event with customer and item details.",
+  "importantFields": [
+    {
+      "fieldName": "orderId",
+      "jsonPath": "$.orderId",
+      "inferredType": "string",
+      "isRequired": true,
+      "sampleValue": "ORD-1001",
+      "description": "Unique order identifier."
+    }
+  ],
+  "missingFields": [],
+  "validationIssues": [],
+  "suggestedDtoName": "OrderCreatedDto",
+  "confidenceScore": 0.86,
+  "riskLevel": "Low",
+  "generatedAtUtc": "2026-05-14T10:31:00Z",
+  "model": "llama3",
+  "provider": "Ollama",
+  "fallback": {
+    "usedFallback": false,
+    "fallbackReason": "None",
+    "fallbackMessage": "",
+    "provider": "Ollama",
+    "model": "llama3",
+    "generatedAtUtc": "2026-05-14T10:31:00Z"
+  }
+}
+```
+
+### Fallback behavior
+
+The agent falls back to safe rule-based detection when AI is disabled, the LLM is unavailable, the payload is invalid JSON, or the LLM returns invalid JSON. Fallback uses `System.Text.Json` to detect root object/array payloads, infer visible field names and basic types, generate a DTO name from `eventType` when available, lower the confidence score, and mark risk as `Unknown` or `Medium` depending on payload quality.
+
+### Security and masking rules
+
+Full payloads and secrets must not be logged. Prompt construction masks sensitive header and payload values before sending data to the LLM and truncates large payloads with an explicit truncation marker. The following names are treated as sensitive case-insensitively: `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, and `AccessToken`.

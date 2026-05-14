@@ -649,3 +649,9 @@ A license file has not been committed yet. Before using HookBridge in production
 ---
 
 ⭐ **If you find HookBridge useful, please star the repository and share it with others.**
+
+### AI Payload Schema Detection
+
+HookBridge AI Worker can consume schema detection events from `hookbridge.ai.schema-detection`, inspect incoming webhook JSON payloads, and persist results to MongoDB collection `payload_schema_detection_results`. The Payload Schema Detection Agent identifies likely schema and event names, summarizes payload structure, extracts important fields, reports missing fields or quality issues, suggests a DTO name, and records confidence/risk metadata.
+
+The agent is safe by default: prompts mask `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, and `AccessToken` values and truncate large payloads. If AI is disabled, the LLM is unavailable, the payload is invalid JSON, or the LLM returns invalid JSON, deterministic fallback uses `System.Text.Json` to infer root object/array structure and basic field types without requiring Ollama, Kafka, or MongoDB in unit tests. See [`docs/ai-worker.md`](docs/ai-worker.md#payload-schema-detection-agent) for request/response examples.
