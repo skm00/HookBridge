@@ -20,4 +20,6 @@ public static class AiKafkaTopics
     public const string FailureAnomalies = "hookbridge.ai.failure-anomalies";
 
     public const string Anomalies = "hookbridge.ai.anomalies";
+
+    public const string SecurityAnalysis = "hookbridge.ai.security-analysis";
 }

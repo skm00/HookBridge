@@ -14,6 +14,7 @@ public sealed class AiMongoOptions
     public const string DefaultCustomerEndpointRiskScoreResultsCollectionName = "customer_endpoint_risk_score_results";
     public const string DefaultWebhookFailureAnomalyDetectionResultsCollectionName = "webhook_failure_anomaly_detection_results";
     public const string DefaultAiAnomalyRecordsCollectionName = "ai_anomaly_records";
+    public const string DefaultAiSecurityAnalysisResultsCollectionName = "ai_security_analysis_results";
 
     public string ConnectionString { get; set; } = string.Empty;
 
@@ -34,4 +35,6 @@ public sealed class AiMongoOptions
     public string WebhookFailureAnomalyDetectionResultsCollectionName { get; set; } = DefaultWebhookFailureAnomalyDetectionResultsCollectionName;
 
     public string AiAnomalyRecordsCollectionName { get; set; } = DefaultAiAnomalyRecordsCollectionName;
+
+    public string AiSecurityAnalysisResultsCollectionName { get; set; } = DefaultAiSecurityAnalysisResultsCollectionName;
 }

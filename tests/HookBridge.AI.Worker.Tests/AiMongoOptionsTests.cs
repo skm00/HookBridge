@@ -36,6 +36,7 @@ public sealed class AiMongoOptionsTests
         options.AiAnalysisResultsCollectionName.Should().Be("ai_analysis_results");
         options.WebhookFailureAnomalyDetectionResultsCollectionName.Should().Be("webhook_failure_anomaly_detection_results");
         options.AiAnomalyRecordsCollectionName.Should().Be("ai_anomaly_records");
+        options.AiSecurityAnalysisResultsCollectionName.Should().Be("ai_security_analysis_results");
     }
 
     [Fact]

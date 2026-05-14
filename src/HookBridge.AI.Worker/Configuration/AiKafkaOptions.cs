@@ -35,6 +35,8 @@ public sealed class AiKafkaOptions
 
     public string AnomaliesTopic { get; set; } = AiKafkaTopics.Anomalies;
 
+    public string SecurityAnalysisTopic { get; set; } = AiKafkaTopics.SecurityAnalysis;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

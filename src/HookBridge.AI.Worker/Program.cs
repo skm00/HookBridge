@@ -19,6 +19,7 @@ builder.Services.AddWebhookTransformationRecommendationServices();
 builder.Services.AddEndpointHealthScoringServices();
 builder.Services.AddCustomerEndpointRiskScoringServices();
 builder.Services.AddWebhookFailureAnomalyDetectionServices();
+builder.Services.AddAiSecurityAnalysisServices();
 builder.Services.AddAiKafkaServices();
 builder.Services.AddAiMongoServices();
 builder.Services.AddHostedService<AiProcessingWorker>();
@@ -29,6 +30,7 @@ builder.Services.AddHostedService<WebhookTransformationRecommendationWorker>();
 builder.Services.AddHostedService<CustomerEndpointRiskScoreWorker>();
 builder.Services.AddHostedService<WebhookFailureAnomalyDetectionWorker>();
 builder.Services.AddHostedService<AiAnomalyRecordPersistenceWorker>();
+builder.Services.AddHostedService<AiSecurityAnalysisWorker>();
 
 var host = builder.Build();
 host.Run();

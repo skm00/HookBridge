@@ -35,6 +35,7 @@ public sealed class AiKafkaOptionsTests
         options.SaslPassword.Should().Be("password");
         options.AiAnalysisTopic.Should().Be("hookbridge.ai.analysis");
         options.AnomaliesTopic.Should().Be("hookbridge.ai.anomalies");
+        options.SecurityAnalysisTopic.Should().Be(AiKafkaTopics.SecurityAnalysis);
         options.ConsumerGroupId.Should().Be("hookbridge-ai-tests");
         options.EnableAutoCommit.Should().BeTrue();
     }
@@ -47,6 +48,7 @@ public sealed class AiKafkaOptionsTests
         options.AiAnalysisTopic.Should().Be(AiKafkaTopics.Analysis);
         options.AiAnalysisTopic.Should().Be("hookbridge.ai.analysis");
         options.AnomaliesTopic.Should().Be("hookbridge.ai.anomalies");
+        options.SecurityAnalysisTopic.Should().Be(AiKafkaTopics.SecurityAnalysis);
     }
 
     [Fact]
@@ -75,6 +77,13 @@ public sealed class AiKafkaOptionsTests
     {
         AiKafkaTopics.Anomalies.Should().Be("hookbridge.ai.anomalies");
         new AiKafkaOptions().AnomaliesTopic.Should().Be(AiKafkaTopics.Anomalies);
+    }
+
+    [Fact]
+    public void AiKafkaTopics_SecurityAnalysis_HasExpectedValue()
+    {
+        AiKafkaTopics.SecurityAnalysis.Should().Be("hookbridge.ai.security-analysis");
+        new AiKafkaOptions().SecurityAnalysisTopic.Should().Be(AiKafkaTopics.SecurityAnalysis);
     }
 
     [Fact]
