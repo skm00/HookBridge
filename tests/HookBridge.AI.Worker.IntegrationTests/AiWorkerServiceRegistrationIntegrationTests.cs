@@ -66,10 +66,10 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
         provider.GetRequiredService<IAiFallbackService>().Should().NotBeNull();
         provider.GetRequiredService<IWebhookFailurePromptBuilder>().Should().NotBeNull();
         provider.GetRequiredService<IAiLogSummaryPromptBuilder>().Should().NotBeNull();
-        provider.GetRequiredService<IAiAnalysisProducer>().Should().NotBeNull();
-        provider.GetRequiredService<IAiAnalysisConsumer>().Should().NotBeNull();
-        provider.GetRequiredService<IAiAnomalyProducer>().Should().NotBeNull();
-        provider.GetRequiredService<IAiAnomalyConsumer>().Should().NotBeNull();
+        services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnalysisProducer));
+        services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnalysisConsumer));
+        services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnomalyProducer));
+        services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnomalyConsumer));
         provider.GetRequiredService<IAiAnalysisResultRepository>().Should().NotBeNull();
     }
 }

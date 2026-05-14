@@ -16,9 +16,11 @@ public sealed class WebhookFailureAnomalyDetectionWorkerPublishTests
     {
         var request = Request(failedDeliveries: 10, rateLimitCount: 0);
         var producer = new Mock<IAiAnomalyProducer>();
-        var worker = CreateWorker(request, producer.Object);
+        var acknowledgeSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var worker = CreateWorker(request, producer.Object, acknowledgeSignal);
 
         await worker.StartAsync(CancellationToken.None);
+        await acknowledgeSignal.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await worker.StopAsync(CancellationToken.None);
 
         producer.Verify(client => client.PublishAsync(It.IsAny<AiAnomalyEventDto>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -27,25 +29,27 @@ public sealed class WebhookFailureAnomalyDetectionWorkerPublishTests
     [Fact]
     public async Task ExecuteAsync_PublishesWhenAnomalyDetected()
     {
-        var request = Request(failedDeliveries: 80, rateLimitCount: 50);
+        var request = Request(failedDeliveries: 10, rateLimitCount: 50, retryCount: 100);
         var producer = new Mock<IAiAnomalyProducer>();
-        AiAnomalyEventDto? published = null;
+        var publishSignal = new TaskCompletionSource<AiAnomalyEventDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var acknowledgeSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         producer
             .Setup(client => client.PublishAsync(It.IsAny<AiAnomalyEventDto>(), It.IsAny<CancellationToken>()))
-            .Callback<AiAnomalyEventDto, CancellationToken>((dto, _) => published = dto)
+            .Callback<AiAnomalyEventDto, CancellationToken>((dto, _) => publishSignal.TrySetResult(dto))
             .ReturnsAsync(AiKafkaPublishResult.Success(AiKafkaTopics.Anomalies, "corr-1", 0, 1, DateTime.UtcNow));
-        var worker = CreateWorker(request, producer.Object);
+        var worker = CreateWorker(request, producer.Object, acknowledgeSignal);
 
         await worker.StartAsync(CancellationToken.None);
+        var published = await publishSignal.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await acknowledgeSignal.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await worker.StopAsync(CancellationToken.None);
 
         producer.Verify(client => client.PublishAsync(It.IsAny<AiAnomalyEventDto>(), It.IsAny<CancellationToken>()), Times.Once);
-        published.Should().NotBeNull();
-        published!.CorrelationId.Should().Be("corr-1");
+        published.CorrelationId.Should().Be("corr-1");
         published.AnomalyType.Should().Be(AiAnomalyType.RateLimitSpike);
     }
 
-    private static WebhookFailureAnomalyDetectionWorker CreateWorker(WebhookFailureAnomalyDetectionRequestDto request, IAiAnomalyProducer producer)
+    private static WebhookFailureAnomalyDetectionWorker CreateWorker(WebhookFailureAnomalyDetectionRequestDto request, IAiAnomalyProducer producer, TaskCompletionSource acknowledgeSignal)
     {
         var repository = new Mock<IWebhookFailureAnomalyDetectionRepository>();
         repository
@@ -53,7 +57,7 @@ public sealed class WebhookFailureAnomalyDetectionWorkerPublishTests
             .Returns(Task.CompletedTask);
 
         return new WebhookFailureAnomalyDetectionWorker(
-            new SingleMessageConsumer(request),
+            new SingleMessageConsumer(request, acknowledgeSignal),
             new WebhookFailureAnomalyDetectionService(),
             repository.Object,
             producer,
@@ -68,7 +72,7 @@ public sealed class WebhookFailureAnomalyDetectionWorkerPublishTests
             }));
     }
 
-    private static WebhookFailureAnomalyDetectionRequestDto Request(int failedDeliveries, int rateLimitCount)
+    private static WebhookFailureAnomalyDetectionRequestDto Request(int failedDeliveries, int rateLimitCount, int retryCount = 0)
         => new()
         {
             EventId = "evt-1",
@@ -87,6 +91,7 @@ public sealed class WebhookFailureAnomalyDetectionWorkerPublishTests
                 TotalDeliveries = 100,
                 SuccessfulDeliveries = 100 - failedDeliveries,
                 FailedDeliveries = failedDeliveries,
+                RetryCount = retryCount,
                 RateLimitCount = rateLimitCount
             },
             BaselineWindow = new WebhookFailureMetricWindowDto
@@ -96,6 +101,7 @@ public sealed class WebhookFailureAnomalyDetectionWorkerPublishTests
                 TotalDeliveries = 100,
                 SuccessfulDeliveries = 90,
                 FailedDeliveries = 10,
+                RetryCount = 1,
                 RateLimitCount = 1
             }
         };
@@ -103,12 +109,21 @@ public sealed class WebhookFailureAnomalyDetectionWorkerPublishTests
     private sealed class SingleMessageConsumer : IWebhookFailureAnomalyDetectionConsumer
     {
         private readonly WebhookFailureAnomalyDetectionRequestDto _request;
+        private readonly TaskCompletionSource _acknowledgeSignal;
 
-        public SingleMessageConsumer(WebhookFailureAnomalyDetectionRequestDto request) => _request = request;
+        public SingleMessageConsumer(WebhookFailureAnomalyDetectionRequestDto request, TaskCompletionSource acknowledgeSignal)
+        {
+            _request = request;
+            _acknowledgeSignal = acknowledgeSignal;
+        }
 
         public async IAsyncEnumerable<WebhookFailureAnomalyDetectionMessage> ConsumeAsync(CancellationToken cancellationToken = default)
         {
-            yield return new WebhookFailureAnomalyDetectionMessage(_request, _ => Task.CompletedTask);
+            yield return new WebhookFailureAnomalyDetectionMessage(_request, _ =>
+            {
+                _acknowledgeSignal.TrySetResult();
+                return Task.CompletedTask;
+            });
             await Task.Yield();
         }
     }

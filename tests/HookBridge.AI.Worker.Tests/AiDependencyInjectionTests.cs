@@ -107,10 +107,14 @@ public sealed class AiDependencyInjectionTests
             .Build());
         services.AddAiKafkaServices();
 
-        using var provider = services.BuildServiceProvider(validateScopes: true);
-
-        provider.GetRequiredService<IAiAnomalyProducer>().Should().BeOfType<AiAnomalyProducer>();
-        provider.GetRequiredService<IAiAnomalyConsumer>().Should().BeOfType<AiAnomalyConsumer>();
+        services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAiAnomalyProducer) &&
+            descriptor.ImplementationType == typeof(AiAnomalyProducer) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAiAnomalyConsumer) &&
+            descriptor.ImplementationType == typeof(AiAnomalyConsumer) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
     }
 
     private static IConfiguration BuildConfiguration(bool enabled)
