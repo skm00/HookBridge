@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using FluentAssertions;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.Application.DTOs.AiAnalysis;
+using HookBridge.Application.DTOs.AiDashboard;
 using HookBridge.Api.Health;
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Application.DTOs.Common;
@@ -193,6 +194,65 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         body.Data.CreatedAtUtc.Should().Be(new DateTime(2026, 5, 13, 10, 30, 0, DateTimeKind.Utc));
     }
 
+
+    [Fact]
+    public async Task GetAiDashboardSummary_WhenCalled_ShouldReturnSuccessfulJsonResponseShape()
+    {
+        _factory.State.AiAnalysisResults.Add(new AiAnalysisResult
+        {
+            Id = "663f0c7a9f1e2a5a12345679",
+            EventId = "evt_dashboard",
+            Environment = "qa",
+            CustomerId = "cust_123",
+            EventType = "WebhookDeliveryFailed",
+            AiSummary = "Endpoint is rate limited.",
+            RootCause = "HTTP 429 spike.",
+            RiskLevel = "High",
+            ConfidenceScore = 0.82,
+            SuggestedRetryAction = "RetryWithBackoff",
+            IsRetryRecommended = true,
+            CreatedAtUtc = new DateTime(2026, 5, 14, 10, 0, 0, DateTimeKind.Utc),
+        });
+
+        var response = await _client.GetAsync("/api/ai-dashboard/summary?fromUtc=2026-05-14T00:00:00Z&toUtc=2026-05-14T23:59:59Z");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<AiDashboardSummaryResponseDto>>();
+        body!.Success.Should().BeTrue();
+        body.Data!.TotalAiAnalyses.Should().Be(1);
+        body.Data.RiskDistribution.High.Should().Be(1);
+        body.Data.RetryActionDistribution.Should().ContainSingle(x => x.Name == "RetryWithBackoff" && x.Count == 1);
+        body.Data.RecentFindings.Should().ContainSingle(x => x.EventId == "evt_dashboard");
+    }
+
+    [Fact]
+    public async Task GetAiDashboardSummary_WithEnvironmentFilter_ShouldReturnFilteredResults()
+    {
+        _factory.State.AiAnalysisResults.Add(new AiAnalysisResult { Id = "663f0c7a9f1e2a5a12345680", EventId = "evt_qa", Environment = "qa", RiskLevel = "Low", SuggestedRetryAction = "None", CreatedAtUtc = new DateTime(2026, 5, 14, 10, 0, 0, DateTimeKind.Utc) });
+        _factory.State.AiAnalysisResults.Add(new AiAnalysisResult { Id = "663f0c7a9f1e2a5a12345681", EventId = "evt_prod", Environment = "prod", RiskLevel = "Low", SuggestedRetryAction = "None", CreatedAtUtc = new DateTime(2026, 5, 14, 10, 0, 0, DateTimeKind.Utc) });
+
+        var response = await _client.GetAsync("/api/ai-dashboard/summary?environment=qa&fromUtc=2026-05-14T00:00:00Z&toUtc=2026-05-14T23:59:59Z");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<AiDashboardSummaryResponseDto>>();
+        body!.Data!.Environment.Should().Be("qa");
+        body.Data.TotalAiAnalyses.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetAiDashboardSummary_WithCustomerIdFilter_ShouldReturnFilteredResults()
+    {
+        _factory.State.AiAnalysisResults.Add(new AiAnalysisResult { Id = "663f0c7a9f1e2a5a12345682", EventId = "evt_cust", CustomerId = "cust_123", RiskLevel = "Low", SuggestedRetryAction = "None", CreatedAtUtc = new DateTime(2026, 5, 14, 10, 0, 0, DateTimeKind.Utc) });
+        _factory.State.AiAnalysisResults.Add(new AiAnalysisResult { Id = "663f0c7a9f1e2a5a12345683", EventId = "evt_other", CustomerId = "cust_other", RiskLevel = "Low", SuggestedRetryAction = "None", CreatedAtUtc = new DateTime(2026, 5, 14, 10, 0, 0, DateTimeKind.Utc) });
+
+        var response = await _client.GetAsync("/api/ai-dashboard/summary?customerId=cust_123&fromUtc=2026-05-14T00:00:00Z&toUtc=2026-05-14T23:59:59Z");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<AiDashboardSummaryResponseDto>>();
+        body!.Data!.CustomerId.Should().Be("cust_123");
+        body.Data.TotalAiAnalyses.Should().Be(1);
+    }
+
     [Theory]
     [InlineData("/health")]
     [InlineData("/api/v1/health/kafka")]
@@ -261,6 +321,9 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                 services.RemoveAll<IMongoDatabase>();
                 services.RemoveAll<IElasticsearchHealthService>();
                 services.RemoveAll<IAiAnalysisResultRepository>();
+                services.RemoveAll<IAiAnomalyRecordRepository>();
+                services.RemoveAll<IAiSecurityAnalysisRepository>();
+                services.RemoveAll<ICustomerEndpointRiskScoreRepository>();
 
                 services.AddSingleton(State);
                 services.AddScoped<ISubscriptionService, InMemorySubscriptionService>();
@@ -272,6 +335,9 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                 services.AddScoped<ICurrentUserContext, TestCurrentUserContext>();
                 services.AddSingleton<IElasticsearchHealthService, HealthyElasticsearchHealthService>();
                 services.AddScoped<IAiAnalysisResultRepository, InMemoryAiAnalysisResultRepository>();
+                services.AddScoped<IAiAnomalyRecordRepository, EmptyAiAnomalyRecordRepository>();
+                services.AddScoped<IAiSecurityAnalysisRepository, EmptyAiSecurityAnalysisRepository>();
+                services.AddScoped<ICustomerEndpointRiskScoreRepository, EmptyCustomerEndpointRiskScoreRepository>();
 
                 var mongoDatabase = new Mock<IMongoDatabase>();
                 mongoDatabase
@@ -359,6 +425,85 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
 
         public Task<IReadOnlyList<AiAnalysisResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<AiAnalysisResult>>(state.AiAnalysisResults.OrderByDescending(x => x.CreatedAtUtc).Take(limit).ToList());
+
+        public Task<long> CountByDateRangeAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+            => Task.FromResult((long)ApplyFilter(filter).Count());
+
+        public Task<IReadOnlyDictionary<string, long>> CountByRiskLevelAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<string, long>>(ApplyFilter(filter).GroupBy(x => string.IsNullOrWhiteSpace(x.RiskLevel) ? "Unknown" : x.RiskLevel).ToDictionary(x => x.Key, x => (long)x.Count()));
+
+        public Task<IReadOnlyDictionary<string, long>> CountByRetryActionAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<string, long>>(ApplyFilter(filter).GroupBy(x => string.IsNullOrWhiteSpace(x.SuggestedRetryAction) ? "Unknown" : x.SuggestedRetryAction).ToDictionary(x => x.Key, x => (long)x.Count()));
+
+        public Task<double> GetAverageConfidenceScoreAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+        {
+            var results = ApplyFilter(filter).ToList();
+            return Task.FromResult(results.Count == 0 ? 0 : results.Average(x => x.ConfidenceScore));
+        }
+
+        public Task<IReadOnlyList<AiDashboardRecentFindingResult>> GetRecentFindingsAsync(AiDashboardQueryFilter filter, int limit, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AiDashboardRecentFindingResult>>(ApplyFilter(filter)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .Take(limit)
+                .Select(x => new AiDashboardRecentFindingResult
+                {
+                    Id = x.Id,
+                    EventId = x.EventId,
+                    CorrelationId = x.CorrelationId,
+                    CustomerId = x.CustomerId,
+                    SubscriptionId = x.SubscriptionId,
+                    EndpointId = x.EndpointId,
+                    FindingType = "Analysis",
+                    Title = string.IsNullOrWhiteSpace(x.RootCause) ? "AI analysis completed" : x.RootCause,
+                    Summary = x.AiSummary,
+                    RiskLevel = x.RiskLevel,
+                    SuggestedAction = x.SuggestedRetryAction,
+                    CreatedAtUtc = x.CreatedAtUtc
+                })
+                .ToList());
+
+        private IEnumerable<AiAnalysisResult> ApplyFilter(AiDashboardQueryFilter filter)
+            => state.AiAnalysisResults.Where(x =>
+                x.CreatedAtUtc >= filter.FromUtc && x.CreatedAtUtc < filter.ToUtc &&
+                (string.IsNullOrWhiteSpace(filter.Environment) || x.Environment == filter.Environment) &&
+                (string.IsNullOrWhiteSpace(filter.CustomerId) || x.CustomerId == filter.CustomerId) &&
+                (string.IsNullOrWhiteSpace(filter.CustomerIdType) || x.CustomerIdType == filter.CustomerIdType) &&
+                (string.IsNullOrWhiteSpace(filter.SubscriptionId) || x.SubscriptionId == filter.SubscriptionId) &&
+                (string.IsNullOrWhiteSpace(filter.EndpointId) || x.EndpointId == filter.EndpointId) &&
+                (string.IsNullOrWhiteSpace(filter.EventType) || x.EventType == filter.EventType));
+    }
+
+    private sealed class EmptyAiAnomalyRecordRepository : IAiAnomalyRecordRepository
+    {
+        public Task<AiAnomalyRecordRepositoryResult> InsertAsync(AiAnomalyRecord record, CancellationToken cancellationToken = default) => Task.FromResult(AiAnomalyRecordRepositoryResult.Success(record));
+        public Task<AiAnomalyRecord?> GetByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult<AiAnomalyRecord?>(null);
+        public Task<AiAnomalyRecord?> GetByAnomalyIdAsync(string anomalyId, CancellationToken cancellationToken = default) => Task.FromResult<AiAnomalyRecord?>(null);
+        public Task<IReadOnlyList<AiAnomalyRecord>> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAnomalyRecord>>([]);
+        public Task<IReadOnlyList<AiAnomalyRecord>> GetByCorrelationIdAsync(string correlationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAnomalyRecord>>([]);
+        public Task<IReadOnlyList<AiAnomalyRecord>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAnomalyRecord>>([]);
+        public Task<IReadOnlyList<AiAnomalyRecord>> GetBySubscriptionIdAsync(string subscriptionId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAnomalyRecord>>([]);
+        public Task<IReadOnlyList<AiAnomalyRecord>> GetByEndpointIdAsync(string endpointId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAnomalyRecord>>([]);
+        public Task<IReadOnlyList<AiAnomalyRecord>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAnomalyRecord>>([]);
+        public Task<IReadOnlyList<AiAnomalyRecord>> SearchAsync(HookBridge.AI.Worker.DTOs.AiAnomalyRecordSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAnomalyRecord>>([]);
+    }
+
+    private sealed class EmptyAiSecurityAnalysisRepository : IAiSecurityAnalysisRepository
+    {
+        public Task InsertAsync(AiSecurityAnalysisResult result, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<AiSecurityAnalysisResult?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default) => Task.FromResult<AiSecurityAnalysisResult?>(null);
+        public Task<IReadOnlyList<AiSecurityAnalysisResult>> GetByCorrelationIdAsync(string correlationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiSecurityAnalysisResult>>([]);
+        public Task<IReadOnlyList<AiSecurityAnalysisResult>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiSecurityAnalysisResult>>([]);
+        public Task<IReadOnlyList<AiSecurityAnalysisResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiSecurityAnalysisResult>>([]);
+        public Task<IReadOnlyList<AiSecurityAnalysisResult>> SearchAsync(HookBridge.AI.Worker.DTOs.AiSecurityAnalysisSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiSecurityAnalysisResult>>([]);
+    }
+
+    private sealed class EmptyCustomerEndpointRiskScoreRepository : ICustomerEndpointRiskScoreRepository
+    {
+        public Task InsertAsync(CustomerEndpointRiskScoreResult result, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>([]);
+        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetBySubscriptionIdAsync(string subscriptionId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>([]);
+        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetByEndpointIdAsync(string endpointId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>([]);
+        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>([]);
     }
 
     private sealed class InMemorySubscriptionService(IntegrationTestState state) : ISubscriptionService

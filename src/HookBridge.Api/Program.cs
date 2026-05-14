@@ -9,6 +9,8 @@ using HookBridge.Api.Health;
 using HookBridge.Api.Middleware;
 using HookBridge.Api.Swagger;
 using HookBridge.Api.Security;
+using HookBridge.Api.Configuration;
+using HookBridge.Api.Services.AiDashboard;
 using HookBridge.Application.DependencyInjection;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
@@ -143,6 +145,11 @@ builder.Services.AddScoped<TenantAccessValidator>();
 builder.Services.AddScoped<IClientIpResolver, ClientIpResolver>();
 builder.Services.AddScoped<IIpAllowlistService, IpAllowlistService>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
+builder.Services.AddOptions<AiDashboardOptions>()
+    .Bind(builder.Configuration.GetSection(AiDashboardOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddScoped<IAiDashboardSummaryService, AiDashboardSummaryService>();
 builder.Services.AddOptions<AiMongoOptions>()
     .Configure<IConfiguration>((options, configuration) =>
     {
@@ -170,6 +177,12 @@ builder.Services.AddOptions<AiMongoOptions>()
     });
 builder.Services.AddSingleton<IAiAnalysisResultCollectionProvider, AiAnalysisResultCollectionProvider>();
 builder.Services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
+builder.Services.AddSingleton<IAiAnomalyRecordCollectionProvider, AiAnomalyRecordCollectionProvider>();
+builder.Services.AddSingleton<IAiAnomalyRecordRepository, AiAnomalyRecordRepository>();
+builder.Services.AddSingleton<IAiSecurityAnalysisCollectionProvider, AiSecurityAnalysisCollectionProvider>();
+builder.Services.AddSingleton<IAiSecurityAnalysisRepository, AiSecurityAnalysisRepository>();
+builder.Services.AddSingleton<ICustomerEndpointRiskScoreCollectionProvider, CustomerEndpointRiskScoreCollectionProvider>();
+builder.Services.AddSingleton<ICustomerEndpointRiskScoreRepository, CustomerEndpointRiskScoreRepository>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();

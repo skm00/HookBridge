@@ -93,6 +93,51 @@ public sealed class AiAnomalyRecordRepository : IAiAnomalyRecordRepository
             cancellationToken);
     }
 
+
+    public Task<long> CountByDateRangeAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+        => _collection.CountDocumentsAsync(BuildDashboardFilter(filter), cancellationToken: cancellationToken);
+
+    public async Task<IReadOnlyDictionary<string, long>> CountByRiskLevelAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+    {
+        var records = await ToListAsync(BuildDashboardFilter(filter), cancellationToken: cancellationToken);
+        return records.GroupBy(record => NormalizeBucket(record.RiskLevel))
+            .ToDictionary(group => group.Key, group => (long)group.Count(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyDictionary<string, long>> CountByAnomalyTypeAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+    {
+        var records = await ToListAsync(BuildDashboardFilter(filter), cancellationToken: cancellationToken);
+        return records.GroupBy(record => NormalizeBucket(record.AnomalyType))
+            .ToDictionary(group => group.Key, group => (long)group.Count(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyList<AiDashboardRecentFindingResult>> GetRecentFindingsAsync(AiDashboardQueryFilter filter, int limit, CancellationToken cancellationToken = default)
+    {
+        if (limit <= 0) return Array.Empty<AiDashboardRecentFindingResult>();
+
+        var records = await ToListAsync(
+            BuildDashboardFilter(filter),
+            Builders<AiAnomalyRecord>.Sort.Descending(record => record.CreatedAtUtc),
+            limit,
+            cancellationToken: cancellationToken);
+
+        return records.Select(record => new AiDashboardRecentFindingResult
+        {
+            Id = record.Id,
+            EventId = record.EventId,
+            CorrelationId = record.CorrelationId,
+            CustomerId = record.CustomerId,
+            SubscriptionId = record.SubscriptionId,
+            EndpointId = record.EndpointId,
+            FindingType = "Anomaly",
+            Title = $"{NormalizeBucket(record.AnomalyType)} detected",
+            Summary = record.Summary,
+            RiskLevel = record.RiskLevel,
+            SuggestedAction = record.Recommendation,
+            CreatedAtUtc = record.CreatedAtUtc
+        }).ToList();
+    }
+
     private static FilterDefinition<AiAnomalyRecord> BuildSearchFilter(AiAnomalyRecordSearchRequestDto request)
     {
         var builder = Builders<AiAnomalyRecord>.Filter;
@@ -113,6 +158,24 @@ public sealed class AiAnomalyRecordRepository : IAiAnomalyRecordRepository
 
         return filter;
     }
+
+
+    private static FilterDefinition<AiAnomalyRecord> BuildDashboardFilter(AiDashboardQueryFilter filter)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        var builder = Builders<AiAnomalyRecord>.Filter;
+        var mongoFilter = builder.Gte(record => record.CreatedAtUtc, filter.FromUtc) & builder.Lt(record => record.CreatedAtUtc, filter.ToUtc);
+        if (!string.IsNullOrWhiteSpace(filter.Environment)) mongoFilter &= builder.Eq(record => record.Environment, filter.Environment);
+        if (!string.IsNullOrWhiteSpace(filter.CustomerId)) mongoFilter &= builder.Eq(record => record.CustomerId, filter.CustomerId);
+        if (!string.IsNullOrWhiteSpace(filter.CustomerIdType)) mongoFilter &= builder.Eq(record => record.CustomerIdType, filter.CustomerIdType);
+        if (!string.IsNullOrWhiteSpace(filter.SubscriptionId)) mongoFilter &= builder.Eq(record => record.SubscriptionId, filter.SubscriptionId);
+        if (!string.IsNullOrWhiteSpace(filter.EndpointId)) mongoFilter &= builder.Eq(record => record.EndpointId, filter.EndpointId);
+        if (!string.IsNullOrWhiteSpace(filter.EventType)) mongoFilter &= builder.Eq(record => record.EventType, filter.EventType);
+        return mongoFilter;
+    }
+
+    private static string NormalizeBucket(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
 
     private static string? ValidateRecord(AiAnomalyRecord record)
     {

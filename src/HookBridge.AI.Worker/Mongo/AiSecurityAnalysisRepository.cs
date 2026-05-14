@@ -49,9 +49,70 @@ public sealed class AiSecurityAnalysisRepository : IAiSecurityAnalysisRepository
         return ToListAsync(filter, Builders<AiSecurityAnalysisResult>.Sort.Descending(result => result.GeneratedAtUtc), limit, cancellationToken);
     }
 
+
+    public Task<long> CountByDateRangeAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+        => _collection.CountDocumentsAsync(BuildDashboardFilter(filter), cancellationToken: cancellationToken);
+
+    public async Task<IReadOnlyDictionary<string, long>> CountByRiskLevelAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+    {
+        var results = await ToListAsync(BuildDashboardFilter(filter), Builders<AiSecurityAnalysisResult>.Sort.Descending(result => result.GeneratedAtUtc), null, cancellationToken);
+        return results.GroupBy(result => NormalizeBucket(result.RiskLevel))
+            .ToDictionary(group => group.Key, group => (long)group.Count(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<double> GetAverageConfidenceScoreAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+    {
+        var results = await ToListAsync(BuildDashboardFilter(filter), Builders<AiSecurityAnalysisResult>.Sort.Descending(result => result.GeneratedAtUtc), null, cancellationToken);
+        return results.Count == 0 ? 0 : Math.Round(results.Average(result => result.ConfidenceScore), 4);
+    }
+
+    public async Task<IReadOnlyList<AiDashboardRecentFindingResult>> GetRecentFindingsAsync(AiDashboardQueryFilter filter, int limit, CancellationToken cancellationToken = default)
+    {
+        if (limit <= 0) return Array.Empty<AiDashboardRecentFindingResult>();
+
+        var results = await ToListAsync(
+            BuildDashboardFilter(filter),
+            Builders<AiSecurityAnalysisResult>.Sort.Descending(result => result.GeneratedAtUtc),
+            limit,
+            cancellationToken);
+
+        return results.Select(result => new AiDashboardRecentFindingResult
+        {
+            Id = result.Id,
+            EventId = result.EventId,
+            CorrelationId = result.CorrelationId,
+            CustomerId = result.CustomerId,
+            SubscriptionId = result.SubscriptionId,
+            EndpointId = result.EndpointId,
+            FindingType = "Security",
+            Title = result.IsSuspicious ? "Suspicious webhook activity detected" : "Security analysis completed",
+            Summary = result.Summary,
+            RiskLevel = result.RiskLevel,
+            SuggestedAction = result.SuggestedAction,
+            CreatedAtUtc = result.GeneratedAtUtc
+        }).ToList();
+    }
+
     private async Task<IReadOnlyList<AiSecurityAnalysisResult>> ToListAsync(FilterDefinition<AiSecurityAnalysisResult> filter, SortDefinition<AiSecurityAnalysisResult>? sort, int? limit, CancellationToken cancellationToken)
     {
         var cursor = await _collection.FindAsync(filter, new FindOptions<AiSecurityAnalysisResult> { Sort = sort, Limit = limit }, cancellationToken);
         return await cursor.ToListAsync(cancellationToken);
     }
+    private static FilterDefinition<AiSecurityAnalysisResult> BuildDashboardFilter(AiDashboardQueryFilter filter)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        var builder = Builders<AiSecurityAnalysisResult>.Filter;
+        var mongoFilter = builder.Gte(result => result.GeneratedAtUtc, filter.FromUtc) & builder.Lt(result => result.GeneratedAtUtc, filter.ToUtc);
+        if (!string.IsNullOrWhiteSpace(filter.Environment)) mongoFilter &= builder.Eq(result => result.Environment, filter.Environment);
+        if (!string.IsNullOrWhiteSpace(filter.CustomerId)) mongoFilter &= builder.Eq(result => result.CustomerId, filter.CustomerId);
+        if (!string.IsNullOrWhiteSpace(filter.CustomerIdType)) mongoFilter &= builder.Eq(result => result.CustomerIdType, filter.CustomerIdType);
+        if (!string.IsNullOrWhiteSpace(filter.SubscriptionId)) mongoFilter &= builder.Eq(result => result.SubscriptionId, filter.SubscriptionId);
+        if (!string.IsNullOrWhiteSpace(filter.EndpointId)) mongoFilter &= builder.Eq(result => result.EndpointId, filter.EndpointId);
+        if (!string.IsNullOrWhiteSpace(filter.EventType)) mongoFilter &= builder.Eq(result => result.EventType, filter.EventType);
+        return mongoFilter;
+    }
+
+    private static string NormalizeBucket(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
+
 }

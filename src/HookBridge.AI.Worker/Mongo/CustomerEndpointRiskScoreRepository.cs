@@ -34,10 +34,42 @@ public sealed class CustomerEndpointRiskScoreRepository : ICustomerEndpointRiskS
         return ToListAsync(Builders<CustomerEndpointRiskScoreResult>.Filter.Empty, Builders<CustomerEndpointRiskScoreResult>.Sort.Descending(result => result.CalculatedAtUtc), limit, cancellationToken);
     }
 
+
+    public Task<long> CountHighRiskEndpointsAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+    {
+        var mongoFilter = BuildDashboardFilter(filter);
+        var builder = Builders<CustomerEndpointRiskScoreResult>.Filter;
+        mongoFilter &= builder.In(result => result.RiskLevel, new[] { "High", "high", "HIGH", "Critical", "critical", "CRITICAL" });
+        return _collection.CountDocumentsAsync(mongoFilter, cancellationToken: cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<string, long>> CountByHealthStatusAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default)
+    {
+        var results = await ToListAsync(BuildDashboardFilter(filter), cancellationToken: cancellationToken);
+        return results.GroupBy(result => NormalizeBucket(result.HealthStatus))
+            .ToDictionary(group => group.Key, group => (long)group.Count(), StringComparer.OrdinalIgnoreCase);
+    }
+
     private async Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> ToListAsync(FilterDefinition<CustomerEndpointRiskScoreResult> filter, SortDefinition<CustomerEndpointRiskScoreResult>? sort = null, int? limit = null, CancellationToken cancellationToken = default)
     {
         var options = new FindOptions<CustomerEndpointRiskScoreResult> { Sort = sort, Limit = limit };
         var cursor = await _collection.FindAsync(filter, options, cancellationToken);
         return await cursor.ToListAsync(cancellationToken);
     }
+    private static FilterDefinition<CustomerEndpointRiskScoreResult> BuildDashboardFilter(AiDashboardQueryFilter filter)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        var builder = Builders<CustomerEndpointRiskScoreResult>.Filter;
+        var mongoFilter = builder.Gte(result => result.CalculatedAtUtc, filter.FromUtc) & builder.Lt(result => result.CalculatedAtUtc, filter.ToUtc);
+        if (!string.IsNullOrWhiteSpace(filter.Environment)) mongoFilter &= builder.Eq(result => result.Environment, filter.Environment);
+        if (!string.IsNullOrWhiteSpace(filter.CustomerId)) mongoFilter &= builder.Eq(result => result.CustomerId, filter.CustomerId);
+        if (!string.IsNullOrWhiteSpace(filter.CustomerIdType)) mongoFilter &= builder.Eq(result => result.CustomerIdType, filter.CustomerIdType);
+        if (!string.IsNullOrWhiteSpace(filter.SubscriptionId)) mongoFilter &= builder.Eq(result => result.SubscriptionId, filter.SubscriptionId);
+        if (!string.IsNullOrWhiteSpace(filter.EndpointId)) mongoFilter &= builder.Eq(result => result.EndpointId, filter.EndpointId);
+        return mongoFilter;
+    }
+
+    private static string NormalizeBucket(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
+
 }
