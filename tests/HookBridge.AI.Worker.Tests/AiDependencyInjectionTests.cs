@@ -7,6 +7,7 @@ using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.LogSummaries;
+using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,7 @@ public sealed class AiDependencyInjectionTests
         services.AddAiRetryRecommendationServices();
         services.AddAiLogSummarizationServices();
         services.AddEndpointHealthScoringServices();
+        services.AddCustomerEndpointRiskScoringServices();
 
         using var provider = services.BuildServiceProvider(validateScopes: true);
 
@@ -38,6 +40,7 @@ public sealed class AiDependencyInjectionTests
         provider.GetRequiredService<IAiRetryRecommendationService>().Should().BeOfType<AiRetryRecommendationService>();
         provider.GetRequiredService<IAiLogSummarizationService>().Should().BeOfType<AiLogSummarizationService>();
         provider.GetRequiredService<IEndpointHealthScoringService>().Should().BeOfType<EndpointHealthScoringService>();
+        provider.GetRequiredService<ICustomerEndpointRiskScoringService>().Should().BeOfType<CustomerEndpointRiskScoringService>();
         provider.GetRequiredService<IAiFallbackService>().Should().BeOfType<AiFallbackService>();
     }
 

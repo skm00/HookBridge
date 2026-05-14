@@ -1196,3 +1196,101 @@ Operational rules:
 - Do not include secret sample values in generated transformation code.
 - Treat masked values as unavailable and never reconstruct them.
 - Require human review before any recommended mapping or generated code is used in production.
+
+## Customer Endpoint Risk Score
+
+Customer Endpoint Risk Score is a deterministic, non-LLM scoring flow for ranking customer webhook endpoint risk. It is intended for operations, support, and tenant-facing observability where the platform needs a repeatable score based only on delivery telemetry. No Ollama, Semantic Kernel, or external AI provider is required.
+
+### Score formula
+
+The score starts at `0` and adds bounded risk points for these signals:
+
+- Failure rate across the evaluation window.
+- Retry volume and whether retry activity reached the configured maximum retry count.
+- Dead-letter records.
+- Timeout failures.
+- HTTP `429` rate limit failures.
+- HTTP `5xx` server failures.
+- HTTP `4xx` client failures.
+- Extra authentication risk for `401`/`403` or authentication failure counts.
+- Signature validation failures.
+- Suspicious payload indicators.
+- High average latency and high P95 latency.
+- Recent last failure timestamps.
+
+The final score is clamped to `0` through `100`.
+
+### Risk level thresholds
+
+| Score | Risk level | Endpoint health status |
+| --- | --- | --- |
+| no deliveries | Unknown | Unknown |
+| 0-20 | Low | Healthy |
+| 21-50 | Medium | Degraded |
+| 51-80 | High | Unhealthy |
+| 81-100 | Critical | Critical |
+
+### Example request
+
+```json
+{
+  "customerId": "cust_123",
+  "customerIdType": "MDM",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "totalDeliveries": 1000,
+  "successfulDeliveries": 850,
+  "failedDeliveries": 150,
+  "retryCount": 80,
+  "maxRetryCount": 5,
+  "deadLetterCount": 12,
+  "timeoutCount": 20,
+  "rateLimitCount": 35,
+  "clientErrorCount": 10,
+  "serverErrorCount": 40,
+  "authenticationFailureCount": 5,
+  "signatureValidationFailureCount": 2,
+  "suspiciousPayloadCount": 1,
+  "averageLatencyMs": 950,
+  "p95LatencyMs": 3200,
+  "lastStatusCode": 429,
+  "lastFailureReason": "Too Many Requests",
+  "evaluationWindowFromUtc": "2026-05-14T00:00:00Z",
+  "evaluationWindowToUtc": "2026-05-14T12:00:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "customerId": "cust_123",
+  "customerIdType": "MDM",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "riskScore": 67,
+  "riskLevel": "High",
+  "healthStatus": "Unhealthy",
+  "summary": "Customer endpoint has high risk due to repeated failures, rate limiting, dead-letter records, and high latency.",
+  "recommendation": "Reduce concurrency, retry with exponential backoff, and review dead-letter records before replay.",
+  "riskFactors": [
+    {
+      "factorName": "RateLimitFailures",
+      "severity": "High",
+      "scoreImpact": 15,
+      "description": "Endpoint returned HTTP 429 rate limit failures.",
+      "recommendation": "Use exponential backoff and reduce delivery concurrency."
+    }
+  ],
+  "calculatedAtUtc": "2026-05-14T12:05:00Z"
+}
+```
+
+### Persistence and eventing
+
+- MongoDB collection: `customer_endpoint_risk_score_results`
+- Kafka topic: `hookbridge.ai.endpoint-risk-score`

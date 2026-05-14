@@ -7,13 +7,23 @@ namespace HookBridge.AI.Worker.Mongo;
 public sealed class AiMongoIndexInitializer : IHostedService
 {
     private readonly IAiAnalysisResultCollectionProvider _collectionProvider;
+    private readonly ICustomerEndpointRiskScoreCollectionProvider? _riskScoreCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
+        : this(collectionProvider, null, logger)
+    {
+    }
+
+    public AiMongoIndexInitializer(
+        IAiAnalysisResultCollectionProvider collectionProvider,
+        ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
+        ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
+        _riskScoreCollectionProvider = riskScoreCollectionProvider;
         _logger = logger;
     }
 
@@ -23,6 +33,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
         var indexModels = CreateIndexModels();
 
         await collection.Indexes.CreateManyAsync(indexModels, cancellationToken);
+
+        if (_riskScoreCollectionProvider is not null)
+        {
+            var riskScoreCollection = _riskScoreCollectionProvider.GetCollection();
+            await riskScoreCollection.Indexes.CreateManyAsync(CreateCustomerEndpointRiskScoreIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -41,6 +58,18 @@ public sealed class AiMongoIndexInitializer : IHostedService
             new CreateIndexModel<AiAnalysisResult>(
                 Builders<AiAnalysisResult>.IndexKeys.Descending(result => result.CreatedAtUtc),
                 new CreateIndexOptions { Name = "idx_ai_analysis_results_created_at_utc_desc" })
+        };
+    }
+
+    public static IReadOnlyList<CreateIndexModel<CustomerEndpointRiskScoreResult>> CreateCustomerEndpointRiskScoreIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<CustomerEndpointRiskScoreResult>(Builders<CustomerEndpointRiskScoreResult>.IndexKeys.Ascending(result => result.CustomerId), new CreateIndexOptions { Name = "idx_customer_endpoint_risk_score_customer_id" }),
+            new CreateIndexModel<CustomerEndpointRiskScoreResult>(Builders<CustomerEndpointRiskScoreResult>.IndexKeys.Ascending(result => result.SubscriptionId), new CreateIndexOptions { Name = "idx_customer_endpoint_risk_score_subscription_id" }),
+            new CreateIndexModel<CustomerEndpointRiskScoreResult>(Builders<CustomerEndpointRiskScoreResult>.IndexKeys.Ascending(result => result.EndpointId), new CreateIndexOptions { Name = "idx_customer_endpoint_risk_score_endpoint_id" }),
+            new CreateIndexModel<CustomerEndpointRiskScoreResult>(Builders<CustomerEndpointRiskScoreResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_customer_endpoint_risk_score_risk_level" }),
+            new CreateIndexModel<CustomerEndpointRiskScoreResult>(Builders<CustomerEndpointRiskScoreResult>.IndexKeys.Descending(result => result.CalculatedAtUtc), new CreateIndexOptions { Name = "idx_customer_endpoint_risk_score_calculated_at_utc_desc" })
         };
     }
 }

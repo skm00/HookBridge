@@ -226,6 +226,13 @@ HookBridge includes a webhook retry mechanism that records every delivery attemp
 
 This webhook retry mechanism and dead letter queue model improves reliability for event-driven webhook processing because temporary endpoint outages do not require producers to re-send business events manually.
 
+
+## Customer Endpoint Risk Score
+
+HookBridge AI Worker includes a deterministic Customer Endpoint Risk Score for webhook endpoint operations. The score does not call an LLM; it starts at `0`, adds bounded risk points for failure rate, retries, max-retry exhaustion, dead-letter records, timeouts, HTTP `429`, `4xx`, `5xx`, authentication and signature failures, suspicious payload indicators, elevated latency, and recent failures, then clamps the final value to `0-100`.
+
+Risk thresholds are `0-20 = Low / Healthy`, `21-50 = Medium / Degraded`, `51-80 = High / Unhealthy`, `81-100 = Critical / Critical`, and `Unknown` when there are no deliveries in the evaluation window. Results are stored in MongoDB collection `customer_endpoint_risk_score_results` and can be produced from Kafka topic `hookbridge.ai.endpoint-risk-score`. See [AI Worker documentation](docs/ai-worker.md#customer-endpoint-risk-score) for example request and response payloads.
+
 ## CloudEvents Support
 
 HookBridge provides CloudEvents support for CloudEvents v1.0 structured payloads and binary-style HTTP requests, making it easier to integrate with event-driven architecture standards across services and platforms.

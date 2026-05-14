@@ -12,6 +12,7 @@ using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.JsonToDtoSuggestion;
 using HookBridge.AI.Worker.Services.FluentValidationRuleGeneration;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
+using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -72,6 +73,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.WebhookTransformationRecommendationResultsCollectionName),
                 "AiMongo:WebhookTransformationRecommendationResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.CustomerEndpointRiskScoreResultsCollectionName),
+                "AiMongo:CustomerEndpointRiskScoreResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -170,6 +174,12 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddCustomerEndpointRiskScoringServices(this IServiceCollection services)
+    {
+        services.TryAddSingleton<ICustomerEndpointRiskScoringService, CustomerEndpointRiskScoringService>();
+        return services;
+    }
+
     public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
@@ -203,6 +213,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IJsonToDtoSuggestionConsumer, JsonToDtoSuggestionConsumer>();
         services.AddSingleton<IFluentValidationRuleGenerationConsumer, FluentValidationRuleGenerationConsumer>();
         services.AddSingleton<IWebhookTransformationRecommendationConsumer, WebhookTransformationRecommendationConsumer>();
+        services.AddSingleton<ICustomerEndpointRiskScoreConsumer, CustomerEndpointRiskScoreConsumer>();
         return services;
     }
 
@@ -223,6 +234,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFluentValidationRuleGenerationRepository, FluentValidationRuleGenerationRepository>();
         services.AddSingleton<IWebhookTransformationRecommendationCollectionProvider, WebhookTransformationRecommendationCollectionProvider>();
         services.AddSingleton<IWebhookTransformationRecommendationRepository, WebhookTransformationRecommendationRepository>();
+        services.AddSingleton<ICustomerEndpointRiskScoreCollectionProvider, CustomerEndpointRiskScoreCollectionProvider>();
+        services.AddSingleton<ICustomerEndpointRiskScoreRepository, CustomerEndpointRiskScoreRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;
