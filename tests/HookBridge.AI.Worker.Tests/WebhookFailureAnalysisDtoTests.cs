@@ -157,6 +157,62 @@ public sealed class WebhookFailureAnalysisDtoTests
         result.CreatedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
     }
 
+
+    [Fact]
+    public void Mapper_FromAiAnalysisEventDto_WithPayloadHints_MapsOptionalFailureContext()
+    {
+        var analysisEvent = new AiAnalysisEventDto
+        {
+            EventId = "evt-payload",
+            CorrelationId = null,
+            Source = "hookbridge.worker",
+            EventType = "webhook.delivery.failed",
+            FailureReason = null,
+            Payload = """
+            {
+              "subscriptionId": "sub-payload",
+              "customerId": "cust-payload",
+              "customerIdType": "TenantId",
+              "targetUrl": "https://receiver.example/webhook",
+              "httpMethod": "POST",
+              "statusCode": "429",
+              "errorMessage": "Too Many Requests",
+              "failureReason": "Rate limited",
+              "retryCount": 2,
+              "maxRetryCount": "5"
+            }
+            """,
+            CreatedAtUtc = new DateTimeOffset(2026, 5, 13, 10, 15, 30, TimeSpan.Zero)
+        };
+
+        var request = WebhookFailureAnalysisMapper.ToWebhookFailureAnalysisRequest(analysisEvent);
+
+        request.SubscriptionId.Should().Be("sub-payload");
+        request.CustomerId.Should().Be("cust-payload");
+        request.CustomerIdType.Should().Be("TenantId");
+        request.TargetUrl.Should().Be("https://receiver.example/webhook");
+        request.HttpMethod.Should().Be("POST");
+        request.StatusCode.Should().Be(429);
+        request.ErrorMessage.Should().Be("Too Many Requests");
+        request.FailureReason.Should().Be("Rate limited");
+        request.RetryCount.Should().Be(2);
+        request.MaxRetryCount.Should().Be(5);
+    }
+
+    [Fact]
+    public void Mapper_NullInputs_ThrowArgumentNullException()
+    {
+        Action mapEvent = () => WebhookFailureAnalysisMapper.ToWebhookFailureAnalysisRequest(null!);
+        Action mapResponse = () => WebhookFailureAnalysisMapper.ToAiAnalysisResult((WebhookFailureAnalysisResponseDto)null!);
+        Action mapResponseWithRequest = () => WebhookFailureAnalysisMapper.ToAiAnalysisResult(new WebhookFailureAnalysisResponseDto(), null!);
+        Action mapPlaceholder = () => WebhookFailureAnalysisMapper.ToAiAnalysisResultPlaceholder(null!, new AiOptions());
+
+        mapEvent.Should().Throw<ArgumentNullException>();
+        mapResponse.Should().Throw<ArgumentNullException>();
+        mapResponseWithRequest.Should().Throw<ArgumentNullException>();
+        mapPlaceholder.Should().Throw<ArgumentNullException>();
+    }
+
     [Fact]
     public void WebhookFailureAnalysisResponseDto_SerializesEnumsAsStrings()
     {

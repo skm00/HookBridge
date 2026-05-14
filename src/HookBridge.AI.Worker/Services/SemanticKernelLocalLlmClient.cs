@@ -165,9 +165,7 @@ public sealed class SemanticKernelLocalLlmClient : ILocalLlmClient
             return AiFallbackReason.ModelUnavailable;
         }
 
-        return exception.StatusCode is null
-            ? AiFallbackReason.ProviderUnavailable
-            : AiFallbackReason.InvalidResponse;
+        return AiFallbackReason.ProviderUnavailable;
     }
 
     private static AiFallbackReason MapExceptionFailureReason(Exception exception)

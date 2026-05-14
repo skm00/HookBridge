@@ -295,7 +295,7 @@ public sealed class ApiVersioningTests
             => Task.FromResult(new EventIngestionResponseDto
             {
                 Status = "accepted",
-                EventId = request.EventId,
+                EventId = request.EventId ?? string.Empty,
                 Message = "Event accepted for delivery.",
             });
     }

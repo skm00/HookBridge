@@ -828,3 +828,27 @@ AI worker logs intentionally use metadata only. Do not log:
 - Full prompts or raw LLM responses.
 
 `SensitiveLogSanitizer` masks values whose field/header names indicate sensitive data, and prompt builders also mask sensitive headers and truncate payload-like fields before building prompts. Keep `AI:EnablePromptLogging` disabled in production unless an approved, short-lived incident response process requires it.
+
+## AI Worker tests and coverage
+
+The AI service layer is covered by `HookBridge.AI.Worker.Tests`. The tests use xUnit, Moq, FluentAssertions, `Microsoft.Extensions.Options`, `Microsoft.Extensions.Logging.Abstractions`, and Coverlet. They mock local LLM, Kafka, and MongoDB dependencies, so they do not require a running Ollama instance, Kafka broker, or MongoDB server.
+
+Run the AI Worker tests from the repository root:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj
+```
+
+Generate a Coverlet XPlat coverage file for only the AI Worker tests:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+```
+
+Generate solution-wide coverage with the same collector used by CI:
+
+```bash
+dotnet test HookBridge.sln --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+```
+
+The CI workflow publishes TRX test results and Cobertura/HTML/TextSummary coverage artifacts. The coverage configuration excludes generated/build artifacts and selected application DTO-only files, but it does not exclude core AI Worker services. The project target remains a practical minimum of 80% line coverage; CI currently enforces a 78% interim gate while additional coverage is added toward that target.

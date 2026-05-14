@@ -21,7 +21,7 @@ env:
   SOLUTION_FILE: HookBridge.sln
   TEST_RESULTS_DIR: test-results
   COVERAGE_REPORTS_DIR: coverage-reports
-  COVERAGE_LINE_THRESHOLD: 75
+  COVERAGE_LINE_THRESHOLD: 78
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
@@ -67,7 +67,7 @@ jobs:
       - name: Build solution
         run: dotnet build "$SOLUTION_FILE" --configuration "$CONFIGURATION" --no-restore --verbosity minimal
 
-      - name: Run unit tests with coverage
+      - name: Run unit tests with coverage, including AI Worker tests
         shell: bash
         run: |
           mkdir -p "$TEST_RESULTS_DIR" "$COVERAGE_REPORTS_DIR"
