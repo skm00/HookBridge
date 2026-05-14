@@ -25,6 +25,26 @@ public sealed class AiAnalysisResult
     [BsonElement("eventType")]
     public string EventType { get; set; } = string.Empty;
 
+    [BsonElement("environment")]
+    [BsonIgnoreIfNull]
+    public string? Environment { get; set; }
+
+    [BsonElement("customerId")]
+    [BsonIgnoreIfNull]
+    public string? CustomerId { get; set; }
+
+    [BsonElement("customerIdType")]
+    [BsonIgnoreIfNull]
+    public string? CustomerIdType { get; set; }
+
+    [BsonElement("subscriptionId")]
+    [BsonIgnoreIfNull]
+    public string? SubscriptionId { get; set; }
+
+    [BsonElement("endpointId")]
+    [BsonIgnoreIfNull]
+    public string? EndpointId { get; set; }
+
     [BsonElement("failureReason")]
     [BsonIgnoreIfNull]
     public string? FailureReason { get; set; }

@@ -973,3 +973,125 @@ Signature validation or authentication failures never recommend `Allow`. Suggest
 ```
 
 - [Webhook duplicate/replay detection](docs/duplicate-replay-detection.md) documents deterministic fingerprinting, scoring, MongoDB collection, and Kafka topic details.
+
+## AI Dashboard Summary API
+
+HookBridge exposes an AI dashboard summary endpoint for operational UI cards and charts.
+The endpoint aggregates stored AI analysis results, anomaly records, security findings, customer endpoint risk scores, retry recommendations, endpoint health buckets, and recent findings without exposing webhook payloads, headers, secrets, or tokens.
+
+### Endpoint
+
+```http
+GET /api/ai-dashboard/summary
+```
+
+### Query parameters
+
+| Parameter | Description |
+| --- | --- |
+| `environment` | Optional environment filter, for example `qa`, `staging`, or `production`. |
+| `customerId` | Optional customer identifier filter. |
+| `customerIdType` | Optional customer identifier type filter. |
+| `subscriptionId` | Optional subscription identifier filter. |
+| `endpointId` | Optional endpoint identifier filter. |
+| `eventType` | Optional webhook event type filter. |
+| `fromUtc` | Optional inclusive UTC range start. Must be UTC when supplied. |
+| `toUtc` | Optional exclusive UTC range end. Must be UTC and greater than `fromUtc` when supplied. |
+
+When `fromUtc` and `toUtc` are omitted, HookBridge uses the configured default lookback window of the last 24 hours. The date range is capped at 90 days by default.
+
+### Dashboard options
+
+```json
+{
+  "AiDashboard": {
+    "DefaultLookbackHours": 24,
+    "MaxLookbackDays": 90,
+    "RecentFindingsLimit": 20
+  }
+}
+```
+
+### Example request
+
+```http
+GET /api/ai-dashboard/summary?environment=qa&customerId=cust_123&fromUtc=2026-05-14T00:00:00Z&toUtc=2026-05-14T23:59:59Z
+```
+
+### Example response
+
+```json
+{
+  "environment": "qa",
+  "customerId": "cust_123",
+  "fromUtc": "2026-05-14T00:00:00Z",
+  "toUtc": "2026-05-14T23:59:59Z",
+  "totalAiAnalyses": 1250,
+  "totalAnomalies": 42,
+  "totalSecurityFindings": 8,
+  "totalHighRiskEndpoints": 12,
+  "totalRetryRecommendations": 315,
+  "totalDeadLetterRecommendations": 27,
+  "averageConfidenceScore": 0.82,
+  "riskDistribution": {
+    "unknown": 5,
+    "low": 920,
+    "medium": 230,
+    "high": 80,
+    "critical": 15
+  },
+  "anomalyTypeDistribution": [
+    {
+      "name": "RateLimitSpike",
+      "count": 18,
+      "percentage": 42.86
+    }
+  ],
+  "retryActionDistribution": [
+    {
+      "name": "RetryWithBackoff",
+      "count": 315,
+      "percentage": 72.5
+    }
+  ],
+  "endpointHealthDistribution": [
+    {
+      "name": "Healthy",
+      "count": 40,
+      "percentage": 60.6
+    },
+    {
+      "name": "Unhealthy",
+      "count": 12,
+      "percentage": 18.18
+    }
+  ],
+  "recentFindings": [
+    {
+      "id": "66460f4f9f1e2a5a12345678",
+      "eventId": "evt_12345",
+      "correlationId": "corr_789",
+      "customerId": "cust_123",
+      "subscriptionId": "sub_456",
+      "endpointId": "endpoint_789",
+      "findingType": "Anomaly",
+      "title": "Rate limit spike detected",
+      "summary": "HTTP 429 responses increased sharply.",
+      "riskLevel": "High",
+      "suggestedAction": "RetryWithBackoff",
+      "createdAtUtc": "2026-05-14T10:16:30Z"
+    }
+  ],
+  "generatedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Metrics explanation
+
+- `totalAiAnalyses`, `totalAnomalies`, and `totalSecurityFindings` count stored AI outputs in the selected time window.
+- `totalHighRiskEndpoints` counts endpoint risk-score records classified as `High` or `Critical`.
+- `totalRetryRecommendations` counts AI analysis retry actions such as `RetryImmediately` and `RetryWithBackoff`.
+- `totalDeadLetterRecommendations` counts AI analysis actions that recommend moving the event to the dead-letter queue.
+- `averageConfidenceScore` combines non-zero confidence averages from AI failure and security analysis sources.
+- `riskDistribution`, `anomalyTypeDistribution`, `retryActionDistribution`, and `endpointHealthDistribution` power dashboard charts.
+- `recentFindings` returns the most recent AI analysis, anomaly, and security findings, capped internally by `RecentFindingsLimit`.

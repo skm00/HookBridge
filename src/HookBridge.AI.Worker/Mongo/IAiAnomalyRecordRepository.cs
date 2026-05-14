@@ -14,4 +14,8 @@ public interface IAiAnomalyRecordRepository
     Task<IReadOnlyList<AiAnomalyRecord>> GetByEndpointIdAsync(string endpointId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AiAnomalyRecord>> GetRecentAsync(int limit, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AiAnomalyRecord>> SearchAsync(AiAnomalyRecordSearchRequestDto request, CancellationToken cancellationToken = default);
+    Task<long> CountByDateRangeAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default) => Task.FromResult(0L);
+    Task<IReadOnlyDictionary<string, long>> CountByRiskLevelAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyDictionary<string, long>>(new Dictionary<string, long>());
+    Task<IReadOnlyDictionary<string, long>> CountByAnomalyTypeAsync(AiDashboardQueryFilter filter, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyDictionary<string, long>>(new Dictionary<string, long>());
+    Task<IReadOnlyList<AiDashboardRecentFindingResult>> GetRecentFindingsAsync(AiDashboardQueryFilter filter, int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiDashboardRecentFindingResult>>(Array.Empty<AiDashboardRecentFindingResult>());
 }
