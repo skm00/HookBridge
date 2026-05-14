@@ -15,6 +15,7 @@ using HookBridge.AI.Worker.Services.FluentValidationRuleGeneration;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
+using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -87,6 +88,23 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiSecurityAnalysisResultsCollectionName),
                 "AiMongo:AiSecurityAnalysisResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.WebhookEventFingerprintsCollectionName),
+                "AiMongo:WebhookEventFingerprintsCollectionName is required.")
+            .ValidateOnStart();
+
+        return services;
+    }
+
+    public static IServiceCollection AddDuplicateReplayDetectionOptions(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<DuplicateReplayDetectionOptions>()
+            .Bind(configuration.GetSection(DuplicateReplayDetectionOptions.SectionName))
+            .ValidateDataAnnotations()
+            .Validate(options => string.Equals(options.HashAlgorithm, "SHA256", StringComparison.OrdinalIgnoreCase), "DuplicateReplayDetection:HashAlgorithm must be SHA256.")
             .ValidateOnStart();
 
         return services;
@@ -141,6 +159,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.SecurityAnalysisTopic),
                 "AiKafka:SecurityAnalysisTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.DuplicateReplayDetectionTopic),
+                "AiKafka:DuplicateReplayDetectionTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -212,6 +233,13 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddWebhookDuplicateReplayDetectionServices(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IWebhookFingerprintHashService, WebhookFingerprintHashService>();
+        services.TryAddSingleton<IWebhookDuplicateReplayDetectionService, WebhookDuplicateReplayDetectionService>();
+        return services;
+    }
+
     public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
@@ -251,6 +279,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICustomerEndpointRiskScoreConsumer, CustomerEndpointRiskScoreConsumer>();
         services.AddSingleton<IWebhookFailureAnomalyDetectionConsumer, WebhookFailureAnomalyDetectionConsumer>();
         services.AddSingleton<IAiSecurityAnalysisConsumer, AiSecurityAnalysisConsumer>();
+        services.AddSingleton<IWebhookDuplicateReplayDetectionConsumer, WebhookDuplicateReplayDetectionConsumer>();
         return services;
     }
 
@@ -279,6 +308,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiAnomalyRecordRepository, AiAnomalyRecordRepository>();
         services.AddSingleton<IAiSecurityAnalysisCollectionProvider, AiSecurityAnalysisCollectionProvider>();
         services.AddSingleton<IAiSecurityAnalysisRepository, AiSecurityAnalysisRepository>();
+        services.AddSingleton<IWebhookEventFingerprintCollectionProvider, WebhookEventFingerprintCollectionProvider>();
+        services.AddSingleton<IWebhookEventFingerprintRepository, WebhookEventFingerprintRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

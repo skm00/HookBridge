@@ -6,6 +6,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddAiOptions(builder.Configuration);
 builder.Services.AddAiKafkaOptions(builder.Configuration);
+builder.Services.AddDuplicateReplayDetectionOptions(builder.Configuration);
 builder.Services.AddAiMongoOptions(builder.Configuration);
 builder.Services.AddSingleton<AiWorkerHealthStatus>();
 builder.Services.AddAiKernelServices();
@@ -20,6 +21,7 @@ builder.Services.AddEndpointHealthScoringServices();
 builder.Services.AddCustomerEndpointRiskScoringServices();
 builder.Services.AddWebhookFailureAnomalyDetectionServices();
 builder.Services.AddAiSecurityAnalysisServices();
+builder.Services.AddWebhookDuplicateReplayDetectionServices();
 builder.Services.AddAiKafkaServices();
 builder.Services.AddAiMongoServices();
 builder.Services.AddHostedService<AiProcessingWorker>();
@@ -31,6 +33,7 @@ builder.Services.AddHostedService<CustomerEndpointRiskScoreWorker>();
 builder.Services.AddHostedService<WebhookFailureAnomalyDetectionWorker>();
 builder.Services.AddHostedService<AiAnomalyRecordPersistenceWorker>();
 builder.Services.AddHostedService<AiSecurityAnalysisWorker>();
+builder.Services.AddHostedService<WebhookDuplicateReplayDetectionWorker>();
 
 var host = builder.Build();
 host.Run();
