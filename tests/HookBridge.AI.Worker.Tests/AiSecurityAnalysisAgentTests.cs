@@ -82,6 +82,114 @@ public sealed class AiSecurityAnalysisAgentTests
     public void MapRiskLevel_UsesConfiguredThresholds(int score, AiRiskLevel expected)
         => AiSecurityAnalysisAgent.MapRiskLevel(score).Should().Be(expected);
 
+
+    [Fact]
+    public async Task AnalyzeAsync_ProviderUnavailableUsesFallbackReason()
+    {
+        var llm = new Mock<ILocalLlmClient>();
+        llm.Setup(client => client.GenerateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LlmResponseResult.Failure(AiFallbackReason.ProviderUnavailable, "ollama unavailable", 10));
+
+        var response = await CreateAgent(llm.Object).AnalyzeAsync(CreateRequest(signatureFailed: false, userAgent: "HookBridgeTest/1.0"));
+
+        response.Fallback!.UsedFallback.Should().BeTrue();
+        response.Fallback.FallbackReason.Should().Be(AiFallbackReason.ProviderUnavailable);
+        response.Provider.Should().Be("Ollama");
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_InvalidPayloadJsonUsesFallbackBeforeCallingLlm()
+    {
+        var llm = new Mock<ILocalLlmClient>();
+
+        var response = await CreateAgent(llm.Object).AnalyzeAsync(CreateRequest(payload: "{bad json", signatureFailed: false, userAgent: "HookBridgeTest/1.0"));
+
+        response.Fallback!.FallbackReason.Should().Be(AiFallbackReason.InvalidJson);
+        llm.Verify(client => client.GenerateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+
+    [Fact]
+    public async Task AnalyzeAsync_NullAiSignalsDefaultsToEmptyList()
+    {
+        var llm = new Mock<ILocalLlmClient>();
+        llm.Setup(client => client.GenerateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LlmResponseResult.Success("""
+            {"eventId":"evt_1","isSuspicious":false,"securityRiskScore":5,"riskLevel":"Low","summary":"ok","recommendation":"monitor","detectedSecuritySignals":null,"suggestedAction":"Allow","confidenceScore":0.5,"generatedAtUtc":"2026-05-14T10:31:00Z"}
+            """, 1));
+
+        var response = await CreateAgent(llm.Object).AnalyzeAsync(CreateRequest(signatureFailed: false, userAgent: "HookBridgeTest/1.0"));
+
+        response.DetectedSecuritySignals.Should().BeEmpty();
+        response.IsSuspicious.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenFallbackDisabledReturnsUnknownAdvisoryResponse()
+    {
+        var options = Options.Create(new AiOptions { Enabled = false, EnableSecurityAnalysisFallback = false });
+        var agent = new AiSecurityAnalysisAgent(options, new AiSecurityAnalysisPromptBuilder(options), Mock.Of<ILocalLlmClient>(), NullLogger<AiSecurityAnalysisAgent>.Instance);
+
+        var response = await agent.AnalyzeAsync(CreateRequest(signatureFailed: false, userAgent: "HookBridgeTest/1.0"));
+
+        response.RiskLevel.Should().Be(AiRiskLevel.Unknown);
+        response.SuggestedAction.Should().Be(AiSecuritySuggestedAction.Monitor);
+        response.ConfidenceScore.Should().Be(0.1);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_ClampsAiRiskAndConfidenceAndDefaultsAction()
+    {
+        var llm = new Mock<ILocalLlmClient>();
+        llm.Setup(client => client.GenerateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LlmResponseResult.Success("""
+            {"eventId":"","isSuspicious":false,"securityRiskScore":150,"riskLevel":"Unknown","summary":"ok","recommendation":"review","detectedSecuritySignals":[],"suggestedAction":"None","confidenceScore":1.7,"generatedAtUtc":"2026-05-14T10:31:00"}
+            """, 1));
+
+        var response = await CreateAgent(llm.Object).AnalyzeAsync(CreateRequest(signatureFailed: false, userAgent: "HookBridgeTest/1.0"));
+
+        response.EventId.Should().Be("evt_1");
+        response.SecurityRiskScore.Should().Be(100);
+        response.ConfidenceScore.Should().Be(1);
+        response.RiskLevel.Should().Be(AiRiskLevel.Critical);
+        response.SuggestedAction.Should().Be(AiSecuritySuggestedAction.Quarantine);
+        response.GeneratedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Theory]
+    [InlineData("", "EventId is required", "missing-event")]
+    [InlineData("evt_1", "ReceivedAtUtc must be a UTC DateTime", "local-date")]
+    [InlineData("evt_1", "PayloadSizeBytes must be greater than or equal to zero", "negative-size")]
+    [InlineData("evt_1", "TargetUrl must be a valid HTTP or HTTPS URL", "bad-url")]
+    public async Task AnalyzeAsync_ValidatesRequest(string eventId, string expectedMessage, string scenario = "missing-event")
+    {
+        var request = CreateRequest(signatureFailed: false, userAgent: "HookBridgeTest/1.0");
+        request.EventId = eventId;
+        if (scenario == "local-date") request.ReceivedAtUtc = DateTime.SpecifyKind(request.ReceivedAtUtc, DateTimeKind.Local);
+        if (scenario == "negative-size") request.PayloadSizeBytes = -1;
+        if (scenario == "bad-url") request.TargetUrl = "ftp://example.com/hook";
+
+        Func<Task> act = async () => await CreateAgent(Mock.Of<ILocalLlmClient>(), enabled: false).AnalyzeAsync(request);
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage($"*{expectedMessage}*");
+    }
+
+    [Theory]
+    [InlineData(AiRiskLevel.Low, false, AiSecuritySuggestedAction.Allow)]
+    [InlineData(AiRiskLevel.Low, true, AiSecuritySuggestedAction.Monitor)]
+    [InlineData(AiRiskLevel.Medium, false, AiSecuritySuggestedAction.Monitor)]
+    [InlineData(AiRiskLevel.High, false, AiSecuritySuggestedAction.RequireManualReview)]
+    [InlineData(AiRiskLevel.High, true, AiSecuritySuggestedAction.Quarantine)]
+    [InlineData(AiRiskLevel.Critical, false, AiSecuritySuggestedAction.Quarantine)]
+    [InlineData(AiRiskLevel.Critical, true, AiSecuritySuggestedAction.Reject)]
+    [InlineData(AiRiskLevel.Unknown, false, AiSecuritySuggestedAction.Monitor)]
+    public void MapSuggestedAction_UsesRiskAndAuthContext(AiRiskLevel riskLevel, bool authFailed, AiSecuritySuggestedAction expected)
+    {
+        var request = CreateRequest(signatureFailed: false, authFailed: authFailed, userAgent: "HookBridgeTest/1.0");
+
+        AiSecurityAnalysisAgent.MapSuggestedAction(riskLevel, request).Should().Be(expected);
+    }
+
     [Fact]
     public void BuildPrompt_MasksSensitiveValuesAndTruncatesPayload()
     {
@@ -93,6 +201,35 @@ public sealed class AiSecurityAnalysisAgentTests
         prompt.Should().Contain("truncated from");
         prompt.Should().NotContain("super-secret");
         prompt.Should().NotContain("Bearer abc");
+    }
+
+
+    [Fact]
+    public void BuildPrompt_HandlesNullPayloadAndHeaders()
+    {
+        var builder = new AiSecurityAnalysisPromptBuilder(Options.Create(new AiOptions { MaxSecurityPayloadLength = 4000, MaskSensitiveValues = true }));
+        var request = CreateRequest(payload: "{}", headers: null, signatureFailed: false, userAgent: "HookBridgeTest/1.0");
+        request.Payload = null;
+
+        var prompt = builder.BuildPrompt(request);
+
+        prompt.Should().Contain("\"headers\": {}");
+        prompt.Should().Contain("strict JSON only");
+    }
+
+    [Fact]
+    public void BuildPrompt_SerializesObjectPayloadAndMasksAssignmentStyleSecrets()
+    {
+        var builder = new AiSecurityAnalysisPromptBuilder(Options.Create(new AiOptions { MaxSecurityPayloadLength = 4000, MaskSensitiveValues = true }));
+        var request = CreateRequest(payload: "{}", headers: new Dictionary<string, string> { ["X-Trace"] = "client_secret=abc123" }, signatureFailed: false, userAgent: "HookBridgeTest/1.0");
+        request.Payload = new { password = "p@ss", nested = new { value = 5 } };
+
+        var prompt = builder.BuildPrompt(request);
+
+        prompt.Should().Contain(AiSecurityAnalysisPromptBuilder.MaskedValue);
+        prompt.Should().NotContain("p@ss");
+        prompt.Should().NotContain("abc123");
+        prompt.Should().Contain("nested");
     }
 
     [Fact]

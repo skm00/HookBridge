@@ -89,6 +89,7 @@ public sealed class AiSecurityAnalysisAgent : IAiSecurityAnalysisAgent
 
         response.EventId = string.IsNullOrWhiteSpace(response.EventId) ? request.EventId : response.EventId;
         response.CorrelationId ??= request.CorrelationId;
+        response.DetectedSecuritySignals ??= Array.Empty<AiSecuritySignalDto>();
         response.SecurityRiskScore = Math.Clamp(response.SecurityRiskScore, 0, 100);
         response.ConfidenceScore = Math.Clamp(response.ConfidenceScore, 0, 1);
         response.RiskLevel = response.RiskLevel == AiRiskLevel.Unknown ? MapRiskLevel(response.SecurityRiskScore, false) : response.RiskLevel;

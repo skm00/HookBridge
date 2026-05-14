@@ -54,6 +54,84 @@ public sealed class AiSecurityAnalysisRepositoryTests
         collection.Verify(mongoCollection => mongoCollection.FindAsync(It.IsAny<FilterDefinition<AiSecurityAnalysisResult>>(), It.IsAny<FindOptions<AiSecurityAnalysisResult, AiSecurityAnalysisResult>>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
+
+    [Fact]
+    public async Task GetRecentAsync_WhenLimitIsNotPositive_DoesNotQueryMongo()
+    {
+        var collection = new Mock<IMongoCollection<AiSecurityAnalysisResult>>();
+        var repository = CreateRepository(collection.Object);
+
+        var results = await repository.GetRecentAsync(0);
+
+        results.Should().BeEmpty();
+        collection.Verify(mongoCollection => mongoCollection.FindAsync(It.IsAny<FilterDefinition<AiSecurityAnalysisResult>>(), It.IsAny<FindOptions<AiSecurityAnalysisResult, AiSecurityAnalysisResult>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SearchAsync_NormalizesInvalidLimitToDefault()
+    {
+        var collection = CreateCollectionReturning(new AiSecurityAnalysisResult { EventId = "evt-1" });
+        var repository = CreateRepository(collection.Object);
+
+        var results = await repository.SearchAsync(new AiSecurityAnalysisSearchRequestDto { Limit = -5 });
+
+        results.Should().ContainSingle();
+        collection.Verify(mongoCollection => mongoCollection.FindAsync(
+            It.IsAny<FilterDefinition<AiSecurityAnalysisResult>>(),
+            It.Is<FindOptions<AiSecurityAnalysisResult, AiSecurityAnalysisResult>>(options => options.Limit == 100 && options.Sort != null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+
+    [Fact]
+    public void FromResponse_CopiesRequestMetadataAndNormalizesUtc()
+    {
+        var request = new AiSecurityAnalysisRequestDto
+        {
+            EventId = "evt-1",
+            CorrelationId = "corr-1",
+            CustomerId = "cust-1",
+            CustomerIdType = "internal",
+            SubscriptionId = "sub-1",
+            EndpointId = "endpoint-1",
+            Environment = "qa",
+            Source = "HookBridge.API",
+            EventType = "OrderCreated",
+            TargetUrl = "https://customer.example.com/webhook",
+            HttpMethod = "POST",
+            SourceIp = "10.10.10.10",
+            UserAgent = "HookBridgeTest/1.0",
+            SignatureValidationFailed = true,
+            AuthenticationFailed = true,
+            PayloadSizeBytes = 42,
+            ReceivedAtUtc = new DateTime(2026, 5, 14, 10, 30, 0, DateTimeKind.Utc)
+        };
+        var response = new AiSecurityAnalysisResponseDto
+        {
+            EventId = "evt-1",
+            CorrelationId = "corr-1",
+            IsSuspicious = true,
+            SecurityRiskScore = 80,
+            RiskLevel = AiRiskLevel.High,
+            Summary = "summary",
+            Recommendation = "recommendation",
+            DetectedSecuritySignals = new[] { new AiSecuritySignalDto { SignalName = "SignatureValidationFailed" } },
+            SuggestedAction = AiSecuritySuggestedAction.Quarantine,
+            ConfidenceScore = 0.8,
+            GeneratedAtUtc = new DateTime(2026, 5, 14, 10, 31, 0, DateTimeKind.Utc),
+            Provider = "Ollama",
+            Model = "llama3"
+        };
+
+        var result = AiSecurityAnalysisResult.FromResponse(response, request);
+
+        result.CustomerId.Should().Be("cust-1");
+        result.RiskLevel.Should().Be("High");
+        result.SuggestedAction.Should().Be("Quarantine");
+        result.DetectedSecuritySignals.Should().ContainSingle(signal => signal.SignalName == "SignatureValidationFailed");
+        result.GeneratedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
     private static AiSecurityAnalysisRepository CreateRepository(IMongoCollection<AiSecurityAnalysisResult> collection)
     {
         var provider = new Mock<IAiSecurityAnalysisCollectionProvider>();
