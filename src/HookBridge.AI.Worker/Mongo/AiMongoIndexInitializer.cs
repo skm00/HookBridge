@@ -11,12 +11,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly IWebhookFailureAnomalyDetectionCollectionProvider? _failureAnomalyCollectionProvider;
     private readonly IAiAnomalyRecordCollectionProvider? _anomalyRecordCollectionProvider;
     private readonly IAiSecurityAnalysisCollectionProvider? _securityAnalysisCollectionProvider;
+    private readonly IWebhookEventFingerprintCollectionProvider? _fingerprintCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, logger)
     {
     }
 
@@ -24,7 +25,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, logger)
     {
     }
 
@@ -33,7 +34,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, logger)
     {
     }
 
@@ -43,6 +44,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         IAiAnomalyRecordCollectionProvider? anomalyRecordCollectionProvider,
         IAiSecurityAnalysisCollectionProvider? securityAnalysisCollectionProvider,
+        IWebhookEventFingerprintCollectionProvider? fingerprintCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -50,6 +52,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _failureAnomalyCollectionProvider = failureAnomalyCollectionProvider;
         _anomalyRecordCollectionProvider = anomalyRecordCollectionProvider;
         _securityAnalysisCollectionProvider = securityAnalysisCollectionProvider;
+        _fingerprintCollectionProvider = fingerprintCollectionProvider;
         _logger = logger;
     }
 
@@ -84,6 +87,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
             await securityAnalysisCollection.Indexes.CreateManyAsync(CreateAiSecurityAnalysisIndexModels(), cancellationToken);
         }
 
+        if (_fingerprintCollectionProvider is not null)
+        {
+            var fingerprintCollection = _fingerprintCollectionProvider.GetCollection();
+            await fingerprintCollection.Indexes.CreateManyAsync(CreateWebhookEventFingerprintIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -105,6 +114,26 @@ public sealed class AiMongoIndexInitializer : IHostedService
         };
     }
 
+
+
+    public static IReadOnlyList<CreateIndexModel<WebhookEventFingerprint>> CreateWebhookEventFingerprintIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.EventId), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_event_id" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.CorrelationId), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_correlation_id" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.CustomerId), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_customer_id" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.SubscriptionId), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_subscription_id" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.EndpointId), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_endpoint_id" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.PayloadHash), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_payload_hash" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.SignatureHash), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_signature_hash" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Descending(x => x.ReceivedAtUtc), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_received_at_desc" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.ExpiresAtUtc), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_expires_at_ttl", ExpireAfter = TimeSpan.Zero }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.CustomerId).Ascending(x => x.PayloadHash).Descending(x => x.ReceivedAtUtc), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_customer_payload_received_desc" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.SubscriptionId).Ascending(x => x.EventId), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_subscription_event" }),
+            new CreateIndexModel<WebhookEventFingerprint>(Builders<WebhookEventFingerprint>.IndexKeys.Ascending(x => x.EndpointId).Ascending(x => x.SignatureHash), new CreateIndexOptions { Name = "idx_webhook_event_fingerprints_endpoint_signature" })
+        };
+    }
 
     public static IReadOnlyList<CreateIndexModel<AiAnomalyRecord>> CreateAiAnomalyRecordIndexModels()
     {

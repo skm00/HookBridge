@@ -22,4 +22,6 @@ public static class AiKafkaTopics
     public const string Anomalies = "hookbridge.ai.anomalies";
 
     public const string SecurityAnalysis = "hookbridge.ai.security-analysis";
+
+    public const string DuplicateReplayDetection = "hookbridge.ai.duplicate-replay-detection";
 }

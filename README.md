@@ -971,3 +971,5 @@ Signature validation or authentication failures never recommend `Allow`. Suggest
   }
 }
 ```
+
+- [Webhook duplicate/replay detection](docs/duplicate-replay-detection.md) documents deterministic fingerprinting, scoring, MongoDB collection, and Kafka topic details.

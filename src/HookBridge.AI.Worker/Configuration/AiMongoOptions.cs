@@ -15,6 +15,7 @@ public sealed class AiMongoOptions
     public const string DefaultWebhookFailureAnomalyDetectionResultsCollectionName = "webhook_failure_anomaly_detection_results";
     public const string DefaultAiAnomalyRecordsCollectionName = "ai_anomaly_records";
     public const string DefaultAiSecurityAnalysisResultsCollectionName = "ai_security_analysis_results";
+    public const string DefaultWebhookEventFingerprintsCollectionName = "webhook_event_fingerprints";
 
     public string ConnectionString { get; set; } = string.Empty;
 
@@ -37,4 +38,6 @@ public sealed class AiMongoOptions
     public string AiAnomalyRecordsCollectionName { get; set; } = DefaultAiAnomalyRecordsCollectionName;
 
     public string AiSecurityAnalysisResultsCollectionName { get; set; } = DefaultAiSecurityAnalysisResultsCollectionName;
+
+    public string WebhookEventFingerprintsCollectionName { get; set; } = DefaultWebhookEventFingerprintsCollectionName;
 }

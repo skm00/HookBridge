@@ -37,6 +37,8 @@ public sealed class AiKafkaOptions
 
     public string SecurityAnalysisTopic { get; set; } = AiKafkaTopics.SecurityAnalysis;
 
+    public string DuplicateReplayDetectionTopic { get; set; } = AiKafkaTopics.DuplicateReplayDetection;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }
