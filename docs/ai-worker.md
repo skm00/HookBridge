@@ -831,24 +831,50 @@ AI worker logs intentionally use metadata only. Do not log:
 
 ## AI Worker tests and coverage
 
-The AI service layer is covered by `HookBridge.AI.Worker.Tests`. The tests use xUnit, Moq, FluentAssertions, `Microsoft.Extensions.Options`, `Microsoft.Extensions.Logging.Abstractions`, and Coverlet. They mock local LLM, Kafka, and MongoDB dependencies, so they do not require a running Ollama instance, Kafka broker, or MongoDB server.
+The AI service layer is covered by `HookBridge.AI.Worker.Tests`, and CI also runs `HookBridge.AI.Worker.IntegrationTests` to validate the AI Worker dependency registration path used by the processing pipeline. The unit tests use xUnit, Moq, FluentAssertions, `Microsoft.Extensions.Options`, `Microsoft.Extensions.Logging.Abstractions`, and Coverlet. They mock local LLM, Kafka, and MongoDB dependencies, so they do not require a running Ollama instance, Kafka broker, or MongoDB server.
 
-Run the AI Worker tests from the repository root:
+Run the AI Worker unit tests from the repository root:
 
 ```bash
 dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj
 ```
 
-Generate a Coverlet XPlat coverage file for only the AI Worker tests:
+Run the AI Worker integration tests from the repository root:
 
 ```bash
-dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+dotnet test tests/HookBridge.AI.Worker.IntegrationTests/HookBridge.AI.Worker.IntegrationTests.csproj
 ```
 
-Generate solution-wide coverage with the same collector used by CI:
+Generate Coverlet XPlat coverage files for the same AI Worker unit and integration test projects used by CI:
 
 ```bash
-dotnet test HookBridge.sln --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+dotnet build HookBridge.sln --configuration Release
+
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj \
+  --configuration Release \
+  --no-build \
+  --collect:"XPlat Code Coverage" \
+  --settings coverlet.runsettings \
+  --results-directory ./TestResults/Unit
+
+dotnet test tests/HookBridge.AI.Worker.IntegrationTests/HookBridge.AI.Worker.IntegrationTests.csproj \
+  --configuration Release \
+  --no-build \
+  --collect:"XPlat Code Coverage" \
+  --settings coverlet.runsettings \
+  --results-directory ./TestResults/Integration
 ```
 
-The CI workflow publishes TRX test results and Cobertura/HTML/TextSummary coverage artifacts. The coverage configuration excludes generated/build artifacts and selected application DTO-only files, but it does not exclude core AI Worker services. The project target remains a practical minimum of 80% line coverage; CI currently enforces a 78% interim gate while additional coverage is added toward that target.
+Install ReportGenerator and create the readable local coverage report:
+
+```bash
+dotnet tool install --global dotnet-reportgenerator-globaltool
+reportgenerator \
+  -reports:"TestResults/**/coverage.cobertura.xml" \
+  -targetdir:"CoverageReport" \
+  -reporttypes:"Html;Cobertura;MarkdownSummaryGithub;TextSummary"
+```
+
+Open `CoverageReport/index.html` for the HTML report, use `CoverageReport/Cobertura.xml` for coverage tooling, or read `CoverageReport/SummaryGithub.md` for the Markdown summary. The GitHub Actions workflow uploads the same directory as the `hookbridge-coverage-report` artifact and appends the Markdown/text summary to the workflow job summary.
+
+Coverage must stay at or above 80% line coverage and 70% branch coverage. The shared `coverlet.runsettings` file excludes only safe generated/build artifacts (`bin/**`, `obj/**`, `Migrations/**`, `Generated/**`, `*.g.cs`) and `Program.cs`; it does not exclude core AI Worker service, prompt, Kafka, Mongo repository, or LLM client code. The integration test stage runs in GitHub Actions by default. If maintainers need an emergency skip, set the GitHub Actions variable `SKIP_INTEGRATION_TESTS=true`; do not use that variable for normal pull request validation.
