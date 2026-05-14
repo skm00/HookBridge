@@ -786,3 +786,8 @@ The agent uses deterministic fallback generation when AI is disabled, the LLM is
 Prompts mask sensitive values before sending payload context to the LLM and truncate large payloads safely. The masking rules cover `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, and `AccessToken`. The worker logs structured metadata only, never full payloads or generated code. DTO code contains property declarations and JSON names only; it does not embed sample values or secrets.
 
 The Kafka topic for DTO suggestion events is `hookbridge.ai.dto-suggestion`, and MongoDB results are stored in the `json_to_dto_suggestion_results` collection.
+
+
+### FluentValidation Rule Generation Agent
+
+HookBridge AI Worker can generate .NET 8 FluentValidation validator suggestions for generated webhook DTOs. It consumes `hookbridge.ai.validation-rule-generation`, persists results in `fluent_validation_rule_generation_results`, masks sensitive values before prompting, and falls back to deterministic rule-based validators when AI is disabled or unavailable. See [`docs/ai-worker.md`](docs/ai-worker.md#fluentvalidation-rule-generation-agent) for request/response examples and security details.

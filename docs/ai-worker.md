@@ -971,3 +971,143 @@ The agent falls back to safe rule-based detection when AI is disabled, the LLM i
 ### Security and masking rules
 
 Full payloads and secrets must not be logged. Prompt construction masks sensitive header and payload values before sending data to the LLM and truncates large payloads with an explicit truncation marker. The following names are treated as sensitive case-insensitively: `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, and `AccessToken`.
+
+## FluentValidation Rule Generation Agent
+
+The FluentValidation Rule Generation Agent analyzes a webhook payload, detected schema hints, and generated DTO source code, then suggests a .NET 8-compatible `FluentValidation` validator for the DTO. It is designed for integration-test-friendly background processing: unit tests can mock `ILocalLlmClient`, and deterministic fallback does not require Ollama, Kafka, or MongoDB.
+
+The worker consumes validation rule generation messages from Kafka topic `hookbridge.ai.validation-rule-generation` when `AiKafka:ValidationRuleGenerationTopic` is configured. Results are persisted to MongoDB collection `fluent_validation_rule_generation_results` through `FluentValidationRuleGenerationResult`. Runtime logs include structured metadata such as event id, correlation id, validator class name, rule count, confidence, risk, and fallback status; logs intentionally exclude full payloads and generated validator code.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "eventType": "OrderCreated",
+  "source": "orders",
+  "customerId": "customer_123",
+  "rootClassName": "OrderCreatedDto",
+  "namespace": "HookBridge.Contracts.Events",
+  "payload": {
+    "orderId": "ORD-1001",
+    "status": "Created",
+    "totalAmount": 129.5,
+    "customerEmail": "customer@example.com",
+    "callbackUrl": "https://customer.example.com/webhook",
+    "items": [
+      {
+        "sku": "SKU-001",
+        "quantity": 2
+      }
+    ]
+  },
+  "generatedDtoCode": "public sealed class OrderCreatedDto { public string? OrderId { get; set; } }",
+  "detectedFields": [
+    {
+      "fieldName": "orderId",
+      "jsonPath": "$.orderId",
+      "inferredType": "string",
+      "isRequired": true,
+      "sampleValue": "ORD-1001",
+      "description": "Order identifier."
+    }
+  ],
+  "requiredFields": ["orderId", "status", "items"],
+  "receivedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "validatorClassName": "OrderCreatedDtoValidator",
+  "namespace": "HookBridge.Contracts.Events",
+  "generatedValidatorCode": "using FluentValidation;\n\nnamespace HookBridge.Contracts.Events;\n\npublic sealed class OrderCreatedDtoValidator : AbstractValidator<OrderCreatedDto>\n{\n    public OrderCreatedDtoValidator()\n    {\n        RuleFor(x => x.OrderId)\n            .NotEmpty()\n            .WithMessage(\"OrderId is required.\");\n    }\n}",
+  "rules": [
+    {
+      "propertyName": "OrderId",
+      "ruleType": "NotEmpty",
+      "ruleExpression": ".NotEmpty()",
+      "errorMessage": "OrderId is required.",
+      "severity": "Error",
+      "description": "Required or identifier string should not be empty."
+    }
+  ],
+  "summary": "Rule-based fallback generated FluentValidation rules.",
+  "validationNotes": [],
+  "confidenceScore": 0.45,
+  "riskLevel": "Low",
+  "generatedAtUtc": "2026-05-14T10:31:00Z",
+  "model": "llama3",
+  "provider": "Ollama",
+  "fallback": {
+    "usedFallback": true,
+    "fallbackReason": "AiDisabled",
+    "fallbackMessage": "AI is disabled; deterministic FluentValidation rules were generated.",
+    "provider": "Ollama",
+    "model": "llama3",
+    "generatedAtUtc": "2026-05-14T10:31:00Z"
+  }
+}
+```
+
+### Example generated validator code
+
+```csharp
+using FluentValidation;
+
+namespace HookBridge.Contracts.Events;
+
+public sealed class OrderCreatedDtoValidator : AbstractValidator<OrderCreatedDto>
+{
+    public OrderCreatedDtoValidator()
+    {
+        RuleFor(x => x.OrderId)
+            .NotEmpty()
+            .WithMessage("OrderId is required.");
+
+        RuleFor(x => x.Status)
+            .NotEmpty()
+            .WithMessage("Status is required.");
+
+        RuleFor(x => x.TotalAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("TotalAmount must be greater than or equal to 0.");
+
+        RuleFor(x => x.CustomerEmail)
+            .EmailAddress()
+            .When(x => !string.IsNullOrWhiteSpace(x.CustomerEmail))
+            .WithMessage("CustomerEmail must be a valid email address.");
+
+        RuleFor(x => x.CallbackUrl)
+            .Must(value => Uri.TryCreate(value, UriKind.Absolute, out _))
+            .When(x => !string.IsNullOrWhiteSpace(x.CallbackUrl))
+            .WithMessage("CallbackUrl must be a valid absolute URL.");
+
+        RuleFor(x => x.Items)
+            .NotNull()
+            .WithMessage("Items cannot be null.");
+    }
+}
+```
+
+### Fallback behavior
+
+The agent uses deterministic fallback when AI is disabled, the LLM call fails, the payload is invalid JSON, the LLM returns invalid JSON, or `GeneratedDtoCode` is missing. Fallback parses the visible payload with `System.Text.Json` and infers conservative rules:
+
+- string identifiers and required fields: `NotEmpty()`;
+- email-like fields: `EmailAddress()`;
+- URL/URI-like fields: absolute URI validation with `Uri.TryCreate`;
+- quantity/count/amount/price/total numeric fields: `GreaterThanOrEqualTo(0)`;
+- date/time fields: UTC-oriented validation notes/rules where possible;
+- arrays: `NotNull()` and `NotEmpty()` when marked required.
+
+Fallback responses use a lower confidence score and include `fallback` metadata so dashboards and alerts can distinguish AI-generated suggestions from rule-based suggestions.
+
+### Security and masking rules
+
+The prompt builder masks sensitive values before prompt creation and safely truncates large payloads and generated DTO code. Masked keys include `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, `AccessToken`, and `ConnectionString`. Generated validator code must never include secret sample values, and worker logs must not include full payloads or generated code.

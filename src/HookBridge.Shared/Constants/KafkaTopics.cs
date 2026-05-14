@@ -10,4 +10,6 @@ public static class KafkaTopics
     public const string WebhookRetry = "webhook-retry";
 
     public const string WebhookDlq = "webhook-dlq";
+
+    public const string ValidationRuleGeneration = "hookbridge.ai.validation-rule-generation";
 }

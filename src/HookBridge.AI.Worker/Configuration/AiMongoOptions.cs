@@ -9,6 +9,7 @@ public sealed class AiMongoOptions
     public const string DefaultAiAnalysisResultsCollectionName = "ai_analysis_results";
     public const string DefaultPayloadSchemaDetectionResultsCollectionName = "payload_schema_detection_results";
     public const string DefaultJsonToDtoSuggestionResultsCollectionName = "json_to_dto_suggestion_results";
+    public const string DefaultFluentValidationRuleGenerationResultsCollectionName = "fluent_validation_rule_generation_results";
 
     public string ConnectionString { get; set; } = string.Empty;
 
@@ -19,4 +20,6 @@ public sealed class AiMongoOptions
     public string PayloadSchemaDetectionResultsCollectionName { get; set; } = DefaultPayloadSchemaDetectionResultsCollectionName;
 
     public string JsonToDtoSuggestionResultsCollectionName { get; set; } = DefaultJsonToDtoSuggestionResultsCollectionName;
+
+    public string FluentValidationRuleGenerationResultsCollectionName { get; set; } = DefaultFluentValidationRuleGenerationResultsCollectionName;
 }

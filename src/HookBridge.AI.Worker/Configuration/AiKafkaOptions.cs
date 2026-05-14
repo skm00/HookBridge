@@ -25,6 +25,8 @@ public sealed class AiKafkaOptions
 
     public string JsonToDtoSuggestionTopic { get; set; } = AiKafkaTopics.DtoSuggestion;
 
+    public string ValidationRuleGenerationTopic { get; set; } = AiKafkaTopics.ValidationRuleGeneration;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }
