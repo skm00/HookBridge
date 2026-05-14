@@ -90,6 +90,57 @@ public sealed class WebhookDuplicateReplayDetectionServiceTests
         response.DetectionScore.Should().Be(30);
     }
 
+
+    [Fact]
+    public async Task DetectAsync_WhenDisabled_AllowsWithoutRepositoryChecks()
+    {
+        var repository = CreateRepository();
+        var response = await CreateService(repository, new DuplicateReplayDetectionOptions { Enabled = false }).DetectAsync(CreateRequest());
+
+        response.IsDuplicate.Should().BeFalse();
+        response.IsReplay.Should().BeFalse();
+        response.DetectionScore.Should().Be(0);
+        response.RiskLevel.Should().Be(AiRiskLevel.Low);
+        response.SuggestedAction.Should().Be(WebhookDuplicateReplaySuggestedAction.Allow);
+        repository.Verify(x => x.ExistsByEventIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DetectAsync_WhenNoDuplicateOrReplayIndicators_AllowsEvent()
+    {
+        var response = await CreateService().DetectAsync(CreateRequest(includeEventTimestamp: false));
+
+        response.IsDuplicate.Should().BeFalse();
+        response.IsReplay.Should().BeFalse();
+        response.DuplicateReason.Should().Be(WebhookDuplicateReplayReason.None);
+        response.ReplayReason.Should().Be(WebhookDuplicateReplayReason.None);
+        response.RiskLevel.Should().Be(AiRiskLevel.Low);
+        response.SuggestedAction.Should().Be(WebhookDuplicateReplaySuggestedAction.Allow);
+    }
+
+    [Fact]
+    public async Task DetectAsync_RejectsMissingEventIdAndPayload()
+        => await Assert.ThrowsAsync<ArgumentException>(() => CreateService().DetectAsync(CreateRequest(eventId: null, includePayload: false)));
+
+    [Fact]
+    public async Task DetectAsync_RejectsNonHttpTargetUrl()
+        => await Assert.ThrowsAsync<ArgumentException>(() => CreateService().DetectAsync(CreateRequest(targetUrl: "ftp://example.com/webhook")));
+
+    [Fact]
+    public async Task DetectAsync_RejectsNonUtcEventTimestamp()
+        => await Assert.ThrowsAsync<ArgumentException>(() => CreateService().DetectAsync(CreateRequest(eventTimestampUtc: DateTime.SpecifyKind(ReceivedAt, DateTimeKind.Local))));
+
+    [Fact]
+    public async Task DetectAsync_AllowsMissingOptionalIdentifiers()
+    {
+        var response = await CreateService().DetectAsync(CreateRequest(eventId: null, correlationId: null, targetUrl: null));
+
+        response.EventId.Should().BeNull();
+        response.CorrelationId.Should().BeNull();
+        response.PayloadHash.Should().StartWith("sha256:");
+        response.SuggestedAction.Should().Be(WebhookDuplicateReplaySuggestedAction.Allow);
+    }
+
     [Fact]
     public void HashService_ProducesStableHashesForEquivalentJson()
     {
@@ -102,6 +153,39 @@ public sealed class WebhookDuplicateReplayDetectionServiceTests
     {
         var service = new WebhookFingerprintHashService();
         service.GeneratePayloadHash("{\"a\":1}").Should().NotBe(service.GeneratePayloadHash("{\"a\":2}"));
+    }
+
+
+    [Fact]
+    public void HashService_HashesRawPayloadWhenJsonParsingFails()
+    {
+        var service = new WebhookFingerprintHashService();
+
+        service.GeneratePayloadHash("{not-json").Should().StartWith("sha256:");
+    }
+
+    [Fact]
+    public void HashService_HandlesJsonElementAndObjectPayloads()
+    {
+        var service = new WebhookFingerprintHashService();
+        using var document = System.Text.Json.JsonDocument.Parse("{\"b\":2,\"a\":1}");
+
+        var elementHash = service.GeneratePayloadHash(document.RootElement);
+        var objectHash = service.GeneratePayloadHash(new { b = 2, a = 1 });
+
+        elementHash.Should().Be(service.GeneratePayloadHash("{\"a\":1,\"b\":2}"));
+        objectHash.Should().StartWith("sha256:");
+    }
+
+    [Fact]
+    public void HashService_ReturnsNullForMissingPayloadOrSignature()
+    {
+        var service = new WebhookFingerprintHashService();
+
+        service.GeneratePayloadHash(null).Should().BeNull();
+        service.GeneratePayloadHash(" ").Should().BeNull();
+        service.GenerateSignatureHash(null).Should().BeNull();
+        service.GenerateSignatureHash(" ").Should().BeNull();
     }
 
     [Fact]
@@ -139,6 +223,24 @@ public sealed class WebhookDuplicateReplayDetectionServiceTests
     public void MapSuggestedAction_UsesRisk(AiRiskLevel riskLevel, WebhookDuplicateReplaySuggestedAction expected)
         => WebhookDuplicateReplayDetectionService.MapSuggestedAction(riskLevel).Should().Be(expected);
 
+
+    [Fact]
+    public void MapRiskLevel_ReturnsUnknownWhenNoIdentifierOrPayloadHash()
+        => WebhookDuplicateReplayDetectionService.MapRiskLevel(10, null, null).Should().Be(AiRiskLevel.Unknown);
+
+    [Fact]
+    public void MapSuggestedAction_ReturnsRejectForExpiredReplayReasons()
+    {
+        WebhookDuplicateReplayDetectionService.MapSuggestedAction(AiRiskLevel.High, replayReason: WebhookDuplicateReplayReason.EventTimestampTooOld)
+            .Should().Be(WebhookDuplicateReplaySuggestedAction.Reject);
+        WebhookDuplicateReplayDetectionService.MapSuggestedAction(AiRiskLevel.High, replayReason: WebhookDuplicateReplayReason.SignatureTimestampExpired)
+            .Should().Be(WebhookDuplicateReplaySuggestedAction.Reject);
+    }
+
+    [Fact]
+    public void MapSuggestedAction_ReturnsMonitorForUnknownRisk()
+        => WebhookDuplicateReplayDetectionService.MapSuggestedAction(AiRiskLevel.Unknown).Should().Be(WebhookDuplicateReplaySuggestedAction.Monitor);
+
     [Fact]
     public void CreateFingerprint_CalculatesTtl()
     {
@@ -156,8 +258,8 @@ public sealed class WebhookDuplicateReplayDetectionServiceTests
     public async Task DetectAsync_RejectsNonUtcDates()
         => await Assert.ThrowsAsync<ArgumentException>(() => CreateService().DetectAsync(CreateRequest(receivedAtUtc: DateTime.SpecifyKind(ReceivedAt, DateTimeKind.Local))));
 
-    private static WebhookDuplicateReplayDetectionService CreateService(Mock<IWebhookEventFingerprintRepository>? repository = null)
-        => new(repository?.Object ?? CreateRepository().Object, new WebhookFingerprintHashService(), Options.Create(new DuplicateReplayDetectionOptions()));
+    private static WebhookDuplicateReplayDetectionService CreateService(Mock<IWebhookEventFingerprintRepository>? repository = null, DuplicateReplayDetectionOptions? options = null)
+        => new(repository?.Object ?? CreateRepository().Object, new WebhookFingerprintHashService(), Options.Create(options ?? new DuplicateReplayDetectionOptions()));
 
     private static Mock<IWebhookEventFingerprintRepository> CreateRepository()
     {
@@ -167,7 +269,16 @@ public sealed class WebhookDuplicateReplayDetectionServiceTests
         return repository;
     }
 
-    private static WebhookDuplicateReplayDetectionRequestDto CreateRequest(string? eventId = "evt_1", string? correlationId = "corr", string? signature = null, string? targetUrl = "https://example.com/webhook", DateTime? eventTimestampUtc = null, DateTime? receivedAtUtc = null)
+    private static WebhookDuplicateReplayDetectionRequestDto CreateRequest(
+        string? eventId = "evt_1",
+        string? correlationId = "corr",
+        string? signature = null,
+        string? targetUrl = "https://example.com/webhook",
+        DateTime? eventTimestampUtc = null,
+        DateTime? receivedAtUtc = null,
+        object? payload = null,
+        bool includePayload = true,
+        bool includeEventTimestamp = true)
         => new()
         {
             EventId = eventId,
@@ -176,9 +287,9 @@ public sealed class WebhookDuplicateReplayDetectionServiceTests
             SubscriptionId = "sub_1",
             EndpointId = "endpoint_1",
             TargetUrl = targetUrl,
-            Payload = "{\"orderId\":\"ORD-1\",\"status\":\"Created\"}",
+            Payload = includePayload ? payload ?? "{\"orderId\":\"ORD-1\",\"status\":\"Created\"}" : null,
             Signature = signature,
-            EventTimestampUtc = eventTimestampUtc ?? ReceivedAt,
+            EventTimestampUtc = includeEventTimestamp ? eventTimestampUtc ?? ReceivedAt : null,
             ReceivedAtUtc = receivedAtUtc ?? ReceivedAt
         };
 }
