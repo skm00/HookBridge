@@ -655,3 +655,134 @@ A license file has not been committed yet. Before using HookBridge in production
 HookBridge AI Worker can consume schema detection events from `hookbridge.ai.schema-detection`, inspect incoming webhook JSON payloads, and persist results to MongoDB collection `payload_schema_detection_results`. The Payload Schema Detection Agent identifies likely schema and event names, summarizes payload structure, extracts important fields, reports missing fields or quality issues, suggests a DTO name, and records confidence/risk metadata.
 
 The agent is safe by default: prompts mask `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, and `AccessToken` values and truncate large payloads. If AI is disabled, the LLM is unavailable, the payload is invalid JSON, or the LLM returns invalid JSON, deterministic fallback uses `System.Text.Json` to infer root object/array structure and basic field types without requiring Ollama, Kafka, or MongoDB in unit tests. See [`docs/ai-worker.md`](docs/ai-worker.md#payload-schema-detection-agent) for request/response examples.
+
+## JSON-to-DTO Suggestion Agent
+
+HookBridge AI Worker includes a JSON-to-DTO Suggestion Agent that analyzes a webhook JSON payload and suggests clean C# DTO classes for integrations. The agent can use the configured local LLM when AI is enabled, but it always has a deterministic rule-based fallback so unit tests and local development do not require Ollama, Kafka, or MongoDB.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "eventType": "OrderCreated",
+  "source": "HookBridge.API",
+  "customerId": "cust_001",
+  "rootClassName": "OrderCreatedDto",
+  "namespace": "HookBridge.Contracts.Events",
+  "payload": {
+    "orderId": "ORD-1001",
+    "status": "Created",
+    "totalAmount": 129.50,
+    "createdAt": "2026-05-14T10:30:00Z",
+    "customer": {
+      "id": "C001",
+      "name": "Test Customer"
+    },
+    "items": [
+      {
+        "sku": "SKU-001",
+        "quantity": 2
+      }
+    ]
+  },
+  "receivedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "suggestedRootClassName": "OrderCreatedDto",
+  "namespace": "HookBridge.Contracts.Events",
+  "generatedCode": "using System.Text.Json.Serialization;\n\nnamespace HookBridge.Contracts.Events;\n\npublic sealed class OrderCreatedDto { ... }",
+  "classes": [
+    {
+      "className": "OrderCreatedDto",
+      "properties": [
+        {
+          "propertyName": "OrderId",
+          "jsonName": "orderId",
+          "cSharpType": "string",
+          "isNullable": true,
+          "isRequired": true,
+          "description": "Mapped from JSON property 'orderId'."
+        }
+      ],
+      "description": "DTO generated for OrderCreatedDto."
+    }
+  ],
+  "summary": "Generated DTO classes from webhook payload.",
+  "validationNotes": [],
+  "confidenceScore": 0.86,
+  "riskLevel": "Low",
+  "generatedAtUtc": "2026-05-14T10:31:00Z",
+  "model": "llama3",
+  "provider": "Ollama",
+  "fallback": {
+    "usedFallback": false,
+    "fallbackReason": "None"
+  }
+}
+```
+
+### Example generated DTO code
+
+```csharp
+using System.Text.Json.Serialization;
+
+namespace HookBridge.Contracts.Events;
+
+public sealed class OrderCreatedDto
+{
+    [JsonPropertyName("orderId")]
+    public string? OrderId { get; set; }
+
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
+
+    [JsonPropertyName("totalAmount")]
+    public decimal TotalAmount { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; }
+
+    [JsonPropertyName("customer")]
+    public CustomerDto? Customer { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<OrderCreatedItemDto>? Items { get; set; }
+}
+
+public sealed class CustomerDto
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+}
+
+public sealed class OrderCreatedItemDto
+{
+    [JsonPropertyName("sku")]
+    public string? Sku { get; set; }
+
+    [JsonPropertyName("quantity")]
+    public int Quantity { get; set; }
+}
+```
+
+### Fallback behavior
+
+The agent uses deterministic fallback generation when AI is disabled, the LLM is unavailable, the payload is invalid JSON, or the LLM returns invalid JSON. The fallback parses payloads with `System.Text.Json`, infers basic C# types (`string`, `int`, `long`, `decimal`, `bool`, `DateTime`, `List<T>`, `object`, and `JsonElement`), generates nested classes for nested objects, and derives the root class name from `eventType` when no `rootClassName` is provided. Fallback responses use lower confidence scores and include fallback metadata and validation notes.
+
+### Security and masking
+
+Prompts mask sensitive values before sending payload context to the LLM and truncate large payloads safely. The masking rules cover `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, and `AccessToken`. The worker logs structured metadata only, never full payloads or generated code. DTO code contains property declarations and JSON names only; it does not embed sample values or secrets.
+
+The Kafka topic for DTO suggestion events is `hookbridge.ai.dto-suggestion`, and MongoDB results are stored in the `json_to_dto_suggestion_results` collection.
