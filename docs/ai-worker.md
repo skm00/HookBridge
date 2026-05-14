@@ -310,7 +310,8 @@ MongoDB settings are bound with `IOptions<AiMongoOptions>` from the `AiMongo` co
   "AiMongo": {
     "ConnectionString": "mongodb://localhost:27017",
     "DatabaseName": "hookbridge_ai",
-    "AiAnalysisResultsCollectionName": "ai_analysis_results"
+    "AiAnalysisResultsCollectionName": "ai_analysis_results",
+    "AiAnomalyRecordsCollectionName": "ai_anomaly_records"
   }
 }
 ```
@@ -320,6 +321,7 @@ MongoDB settings are bound with `IOptions<AiMongoOptions>` from the `AiMongo` co
 | `AiMongo:ConnectionString` | `AiMongo__ConnectionString` | `mongodb://localhost:27017` | Required MongoDB connection string for the AI worker. Store production credentials as secrets outside source control. |
 | `AiMongo:DatabaseName` | `AiMongo__DatabaseName` | `hookbridge_ai` | Required database containing AI worker collections. |
 | `AiMongo:AiAnalysisResultsCollectionName` | `AiMongo__AiAnalysisResultsCollectionName` | `ai_analysis_results` | Required collection used for stored AI analysis result documents. |
+| `AiMongo:AiAnomalyRecordsCollectionName` | `AiMongo__AiAnomalyRecordsCollectionName` | `ai_anomaly_records` | Required collection used for compact detected anomaly records. |
 
 The worker creates indexes for AI analysis lookups at startup:
 
@@ -354,8 +356,62 @@ docker run --name hookbridge-mongo -p 27017:27017 -d mongo:7
 AiMongo__ConnectionString=mongodb://localhost:27017 \
 AiMongo__DatabaseName=hookbridge_ai \
 AiMongo__AiAnalysisResultsCollectionName=ai_analysis_results \
+AiMongo__AiAnomalyRecordsCollectionName=ai_anomaly_records \
 dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 ```
+
+
+## MongoDB AI anomaly record storage
+
+Detected AI anomaly events are persisted to MongoDB collection `ai_anomaly_records`. This collection stores the compact `AiAnomalyEventDto` notification consumed from Kafka topic `hookbridge.ai.anomalies` so operators can query historical anomaly records by customer, subscription, endpoint, environment, event type, anomaly type, risk level, score, and creation time range without replaying Kafka.
+
+Example `AiAnomalyRecord` document:
+
+```json
+{
+  "_id": "66460f4f9f1e2a5a12345678",
+  "anomalyId": "anm_1001",
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "customerId": "cust_123",
+  "customerIdType": "MDM",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "eventType": "OrderCreated",
+  "anomalyType": "RateLimitSpike",
+  "riskLevel": "High",
+  "anomalyScore": 78,
+  "summary": "HTTP 429 rate-limit failures increased sharply compared to the baseline window.",
+  "recommendation": "Reduce concurrency and retry with exponential backoff.",
+  "source": "HookBridge.AI.Worker",
+  "createdAtUtc": "2026-05-14T10:16:30Z",
+  "storedAtUtc": "2026-05-14T10:16:31Z"
+}
+```
+
+Indexes created at startup for `ai_anomaly_records`:
+
+- `anomalyId` ascending unique
+- `eventId` ascending
+- `correlationId` ascending
+- `customerId` ascending
+- `subscriptionId` ascending
+- `endpointId` ascending
+- `environment` ascending
+- `eventType` ascending
+- `anomalyType` ascending
+- `riskLevel` ascending
+- `anomalyScore` ascending
+- `createdAtUtc` descending
+- compound `customerId` ascending + `createdAtUtc` descending
+- compound `endpointId` ascending + `createdAtUtc` descending
+- compound `riskLevel` ascending + `createdAtUtc` descending
+
+`SearchAsync` accepts optional filters for `customerId`, `customerIdType`, `subscriptionId`, `endpointId`, `environment`, `eventType`, `anomalyType`, `riskLevel`, minimum and maximum anomaly score, and `createdAtUtc` date range. Results are sorted by `createdAtUtc` descending and paged with `pageNumber` greater than `0` and `pageSize` from `1` to `500`.
+
+Duplicate handling is safe by default: `anomalyId` is unique, `InsertAsync` checks for an existing anomaly before insert, catches duplicate-key races, returns an `AiAnomalyRecordRepositoryResult` with `isDuplicate: true`, and the persistence worker logs duplicates as warnings rather than errors. Logs include structured metadata only and never the full anomaly payload.
 
 ## Webhook failure analysis DTOs
 
@@ -1415,7 +1471,7 @@ HookBridge includes a deterministic webhook failure anomaly detector for sudden 
 
 ### Persistence and messaging
 
-Anomaly results are persisted to the MongoDB collection `webhook_failure_anomaly_detection_results`. The AI worker consumes anomaly detection requests from the Kafka topic `hookbridge.ai.failure-anomalies` when the topic is configured, stores the deterministic result in MongoDB, and logs structured metadata only. When `isAnomalyDetected` is `true`, the worker also publishes an `AiAnomalyEventDto` to `hookbridge.ai.anomalies`; no anomaly event is published for non-anomalous results.
+Anomaly results are persisted to the MongoDB collection `webhook_failure_anomaly_detection_results`, and compact detected anomaly notifications are stored in `ai_anomaly_records`. The AI worker consumes anomaly detection requests from the Kafka topic `hookbridge.ai.failure-anomalies` when the topic is configured, stores the deterministic result in MongoDB, and logs structured metadata only. When `isAnomalyDetected` is `true`, the worker also publishes an `AiAnomalyEventDto` to `hookbridge.ai.anomalies`; no anomaly event is published for non-anomalous results.
 
 ## Kafka AI anomalies topic
 

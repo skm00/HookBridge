@@ -162,6 +162,11 @@ builder.Services.AddOptions<AiMongoOptions>()
         {
             options.AiAnalysisResultsCollectionName = AiMongoOptions.DefaultAiAnalysisResultsCollectionName;
         }
+
+        if (string.IsNullOrWhiteSpace(options.AiAnomalyRecordsCollectionName))
+        {
+            options.AiAnomalyRecordsCollectionName = AiMongoOptions.DefaultAiAnomalyRecordsCollectionName;
+        }
     });
 builder.Services.AddSingleton<IAiAnalysisResultCollectionProvider, AiAnalysisResultCollectionProvider>();
 builder.Services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
