@@ -2,6 +2,7 @@ using System.Text;
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
 using HookBridge.AI.Worker.Configuration;
+using HookBridge.AI.Worker.Extensions;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.Api.Authorization;
 using HookBridge.Api.Extensions;
@@ -11,6 +12,7 @@ using HookBridge.Api.Swagger;
 using HookBridge.Api.Security;
 using HookBridge.Api.Configuration;
 using HookBridge.Api.Services.AiDashboard;
+using HookBridge.Api.Services.AiNaturalLanguageQuery;
 using HookBridge.Application.DependencyInjection;
 using HookBridge.Application.Interfaces;
 using HookBridge.Application.Interfaces.Persistence;
@@ -145,6 +147,15 @@ builder.Services.AddScoped<TenantAccessValidator>();
 builder.Services.AddScoped<IClientIpResolver, ClientIpResolver>();
 builder.Services.AddScoped<IIpAllowlistService, IpAllowlistService>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
+builder.Services.AddAiOptions(builder.Configuration);
+builder.Services.AddAiKernelServices();
+builder.Services.AddOptions<AiNaturalLanguageQueryOptions>()
+    .Bind(builder.Configuration.GetSection(AiNaturalLanguageQueryOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(options => options.DefaultMaxResults <= options.HardMaxResults, "AiNaturalLanguageQuery:DefaultMaxResults must be less than or equal to HardMaxResults.")
+    .ValidateOnStart();
+builder.Services.AddScoped<IAiNaturalLanguageQueryPromptBuilder, AiNaturalLanguageQueryPromptBuilder>();
+builder.Services.AddScoped<IAiNaturalLanguageQueryService, AiNaturalLanguageQueryService>();
 builder.Services.AddOptions<AiDashboardOptions>()
     .Bind(builder.Configuration.GetSection(AiDashboardOptions.SectionName))
     .ValidateDataAnnotations()
@@ -183,6 +194,8 @@ builder.Services.AddSingleton<IAiSecurityAnalysisCollectionProvider, AiSecurityA
 builder.Services.AddSingleton<IAiSecurityAnalysisRepository, AiSecurityAnalysisRepository>();
 builder.Services.AddSingleton<ICustomerEndpointRiskScoreCollectionProvider, CustomerEndpointRiskScoreCollectionProvider>();
 builder.Services.AddSingleton<ICustomerEndpointRiskScoreRepository, CustomerEndpointRiskScoreRepository>();
+builder.Services.AddSingleton<IWebhookFailureAnomalyDetectionCollectionProvider, WebhookFailureAnomalyDetectionCollectionProvider>();
+builder.Services.AddSingleton<IWebhookFailureAnomalyDetectionRepository, WebhookFailureAnomalyDetectionRepository>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
