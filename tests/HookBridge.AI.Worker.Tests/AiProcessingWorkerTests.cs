@@ -170,10 +170,11 @@ public sealed class AiProcessingWorkerTests
         await WaitForLogAsync(logger, "HookBridge AI Worker AI enabled");
         await worker.StopAsync(CancellationToken.None);
 
-        logger.Records.Should().Contain(record =>
+        logger.Records.Any(record =>
             record.Level == LogLevel.Information &&
             record.Properties.TryGetValue("Provider", out var provider) && provider?.ToString() == "Ollama" &&
-            record.Properties.TryGetValue("Model", out var model) && model?.ToString() == "llama3");
+            record.Properties.TryGetValue("Model", out var model) && model?.ToString() == "llama3")
+            .Should().BeTrue();
     }
 
     [Fact]
@@ -216,11 +217,12 @@ public sealed class AiProcessingWorkerTests
         await repository.WaitForInsertAsync();
         await worker.StopAsync(CancellationToken.None);
 
-        logger.Records.Should().Contain(record =>
+        logger.Records.Any(record =>
             record.Level == LogLevel.Warning &&
             record.Message.Contains("AI fallback used", StringComparison.Ordinal) &&
             record.Properties.TryGetValue("FallbackUsed", out var fallbackUsed) && fallbackUsed is true &&
-            record.Properties.TryGetValue("FallbackReason", out var fallbackReason) && fallbackReason?.ToString() == AiFallbackReason.ProviderUnavailable.ToString());
+            record.Properties.TryGetValue("FallbackReason", out var fallbackReason) && fallbackReason?.ToString() == AiFallbackReason.ProviderUnavailable.ToString())
+            .Should().BeTrue();
     }
 
     [Fact]
@@ -240,12 +242,13 @@ public sealed class AiProcessingWorkerTests
         await WaitForLogAsync(logger, "AI analysis processing failed");
         await worker.StopAsync(CancellationToken.None);
 
-        logger.Records.Should().Contain(record =>
+        logger.Records.Any(record =>
             record.Level == LogLevel.Error &&
             record.Exception is InvalidOperationException &&
             record.Properties.TryGetValue("Operation", out var operation) && operation?.ToString() == "MessageProcessing" &&
             record.Properties.TryGetValue("EventId", out var eventId) && eventId?.ToString() == "evt-123" &&
-            record.Properties.TryGetValue("CorrelationId", out var correlationId) && correlationId?.ToString() == "corr-123");
+            record.Properties.TryGetValue("CorrelationId", out var correlationId) && correlationId?.ToString() == "corr-123")
+            .Should().BeTrue();
     }
 
     [Fact]
@@ -267,14 +270,16 @@ public sealed class AiProcessingWorkerTests
         await WaitForLogAsync(logger, "AI analysis processing completed");
         await worker.StopAsync(CancellationToken.None);
 
-        logger.Records.Should().Contain(record =>
+        logger.Records.Any(record =>
             record.Level == LogLevel.Information &&
             record.Message.Contains("AI analysis processing completed", StringComparison.Ordinal) &&
             record.Properties.TryGetValue("DurationMs", out var durationMs) &&
-            long.TryParse(durationMs?.ToString(), out var parsedDuration) && parsedDuration >= 0);
-        logger.Scopes.Should().Contain(scope =>
+            long.TryParse(durationMs?.ToString(), out var parsedDuration) && parsedDuration >= 0)
+            .Should().BeTrue();
+        logger.Scopes.Any(scope =>
             scope.TryGetValue("EventId", out var eventId) && eventId?.ToString() == "evt-123" &&
-            scope.TryGetValue("CorrelationId", out var correlationId) && correlationId?.ToString() == "corr-123");
+            scope.TryGetValue("CorrelationId", out var correlationId) && correlationId?.ToString() == "corr-123")
+            .Should().BeTrue();
     }
 
     private static AiAnalysisEventDto CreateAnalysisEvent() => new()
