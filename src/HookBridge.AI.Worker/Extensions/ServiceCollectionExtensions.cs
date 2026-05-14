@@ -9,6 +9,7 @@ using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
+using HookBridge.AI.Worker.Services.JsonToDtoSuggestion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -60,6 +61,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.PayloadSchemaDetectionResultsCollectionName),
                 "AiMongo:PayloadSchemaDetectionResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.JsonToDtoSuggestionResultsCollectionName),
+                "AiMongo:JsonToDtoSuggestionResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -97,6 +101,9 @@ public static class ServiceCollectionExtensions
                 options => !string.IsNullOrWhiteSpace(options.PayloadSchemaDetectionTopic),
                 "AiKafka:PayloadSchemaDetectionTopic is required.")
             .Validate(
+                options => !string.IsNullOrWhiteSpace(options.JsonToDtoSuggestionTopic),
+                "AiKafka:JsonToDtoSuggestionTopic is required.")
+            .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
             .ValidateOnStart();
@@ -131,6 +138,12 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddJsonToDtoSuggestionServices(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IJsonToDtoSuggestionAgent, JsonToDtoSuggestionAgent>();
+        return services;
+    }
+
     public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
@@ -150,6 +163,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWebhookFailurePromptBuilder, WebhookFailurePromptBuilder>();
         services.AddSingleton<IAiLogSummaryPromptBuilder, AiLogSummaryPromptBuilder>();
         services.AddSingleton<IPayloadSchemaDetectionPromptBuilder, PayloadSchemaDetectionPromptBuilder>();
+        services.AddSingleton<IJsonToDtoPromptBuilder, JsonToDtoPromptBuilder>();
         return services;
     }
 
@@ -158,6 +172,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiAnalysisProducer, AiAnalysisProducer>();
         services.AddSingleton<IAiAnalysisConsumer, AiAnalysisConsumer>();
         services.AddSingleton<IPayloadSchemaDetectionConsumer, PayloadSchemaDetectionConsumer>();
+        services.AddSingleton<IJsonToDtoSuggestionConsumer, JsonToDtoSuggestionConsumer>();
         return services;
     }
 
@@ -172,6 +187,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
         services.AddSingleton<IPayloadSchemaDetectionCollectionProvider, PayloadSchemaDetectionCollectionProvider>();
         services.AddSingleton<IPayloadSchemaDetectionRepository, PayloadSchemaDetectionRepository>();
+        services.AddSingleton<IJsonToDtoSuggestionCollectionProvider, JsonToDtoSuggestionCollectionProvider>();
+        services.AddSingleton<IJsonToDtoSuggestionRepository, JsonToDtoSuggestionRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

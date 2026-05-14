@@ -8,4 +8,6 @@ public static class AiKafkaTopics
     public const string Analysis = "hookbridge.ai.analysis";
 
     public const string SchemaDetection = "hookbridge.ai.schema-detection";
+
+    public const string DtoSuggestion = "hookbridge.ai.dto-suggestion";
 }

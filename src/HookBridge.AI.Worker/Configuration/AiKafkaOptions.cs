@@ -23,6 +23,8 @@ public sealed class AiKafkaOptions
 
     public string PayloadSchemaDetectionTopic { get; set; } = AiKafkaTopics.SchemaDetection;
 
+    public string JsonToDtoSuggestionTopic { get; set; } = AiKafkaTopics.DtoSuggestion;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }
