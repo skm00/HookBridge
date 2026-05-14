@@ -18,4 +18,6 @@ public static class AiKafkaTopics
     public const string EndpointRiskScore = "hookbridge.ai.endpoint-risk-score";
 
     public const string FailureAnomalies = "hookbridge.ai.failure-anomalies";
+
+    public const string Anomalies = "hookbridge.ai.anomalies";
 }

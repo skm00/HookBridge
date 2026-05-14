@@ -35,6 +35,8 @@ public sealed class WebhookFailureAnomalyDetectionService : IWebhookFailureAnoma
 
         return new WebhookFailureAnomalyDetectionResponseDto
         {
+            EventId = request.EventId,
+            CorrelationId = request.CorrelationId,
             CustomerId = request.CustomerId,
             CustomerIdType = request.CustomerIdType,
             SubscriptionId = request.SubscriptionId,

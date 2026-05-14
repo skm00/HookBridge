@@ -254,6 +254,7 @@ Kafka settings are bound with `IOptions<AiKafkaOptions>` from the `AiKafka` conf
     "SaslUsername": "",
     "SaslPassword": "",
     "AiAnalysisTopic": "hookbridge.ai.analysis",
+    "AnomaliesTopic": "hookbridge.ai.anomalies",
     "ConsumerGroupId": "hookbridge-ai-worker",
     "EnableAutoCommit": false
   }
@@ -268,6 +269,7 @@ Kafka settings are bound with `IOptions<AiKafkaOptions>` from the `AiKafka` conf
 | `AiKafka:SaslUsername` | `AiKafka__SaslUsername` | Empty | SASL username when a SASL security protocol is used. |
 | `AiKafka:SaslPassword` | `AiKafka__SaslPassword` | Empty | SASL password when a SASL security protocol is used. Store as a secret outside source control. |
 | `AiKafka:AiAnalysisTopic` | `AiKafka__AiAnalysisTopic` | `hookbridge.ai.analysis` | AI analysis event topic name. |
+| `AiKafka:AnomaliesTopic` | `AiKafka__AnomaliesTopic` | `hookbridge.ai.anomalies` | Dedicated topic for detected AI anomaly events emitted after anomaly detection. |
 | `AiKafka:ConsumerGroupId` | `AiKafka__ConsumerGroupId` | `hookbridge-ai-worker` | Consumer group used by `HookBridge.AI.Worker`. |
 | `AiKafka:EnableAutoCommit` | `AiKafka__EnableAutoCommit` | `false` | Whether Kafka offsets are auto-committed by the client. |
 
@@ -1413,4 +1415,54 @@ HookBridge includes a deterministic webhook failure anomaly detector for sudden 
 
 ### Persistence and messaging
 
-Anomaly results are persisted to the MongoDB collection `webhook_failure_anomaly_detection_results`. The AI worker consumes anomaly detection requests from the Kafka topic `hookbridge.ai.failure-anomalies` when the topic is configured, stores the deterministic result in MongoDB, and logs structured metadata only.
+Anomaly results are persisted to the MongoDB collection `webhook_failure_anomaly_detection_results`. The AI worker consumes anomaly detection requests from the Kafka topic `hookbridge.ai.failure-anomalies` when the topic is configured, stores the deterministic result in MongoDB, and logs structured metadata only. When `isAnomalyDetected` is `true`, the worker also publishes an `AiAnomalyEventDto` to `hookbridge.ai.anomalies`; no anomaly event is published for non-anomalous results.
+
+## Kafka AI anomalies topic
+
+The dedicated AI anomaly event topic is `hookbridge.ai.anomalies`. It carries compact, structured anomaly notifications produced by `HookBridge.AI.Worker` after webhook failure anomaly detection finds a spike. Downstream alerting, incident routing, dashboards, and customer notification workflows can consume this topic without reading the full anomaly detection request or MongoDB result document.
+
+Example `AiAnomalyEventDto` payload:
+
+```json
+{
+  "anomalyId": "anm_1001",
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "customerId": "cust_123",
+  "customerIdType": "MDM",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "eventType": "OrderCreated",
+  "anomalyType": "RateLimitSpike",
+  "riskLevel": "High",
+  "anomalyScore": 78,
+  "summary": "HTTP 429 rate-limit failures increased sharply compared to the baseline window.",
+  "recommendation": "Reduce concurrency and retry with exponential backoff.",
+  "source": "HookBridge.AI.Worker",
+  "createdAtUtc": "2026-05-14T10:16:30Z"
+}
+```
+
+Create the local Kafka topic:
+
+```bash
+docker exec -it kafka kafka-topics \
+  --create \
+  --if-not-exists \
+  --topic hookbridge.ai.anomalies \
+  --bootstrap-server kafka:9092 \
+  --partitions 3 \
+  --replication-factor 1
+```
+
+Consume anomaly events locally:
+
+```bash
+docker exec -it kafka kafka-console-consumer \
+  --bootstrap-server kafka:9092 \
+  --topic hookbridge.ai.anomalies \
+  --from-beginning \
+  --property print.key=true
+```
