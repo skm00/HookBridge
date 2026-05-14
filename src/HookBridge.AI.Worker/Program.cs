@@ -15,6 +15,7 @@ builder.Services.AddAiLogSummarizationServices();
 builder.Services.AddPayloadSchemaDetectionServices();
 builder.Services.AddJsonToDtoSuggestionServices();
 builder.Services.AddFluentValidationRuleGenerationServices();
+builder.Services.AddWebhookTransformationRecommendationServices();
 builder.Services.AddEndpointHealthScoringServices();
 builder.Services.AddAiKafkaServices();
 builder.Services.AddAiMongoServices();
@@ -22,6 +23,7 @@ builder.Services.AddHostedService<AiProcessingWorker>();
 builder.Services.AddHostedService<PayloadSchemaDetectionWorker>();
 builder.Services.AddHostedService<JsonToDtoSuggestionWorker>();
 builder.Services.AddHostedService<FluentValidationRuleGenerationWorker>();
+builder.Services.AddHostedService<WebhookTransformationRecommendationWorker>();
 
 var host = builder.Build();
 host.Run();

@@ -11,6 +11,7 @@ using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.JsonToDtoSuggestion;
 using HookBridge.AI.Worker.Services.FluentValidationRuleGeneration;
+using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -68,6 +69,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.FluentValidationRuleGenerationResultsCollectionName),
                 "AiMongo:FluentValidationRuleGenerationResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.WebhookTransformationRecommendationResultsCollectionName),
+                "AiMongo:WebhookTransformationRecommendationResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -110,6 +114,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.FluentValidationRuleGenerationTopic),
                 "AiKafka:FluentValidationRuleGenerationTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.WebhookTransformationRecommendationTopic),
+                "AiKafka:WebhookTransformationRecommendationTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -157,6 +164,12 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddWebhookTransformationRecommendationServices(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IWebhookTransformationRecommendationAgent, WebhookTransformationRecommendationAgent>();
+        return services;
+    }
+
     public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
@@ -178,6 +191,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPayloadSchemaDetectionPromptBuilder, PayloadSchemaDetectionPromptBuilder>();
         services.AddSingleton<IJsonToDtoPromptBuilder, JsonToDtoPromptBuilder>();
         services.AddSingleton<IFluentValidationPromptBuilder, FluentValidationPromptBuilder>();
+        services.AddSingleton<IWebhookTransformationPromptBuilder, WebhookTransformationPromptBuilder>();
         return services;
     }
 
@@ -188,6 +202,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPayloadSchemaDetectionConsumer, PayloadSchemaDetectionConsumer>();
         services.AddSingleton<IJsonToDtoSuggestionConsumer, JsonToDtoSuggestionConsumer>();
         services.AddSingleton<IFluentValidationRuleGenerationConsumer, FluentValidationRuleGenerationConsumer>();
+        services.AddSingleton<IWebhookTransformationRecommendationConsumer, WebhookTransformationRecommendationConsumer>();
         return services;
     }
 
@@ -206,6 +221,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IJsonToDtoSuggestionRepository, JsonToDtoSuggestionRepository>();
         services.AddSingleton<IFluentValidationRuleGenerationCollectionProvider, FluentValidationRuleGenerationCollectionProvider>();
         services.AddSingleton<IFluentValidationRuleGenerationRepository, FluentValidationRuleGenerationRepository>();
+        services.AddSingleton<IWebhookTransformationRecommendationCollectionProvider, WebhookTransformationRecommendationCollectionProvider>();
+        services.AddSingleton<IWebhookTransformationRecommendationRepository, WebhookTransformationRecommendationRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

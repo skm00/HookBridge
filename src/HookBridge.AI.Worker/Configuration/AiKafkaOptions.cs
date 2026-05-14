@@ -27,6 +27,8 @@ public sealed class AiKafkaOptions
 
     public string FluentValidationRuleGenerationTopic { get; set; } = AiKafkaTopics.ValidationRuleGeneration;
 
+    public string WebhookTransformationRecommendationTopic { get; set; } = AiKafkaTopics.TransformationRecommendation;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

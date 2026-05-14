@@ -786,3 +786,7 @@ The agent uses deterministic fallback generation when AI is disabled, the LLM is
 Prompts mask sensitive values before sending payload context to the LLM and truncate large payloads safely. The masking rules cover `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, and `AccessToken`. The worker logs structured metadata only, never full payloads or generated code. DTO code contains property declarations and JSON names only; it does not embed sample values or secrets.
 
 The Kafka topic for DTO suggestion events is `hookbridge.ai.dto-suggestion`, and MongoDB results are stored in the `json_to_dto_suggestion_results` collection.
+
+### AI Webhook Transformation Recommendations
+
+HookBridge AI Worker includes a Webhook Transformation Recommendation Agent that compares a source webhook payload with a target schema or sample payload and recommends human-reviewed transformation mappings. The worker consumes `hookbridge.ai.transformation-recommendation`, stores results in MongoDB collection `webhook_transformation_recommendation_results`, masks sensitive values before prompt creation, and falls back to deterministic field-name matching when AI is disabled or unavailable. See [docs/ai-worker.md](docs/ai-worker.md#webhook-transformation-recommendation-agent) for request/response examples, generated code guidance, fallback behavior, and security rules.
