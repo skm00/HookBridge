@@ -971,3 +971,111 @@ The agent falls back to safe rule-based detection when AI is disabled, the LLM i
 ### Security and masking rules
 
 Full payloads and secrets must not be logged. Prompt construction masks sensitive header and payload values before sending data to the LLM and truncates large payloads with an explicit truncation marker. The following names are treated as sensitive case-insensitively: `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, and `AccessToken`.
+
+## FluentValidation Rule Generation Agent
+
+HookBridge includes a FluentValidation Rule Generation Agent that analyzes a webhook JSON payload, detected schema hints, and generated DTO code to suggest a safe validator for the DTO. The agent is designed for developer assistance: it can call the configured local LLM when AI is enabled, but always has deterministic fallback logic so tests and offline environments do not require Ollama, Kafka, or MongoDB.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "eventType": "OrderCreated",
+  "source": "checkout",
+  "customerId": "cust_1",
+  "rootClassName": "OrderCreatedDto",
+  "namespace": "HookBridge.Contracts.Events",
+  "payload": {
+    "orderId": "ORD-1001",
+    "status": "Created",
+    "totalAmount": 129.50,
+    "customerEmail": "customer@example.com",
+    "callbackUrl": "https://customer.example.com/webhook",
+    "items": [{ "sku": "SKU-001", "quantity": 2 }]
+  },
+  "generatedDtoCode": "public sealed class OrderCreatedDto { public string? OrderId { get; set; } }",
+  "detectedFields": [],
+  "requiredFields": ["orderId", "status"],
+  "receivedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "validatorClassName": "OrderCreatedDtoValidator",
+  "namespace": "HookBridge.Contracts.Events",
+  "generatedValidatorCode": "using FluentValidation;\n\nnamespace HookBridge.Contracts.Events;\n\npublic sealed class OrderCreatedDtoValidator : AbstractValidator<OrderCreatedDto> { }",
+  "rules": [
+    {
+      "propertyName": "OrderId",
+      "ruleType": "NotEmpty",
+      "ruleExpression": ".NotEmpty()",
+      "errorMessage": "OrderId is required.",
+      "severity": "Error",
+      "description": "Required field should be populated."
+    }
+  ],
+  "summary": "Generated FluentValidation rules for visible payload fields.",
+  "validationNotes": [],
+  "confidenceScore": 0.45,
+  "riskLevel": "Low",
+  "generatedAtUtc": "2026-05-14T10:31:00Z",
+  "model": "llama3",
+  "provider": "Ollama",
+  "fallback": { "usedFallback": true, "fallbackReason": "AiDisabled" }
+}
+```
+
+### Example generated validator code
+
+```csharp
+using FluentValidation;
+
+namespace HookBridge.Contracts.Events;
+
+public sealed class OrderCreatedDtoValidator : AbstractValidator<OrderCreatedDto>
+{
+    public OrderCreatedDtoValidator()
+    {
+        RuleFor(x => x.OrderId)
+            .NotEmpty()
+            .WithMessage("OrderId is required.");
+
+        RuleFor(x => x.TotalAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("TotalAmount must be greater than or equal to 0.");
+
+        RuleFor(x => x.CustomerEmail)
+            .EmailAddress()
+            .When(x => x.CustomerEmail != null)
+            .WithMessage("CustomerEmail must be a valid email address.");
+
+        RuleFor(x => x.CallbackUrl)
+            .Must(value => Uri.TryCreate(value, UriKind.Absolute, out _))
+            .When(x => x.CallbackUrl != null)
+            .WithMessage("CallbackUrl must be a valid absolute URL.");
+
+        RuleFor(x => x.Items)
+            .NotNull()
+            .WithMessage("Items cannot be null.");
+    }
+}
+```
+
+### Fallback behavior
+
+Fallback is used when AI is disabled, the local LLM is unavailable, the payload cannot be parsed as JSON, the LLM returns invalid JSON, or generated DTO code is missing. The fallback uses `System.Text.Json` and deterministic heuristics to infer simple rules: string IDs receive `NotEmpty`, email fields receive `EmailAddress`, URL/URI fields receive absolute URI checks, amount/price/quantity/count fields receive `GreaterThanOrEqualTo(0)`, date/time fields receive UTC checks where applicable, and arrays receive `NotNull` plus `NotEmpty` when listed as required.
+
+### Security and masking
+
+The prompt builder masks sensitive values before sending context to the LLM and safely truncates large payload and DTO-code inputs. Sensitive keys include `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, `AccessToken`, and `ConnectionString`. Worker logging records structured metadata such as event ID, correlation ID, validator class name, rule count, confidence, risk level, and fallback state; it does not log full payloads or generated validator code.
+
+### Persistence and Kafka
+
+Validation rule generation requests are consumed from `hookbridge.ai.validation-rule-generation` when the topic is configured. Results are persisted in MongoDB collection `fluent_validation_rule_generation_results`.
