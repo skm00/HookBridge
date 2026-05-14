@@ -24,7 +24,7 @@ public sealed class JsonToDtoSuggestionConsumer : IJsonToDtoSuggestionConsumer
         _consumerFactory = consumerFactory ?? (config => new ConsumerBuilder<string, string>(config).Build());
     }
 
-    public async IAsyncEnumerable<JsonToDtoSuggestionRequestDto> ConsumeAsync(
+    public async IAsyncEnumerable<JsonToDtoSuggestionMessage> ConsumeAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_options.JsonToDtoSuggestionTopic))
@@ -79,19 +79,26 @@ public sealed class JsonToDtoSuggestionConsumer : IJsonToDtoSuggestionConsumer
                 continue;
             }
 
-            if (!_options.EnableAutoCommit)
-            {
-                try
+            yield return new JsonToDtoSuggestionMessage(
+                request,
+                _ =>
                 {
-                    consumer.Commit(consumeResult);
-                }
-                catch (KafkaException ex)
-                {
-                    _logger.LogError(ex, "JSON-to-DTO suggestion Kafka offset commit failed. Topic: {Topic}", consumeResult.Topic);
-                }
-            }
+                    if (_options.EnableAutoCommit)
+                    {
+                        return Task.CompletedTask;
+                    }
 
-            yield return request;
+                    try
+                    {
+                        consumer.Commit(consumeResult);
+                    }
+                    catch (KafkaException ex)
+                    {
+                        _logger.LogError(ex, "JSON-to-DTO suggestion Kafka offset commit failed. Topic: {Topic}", consumeResult.Topic);
+                    }
+
+                    return Task.CompletedTask;
+                });
             await Task.Yield();
         }
     }

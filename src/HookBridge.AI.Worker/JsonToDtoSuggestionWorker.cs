@@ -38,8 +38,9 @@ public sealed class JsonToDtoSuggestionWorker : BackgroundService
             return;
         }
 
-        await foreach (var request in _consumer.ConsumeAsync(stoppingToken))
+        await foreach (var message in _consumer.ConsumeAsync(stoppingToken))
         {
+            var request = message.Request;
             using var scope = _logger.BeginScope(new Dictionary<string, object?>
             {
                 ["EventId"] = request.EventId,
@@ -49,6 +50,7 @@ public sealed class JsonToDtoSuggestionWorker : BackgroundService
             var response = await _agent.SuggestAsync(request, stoppingToken);
             var result = JsonToDtoSuggestionResult.FromResponse(response, request);
             await _repository.InsertAsync(result, stoppingToken);
+            await message.AcknowledgeAsync(stoppingToken);
 
             _logger.LogInformation(
                 "JSON-to-DTO suggestion completed. EventId: {EventId}, CorrelationId: {CorrelationId}, SuggestedRootClassName: {SuggestedRootClassName}, ClassCount: {ClassCount}, ConfidenceScore: {ConfidenceScore}, RiskLevel: {RiskLevel}, FallbackUsed: {FallbackUsed}",
