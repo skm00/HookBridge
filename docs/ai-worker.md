@@ -1079,3 +1079,120 @@ The prompt builder masks sensitive values before sending context to the LLM and 
 ### Persistence and Kafka
 
 Validation rule generation requests are consumed from `hookbridge.ai.validation-rule-generation` when the topic is configured. Results are persisted in MongoDB collection `fluent_validation_rule_generation_results`.
+
+## Webhook Transformation Recommendation Agent
+
+The Webhook Transformation Recommendation Agent analyzes an incoming source webhook payload and a target schema or target sample payload, then recommends transformation rules that can convert source fields into the target shape. It is intended for integration design, migration assistance, and human-reviewed mapping workflows. Recommendations are **not** auto-applied to production traffic.
+
+The agent is available through `IWebhookTransformationRecommendationAgent` and is consumed by the AI worker from Kafka topic `hookbridge.ai.transformation-recommendation`. Results are persisted in MongoDB collection `webhook_transformation_recommendation_results` with structured metadata such as event ID, correlation ID, mapping count, confidence, risk, provider/model, and fallback usage. Full payloads, secrets, and generated sensitive values are intentionally not logged.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "eventType": "OrderCreated",
+  "source": "Shopify",
+  "customerId": "cust_123",
+  "sourcePayload": {
+    "order_id": "ORD-1001",
+    "order_status": "Created",
+    "total_amount": 129.50,
+    "created_at": "2026-05-14T10:30:00Z"
+  },
+  "targetSamplePayload": {
+    "orderId": "string",
+    "status": "string",
+    "amount": 0,
+    "createdAtUtc": "datetime"
+  },
+  "receivedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "summary": "Source order payload can be transformed into the target order format using field rename and direct mapping rules.",
+  "recommendedMappings": [
+    {
+      "sourceJsonPath": "$.order_id",
+      "targetJsonPath": "$.orderId",
+      "sourceFieldName": "order_id",
+      "targetFieldName": "orderId",
+      "transformationType": "Rename",
+      "transformationExpression": "orderId = order_id",
+      "defaultValue": null,
+      "isRequired": true,
+      "confidenceScore": 0.9,
+      "notes": "Field names differ but values represent the same order identifier."
+    }
+  ],
+  "missingTargetFields": [],
+  "unmappedSourceFields": [],
+  "transformationNotes": [
+    "Review date formatting before applying to production."
+  ],
+  "generatedTransformationCode": "// Recommended transformation code only. Requires human review before production use; HookBridge does not auto-apply this code.\nusing System.Text.Json.Nodes;\n...",
+  "confidenceScore": 0.84,
+  "riskLevel": "Low",
+  "generatedAtUtc": "2026-05-14T10:35:00Z",
+  "model": "llama3",
+  "provider": "Ollama",
+  "fallback": {
+    "usedFallback": false,
+    "fallbackReason": "None",
+    "fallbackMessage": "",
+    "provider": "Ollama",
+    "model": "llama3",
+    "generatedAtUtc": "2026-05-14T10:35:00Z"
+  }
+}
+```
+
+### Example generated transformation code
+
+Generated code is a recommendation only. It must be reviewed, tested, and adapted before production use.
+
+```csharp
+// Recommended transformation code only. Requires human review before production use; HookBridge does not auto-apply this code.
+using System.Text.Json.Nodes;
+
+public static JsonObject Transform(JsonObject source)
+{
+    var target = new JsonObject();
+    if (source.TryGetPropertyValue("order_id", out var value_order_id))
+        target["orderId"] = value_order_id?.DeepClone();
+    return target;
+}
+```
+
+Generated code must remain .NET 8 compatible, use `System.Text.Json`/`JsonNode`/`JsonObject`, avoid paid external dependencies, avoid database calls, HTTP calls, file calls, and side effects, and must not hardcode sample secrets or sensitive values.
+
+### Deterministic fallback behavior
+
+The agent uses deterministic fallback when AI is disabled, the LLM is unavailable, the source payload is invalid JSON, no valid target schema/sample payload is available, or the LLM returns invalid JSON. Fallback parses JSON with `System.Text.Json`, compares source fields with target fields, and recommends conservative `DirectMap` or `Rename` mappings.
+
+Fallback matching order:
+
+1. Exact field-name match.
+2. Case-insensitive field-name match.
+3. Common variants, including `id`/`identifier`, `orderId`/`order_id`, `customerId`/`customer_id`, `createdAt`/`created_at`, and `status`/`state`.
+
+Unmatched target fields are reported in `missingTargetFields`, unmatched source fields are reported in `unmappedSourceFields`, and fallback responses use lower confidence scores with fallback metadata so operators can alert and review.
+
+### Security and masking rules
+
+Before prompt creation, the prompt builder masks sensitive keys in payloads, schemas, mapping rules, and headers. The masked terms include `Authorization`, `Cookie`, `Set-Cookie`, `Token`, `Secret`, `Password`, `Api-Key`, `X-API-Key`, `ClientSecret`, `AccessToken`, and `ConnectionString`.
+
+Operational rules:
+
+- Do not log full payloads.
+- Do not log secrets.
+- Do not include secret sample values in generated transformation code.
+- Treat masked values as unavailable and never reconstruct them.
+- Require human review before any recommended mapping or generated code is used in production.

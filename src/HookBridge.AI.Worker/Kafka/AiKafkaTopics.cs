@@ -12,4 +12,6 @@ public static class AiKafkaTopics
     public const string DtoSuggestion = "hookbridge.ai.dto-suggestion";
 
     public const string ValidationRuleGeneration = "hookbridge.ai.validation-rule-generation";
+
+    public const string TransformationRecommendation = "hookbridge.ai.transformation-recommendation";
 }
