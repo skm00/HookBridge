@@ -252,6 +252,32 @@ public sealed class AiProcessingWorkerTests
     }
 
     [Fact]
+    public async Task StartAsync_WhenProcessingFails_StopsWithoutDrainingLaterMessages()
+    {
+        var logger = new TestLogger<AiProcessingWorker>();
+        var repository = new TestAiAnalysisResultRepository();
+        var retryRecommendationService = new FailsFirstThenSucceedsRetryRecommendationService();
+        var worker = new AiProcessingWorker(
+            logger,
+            Options.Create(new AiOptions { Provider = "Ollama", Model = "llama3" }),
+            new TestKernelFactory(),
+            new TestAiAnalysisConsumer(
+                CreateAnalysisEvent("evt-fail", "corr-fail"),
+                CreateAnalysisEvent("evt-later", "corr-later")),
+            repository,
+            retryRecommendationService,
+            Options.Create(new AiKafkaOptions { AiAnalysisTopic = AiKafkaTopics.Analysis, ConsumerGroupId = "hookbridge-ai-tests" }));
+
+        await worker.StartAsync(CancellationToken.None);
+        await WaitForLogAsync(logger, "AI analysis processing failed");
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
+        await worker.StopAsync(CancellationToken.None);
+
+        retryRecommendationService.CallCount.Should().Be(1);
+        repository.InsertedResults.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task StartAsync_WhenProcessingSucceeds_LogsDurationAndScope()
     {
         var logger = new TestLogger<AiProcessingWorker>();
@@ -282,10 +308,12 @@ public sealed class AiProcessingWorkerTests
             .Should().BeTrue();
     }
 
-    private static AiAnalysisEventDto CreateAnalysisEvent() => new()
+    private static AiAnalysisEventDto CreateAnalysisEvent(
+        string eventId = "evt-123",
+        string correlationId = "corr-123") => new()
     {
-        EventId = "evt-123",
-        CorrelationId = "corr-123",
+        EventId = eventId,
+        CorrelationId = correlationId,
         Source = "unit-test",
         EventType = "webhook.delivery.failed",
         FailureReason = "HTTP 500",
@@ -357,21 +385,55 @@ public sealed class AiProcessingWorkerTests
         }
     }
 
+    private sealed class FailsFirstThenSucceedsRetryRecommendationService : IAiRetryRecommendationService
+    {
+        private int _callCount;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public Task<WebhookFailureAnalysisResponseDto> AnalyzeAsync(
+            WebhookFailureAnalysisRequestDto request,
+            CancellationToken cancellationToken = default)
+        {
+            var callCount = Interlocked.Increment(ref _callCount);
+            if (callCount == 1)
+            {
+                throw new InvalidOperationException("first analysis failed");
+            }
+
+            return Task.FromResult(new WebhookFailureAnalysisResponseDto
+            {
+                EventId = request.EventId,
+                CorrelationId = request.CorrelationId,
+                AiSummary = "test recommendation after failure",
+                RootCause = request.FailureReason ?? string.Empty,
+                AiRecommendation = "Retry with exponential backoff after checking endpoint health.",
+                RiskLevel = AiRiskLevel.Medium,
+                ConfidenceScore = 0.8,
+                SuggestedRetryAction = SuggestedRetryAction.RetryWithBackoff,
+                IsRetryRecommended = true,
+                GeneratedAtUtc = DateTime.UtcNow,
+                Model = "llama3.1",
+                Provider = "Ollama"
+            });
+        }
+    }
+
     private sealed class TestAiAnalysisConsumer : IAiAnalysisConsumer
     {
-        private readonly AiAnalysisEventDto? _analysisEvent;
+        private readonly IReadOnlyList<AiAnalysisEventDto> _analysisEvents;
 
-        public TestAiAnalysisConsumer(AiAnalysisEventDto? analysisEvent = null)
+        public TestAiAnalysisConsumer(params AiAnalysisEventDto[] analysisEvents)
         {
-            _analysisEvent = analysisEvent;
+            _analysisEvents = analysisEvents;
         }
 
         public async IAsyncEnumerable<AiAnalysisEventDto> ConsumeAsync(
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            if (_analysisEvent is not null)
+            foreach (var analysisEvent in _analysisEvents)
             {
-                yield return _analysisEvent;
+                yield return analysisEvent;
             }
 
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);

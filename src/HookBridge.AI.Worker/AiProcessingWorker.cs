@@ -162,6 +162,7 @@ public sealed class AiProcessingWorker : BackgroundService
                         _kafkaOptions.AiAnalysisTopic,
                         _kafkaOptions.ConsumerGroupId,
                         processingStopwatch.ElapsedMilliseconds);
+                    throw;
                 }
             }
         }
