@@ -754,3 +754,77 @@ Recommendations are generated from the same deterministic signals used for scori
   "calculatedAtUtc": "2026-05-13T10:30:00Z"
 }
 ```
+
+## Structured logging and observability
+
+`HookBridge.AI.Worker` uses `Microsoft.Extensions.Logging` with structured placeholders so logs remain queryable in console, OpenTelemetry, Elasticsearch, Application Insights, or any other configured provider. The worker does not write directly to `Console`; tests and integrations can replace the logger through the normal `ILogger<T>` abstractions.
+
+### Logged lifecycle and processing events
+
+The AI worker emits structured logs for:
+
+- Worker startup and shutdown.
+- AI enabled/disabled status, provider, and model.
+- Kafka consumer startup and message receipt from `hookbridge.ai.analysis`.
+- Kafka message processing start, completion, and failure.
+- Invalid Kafka messages skipped without logging payload content.
+- AI prompt generation start/completion with prompt duration, but not the prompt body.
+- LLM request start/completion and expected provider failures with request duration.
+- Deterministic fallback usage, including fallback reason.
+- Mongo insert start/completion/failure with persistence duration.
+- Cancellation requests during graceful shutdown.
+
+### Important log fields
+
+Common structured fields include:
+
+| Field | Description |
+| --- | --- |
+| `EventId` | HookBridge event identifier when available. |
+| `CorrelationId` | Cross-service correlation identifier when available. |
+| `EventType` | Event name, such as `WebhookDeliveryFailed`. |
+| `Source` | Producer/source system for the analysis event. |
+| `Provider` | AI provider, such as `Ollama`. |
+| `Model` | Configured model, such as `llama3`. |
+| `KafkaTopic` | Kafka topic being consumed. |
+| `ConsumerGroupId` | AI worker Kafka consumer group. |
+| `DurationMs` | Elapsed duration in milliseconds for processing, LLM, prompt, or Mongo operations. |
+| `FallbackUsed` | Whether deterministic fallback produced the recommendation. |
+| `FallbackReason` | Reason fallback was used, such as `ProviderUnavailable` or `AiDisabled`. |
+| `RiskLevel` | AI/fallback risk level for the failed delivery. |
+| `SuggestedRetryAction` | Recommended next retry action. |
+| `Operation` | Operation name on exception logs, such as `MessageProcessing` or `MongoInsert`. |
+
+Message processing also opens a logging scope containing `EventId` and `CorrelationId`, allowing providers that support scopes to attach those fields to all nested logs for the event.
+
+### Example logs
+
+```text
+HookBridge AI Worker starting. Enabled: true, Provider: Ollama, Model: llama3, KafkaTopic: hookbridge.ai.analysis, ConsumerGroupId: hookbridge-ai-worker
+AI analysis processing started. EventId: evt_12345, CorrelationId: corr_789, EventType: WebhookDeliveryFailed, Source: hookbridge-worker, Provider: Ollama, Model: llama3, KafkaTopic: hookbridge.ai.analysis, ConsumerGroupId: hookbridge-ai-worker
+AI prompt generation completed. EventId: evt_12345, CorrelationId: corr_789, EventType: WebhookDeliveryFailed, Source: hookbridge-worker, Provider: Ollama, Model: llama3, DurationMs: 2
+LLM request completed. Provider: Ollama, Model: llama3, Attempt: 1, Attempts: 4, DurationMs: 842
+Mongo insert completed. EventId: evt_12345, CorrelationId: corr_789, EventType: WebhookDeliveryFailed, Source: hookbridge-worker, Provider: Ollama, Model: llama3, DurationMs: 14
+AI analysis processing completed. EventId: evt_12345, CorrelationId: corr_789, EventType: WebhookDeliveryFailed, Source: hookbridge-worker, Provider: Ollama, Model: llama3, KafkaTopic: hookbridge.ai.analysis, ConsumerGroupId: hookbridge-ai-worker, FallbackUsed: false, FallbackReason: None, RiskLevel: Medium, SuggestedRetryAction: RetryWithBackoff, DurationMs: 860
+```
+
+Fallback usage is logged at `Warning` level:
+
+```text
+AI fallback used. EventId: evt_12345, CorrelationId: corr_789, EventType: WebhookDeliveryFailed, Source: hookbridge-worker, Provider: Ollama, Model: llama3, FallbackUsed: true, FallbackReason: ProviderUnavailable, RiskLevel: Medium, SuggestedRetryAction: RetryWithBackoff
+```
+
+Processing or persistence failures are logged at `Error` level and include the exception object plus `Operation`, `EventId`, and `CorrelationId` when available.
+
+### Sensitive-data logging rules
+
+AI worker logs intentionally use metadata only. Do not log:
+
+- Full webhook request payloads.
+- Full response bodies.
+- Authorization headers.
+- Cookies or `Set-Cookie` values.
+- API keys, tokens, secrets, passwords, or connection strings.
+- Full prompts or raw LLM responses.
+
+`SensitiveLogSanitizer` masks values whose field/header names indicate sensitive data, and prompt builders also mask sensitive headers and truncate payload-like fields before building prompts. Keep `AI:EnablePromptLogging` disabled in production unless an approved, short-lived incident response process requires it.

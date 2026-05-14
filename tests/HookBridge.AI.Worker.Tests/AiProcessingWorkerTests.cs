@@ -152,6 +152,142 @@ public sealed class AiProcessingWorkerTests
         result.CreatedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
     }
 
+
+    [Fact]
+    public async Task StartAsync_WhenAiEnabled_LogsProviderAndModel()
+    {
+        var logger = new TestLogger<AiProcessingWorker>();
+        var worker = new AiProcessingWorker(
+            logger,
+            Options.Create(new AiOptions { Enabled = true, Provider = "Ollama", Model = "llama3" }),
+            new TestKernelFactory(),
+            new TestAiAnalysisConsumer(),
+            new TestAiAnalysisResultRepository(),
+            new TestAiRetryRecommendationService(),
+            Options.Create(new AiKafkaOptions { AiAnalysisTopic = AiKafkaTopics.Analysis, ConsumerGroupId = "hookbridge-ai-tests" }));
+
+        await worker.StartAsync(CancellationToken.None);
+        await WaitForLogAsync(logger, "HookBridge AI Worker AI enabled");
+        await worker.StopAsync(CancellationToken.None);
+
+        logger.Records.Should().Contain(record =>
+            record.Level == LogLevel.Information &&
+            record.Properties.TryGetValue("Provider", out var provider) && provider?.ToString() == "Ollama" &&
+            record.Properties.TryGetValue("Model", out var model) && model?.ToString() == "llama3");
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenAiDisabled_LogsDisabledStatus()
+    {
+        var logger = new TestLogger<AiProcessingWorker>();
+        var worker = new AiProcessingWorker(
+            logger,
+            Options.Create(new AiOptions { Enabled = false, Provider = "Ollama", Model = "llama3" }),
+            new TestKernelFactory(),
+            new TestAiAnalysisConsumer(),
+            new TestAiAnalysisResultRepository(),
+            new TestAiRetryRecommendationService(),
+            Options.Create(new AiKafkaOptions { AiAnalysisTopic = AiKafkaTopics.Analysis, ConsumerGroupId = "hookbridge-ai-tests" }));
+
+        await worker.StartAsync(CancellationToken.None);
+        await WaitForLogAsync(logger, "HookBridge AI Worker AI is disabled");
+        await worker.StopAsync(CancellationToken.None);
+
+        logger.Records.Should().Contain(record =>
+            record.Level == LogLevel.Information &&
+            record.Message.Contains("AI is disabled", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenFallbackUsed_LogsWarning()
+    {
+        var logger = new TestLogger<AiProcessingWorker>();
+        var repository = new TestAiAnalysisResultRepository();
+        var worker = new AiProcessingWorker(
+            logger,
+            Options.Create(new AiOptions { Provider = "Ollama", Model = "llama3" }),
+            new TestKernelFactory(),
+            new TestAiAnalysisConsumer(CreateAnalysisEvent()),
+            repository,
+            new TestAiRetryRecommendationService(fallbackUsed: true),
+            Options.Create(new AiKafkaOptions { AiAnalysisTopic = AiKafkaTopics.Analysis, ConsumerGroupId = "hookbridge-ai-tests" }));
+
+        await worker.StartAsync(CancellationToken.None);
+        await repository.WaitForInsertAsync();
+        await worker.StopAsync(CancellationToken.None);
+
+        logger.Records.Should().Contain(record =>
+            record.Level == LogLevel.Warning &&
+            record.Message.Contains("AI fallback used", StringComparison.Ordinal) &&
+            record.Properties.TryGetValue("FallbackUsed", out var fallbackUsed) && fallbackUsed is true &&
+            record.Properties.TryGetValue("FallbackReason", out var fallbackReason) && fallbackReason?.ToString() == AiFallbackReason.ProviderUnavailable.ToString());
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenProcessingFails_LogsErrorWithExceptionAndMetadata()
+    {
+        var logger = new TestLogger<AiProcessingWorker>();
+        var worker = new AiProcessingWorker(
+            logger,
+            Options.Create(new AiOptions { Provider = "Ollama", Model = "llama3" }),
+            new TestKernelFactory(),
+            new TestAiAnalysisConsumer(CreateAnalysisEvent()),
+            new TestAiAnalysisResultRepository(),
+            new TestAiRetryRecommendationService(exception: new InvalidOperationException("boom")),
+            Options.Create(new AiKafkaOptions { AiAnalysisTopic = AiKafkaTopics.Analysis, ConsumerGroupId = "hookbridge-ai-tests" }));
+
+        await worker.StartAsync(CancellationToken.None);
+        await WaitForLogAsync(logger, "AI analysis processing failed");
+        await worker.StopAsync(CancellationToken.None);
+
+        logger.Records.Should().Contain(record =>
+            record.Level == LogLevel.Error &&
+            record.Exception is InvalidOperationException &&
+            record.Properties.TryGetValue("Operation", out var operation) && operation?.ToString() == "MessageProcessing" &&
+            record.Properties.TryGetValue("EventId", out var eventId) && eventId?.ToString() == "evt-123" &&
+            record.Properties.TryGetValue("CorrelationId", out var correlationId) && correlationId?.ToString() == "corr-123");
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenProcessingSucceeds_LogsDurationAndScope()
+    {
+        var logger = new TestLogger<AiProcessingWorker>();
+        var repository = new TestAiAnalysisResultRepository();
+        var worker = new AiProcessingWorker(
+            logger,
+            Options.Create(new AiOptions { Provider = "Ollama", Model = "llama3" }),
+            new TestKernelFactory(),
+            new TestAiAnalysisConsumer(CreateAnalysisEvent()),
+            repository,
+            new TestAiRetryRecommendationService(),
+            Options.Create(new AiKafkaOptions { AiAnalysisTopic = AiKafkaTopics.Analysis, ConsumerGroupId = "hookbridge-ai-tests" }));
+
+        await worker.StartAsync(CancellationToken.None);
+        await repository.WaitForInsertAsync();
+        await WaitForLogAsync(logger, "AI analysis processing completed");
+        await worker.StopAsync(CancellationToken.None);
+
+        logger.Records.Should().Contain(record =>
+            record.Level == LogLevel.Information &&
+            record.Message.Contains("AI analysis processing completed", StringComparison.Ordinal) &&
+            record.Properties.TryGetValue("DurationMs", out var durationMs) &&
+            long.TryParse(durationMs?.ToString(), out var parsedDuration) && parsedDuration >= 0);
+        logger.Scopes.Should().Contain(scope =>
+            scope.TryGetValue("EventId", out var eventId) && eventId?.ToString() == "evt-123" &&
+            scope.TryGetValue("CorrelationId", out var correlationId) && correlationId?.ToString() == "corr-123");
+    }
+
+    private static AiAnalysisEventDto CreateAnalysisEvent() => new()
+    {
+        EventId = "evt-123",
+        CorrelationId = "corr-123",
+        Source = "unit-test",
+        EventType = "webhook.delivery.failed",
+        FailureReason = "HTTP 500",
+        Payload = "{\"authorization\":\"secret-token\"}",
+        CreatedAtUtc = DateTimeOffset.UtcNow
+    };
+
     private static async Task WaitForLogAsync<T>(TestLogger<T> logger, string message)
     {
         await WaitForConditionAsync(() => logger.Records.Any(record =>
@@ -170,10 +306,24 @@ public sealed class AiProcessingWorkerTests
 
     private sealed class TestAiRetryRecommendationService : IAiRetryRecommendationService
     {
+        private readonly bool _fallbackUsed;
+        private readonly Exception? _exception;
+
+        public TestAiRetryRecommendationService(bool fallbackUsed = false, Exception? exception = null)
+        {
+            _fallbackUsed = fallbackUsed;
+            _exception = exception;
+        }
+
         public Task<WebhookFailureAnalysisResponseDto> AnalyzeAsync(
             WebhookFailureAnalysisRequestDto request,
             CancellationToken cancellationToken = default)
         {
+            if (_exception is not null)
+            {
+                throw _exception;
+            }
+
             return Task.FromResult(new WebhookFailureAnalysisResponseDto
             {
                 EventId = request.EventId,
@@ -187,7 +337,17 @@ public sealed class AiProcessingWorkerTests
                 IsRetryRecommended = true,
                 GeneratedAtUtc = DateTime.UtcNow,
                 Model = "llama3.1",
-                Provider = "Ollama"
+                Provider = "Ollama",
+                Fallback = _fallbackUsed
+                    ? new AiFallbackMetadataDto
+                    {
+                        UsedFallback = true,
+                        FallbackReason = AiFallbackReason.ProviderUnavailable,
+                        FallbackMessage = "Provider unavailable.",
+                        Provider = "Ollama",
+                        Model = "llama3.1"
+                    }
+                    : null
             });
         }
     }

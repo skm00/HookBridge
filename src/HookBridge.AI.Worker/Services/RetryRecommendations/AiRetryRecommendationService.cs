@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Text.Json;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Logging;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.Fallback;
@@ -42,10 +44,15 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        _logger.LogInformation(
-            "Starting AI retry recommendation analysis. EventId: {EventId}, CorrelationId: {CorrelationId}, StatusCode: {StatusCode}, RetryCount: {RetryCount}, MaxRetryCount: {MaxRetryCount}",
+        var analysisStopwatch = Stopwatch.StartNew();
+        _logger.LogDebug(
+            "AI retry recommendation analysis started. EventId: {EventId}, CorrelationId: {CorrelationId}, EventType: {EventType}, Source: {Source}, Provider: {Provider}, Model: {Model}, StatusCode: {StatusCode}, RetryCount: {RetryCount}, MaxRetryCount: {MaxRetryCount}",
             request.EventId,
             request.CorrelationId,
+            request.EventType,
+            request.Source,
+            _options.Provider,
+            _options.Model,
             request.StatusCode,
             request.RetryCount,
             request.MaxRetryCount);
@@ -61,7 +68,27 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
 
         try
         {
+            var promptStopwatch = Stopwatch.StartNew();
+            _logger.LogInformation(
+                AiWorkerLogMessages.PromptGenerationStarted,
+                request.EventId,
+                request.CorrelationId,
+                request.EventType,
+                request.Source,
+                _options.Provider,
+                _options.Model);
             var prompt = _promptBuilder.BuildPrompt(request);
+            promptStopwatch.Stop();
+            _logger.LogInformation(
+                AiWorkerLogMessages.PromptGenerationCompleted,
+                request.EventId,
+                request.CorrelationId,
+                request.EventType,
+                request.Source,
+                _options.Provider,
+                _options.Model,
+                promptStopwatch.ElapsedMilliseconds);
+
             var llmResponse = await _llmClient.GenerateAsync(prompt, cancellationToken);
 
             if (!llmResponse.IsSuccess)
@@ -90,13 +117,20 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
             }
 
             var normalized = NormalizeAndApplySafetyRules(parsed, request);
+            analysisStopwatch.Stop();
             _logger.LogInformation(
-                "AI retry recommendation succeeded. EventId: {EventId}, CorrelationId: {CorrelationId}, SuggestedRetryAction: {SuggestedRetryAction}, RiskLevel: {RiskLevel}, ConfidenceScore: {ConfidenceScore}",
+                "AI retry recommendation succeeded. EventId: {EventId}, CorrelationId: {CorrelationId}, EventType: {EventType}, Source: {Source}, Provider: {Provider}, Model: {Model}, FallbackUsed: {FallbackUsed}, RiskLevel: {RiskLevel}, SuggestedRetryAction: {SuggestedRetryAction}, ConfidenceScore: {ConfidenceScore}, DurationMs: {DurationMs}",
                 normalized.EventId,
                 normalized.CorrelationId,
-                normalized.SuggestedRetryAction,
+                request.EventType,
+                request.Source,
+                normalized.Provider,
+                normalized.Model,
+                false,
                 normalized.RiskLevel,
-                normalized.ConfidenceScore);
+                normalized.SuggestedRetryAction,
+                normalized.ConfidenceScore,
+                analysisStopwatch.ElapsedMilliseconds);
             return normalized;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -105,11 +139,19 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
         }
         catch (Exception exception)
         {
+            analysisStopwatch.Stop();
             _logger.LogWarning(
                 exception,
-                "AI retry recommendation fallback used because LLM analysis failed. EventId: {EventId}, CorrelationId: {CorrelationId}",
+                "AI retry recommendation fallback used because LLM analysis failed. Operation: {Operation}, EventId: {EventId}, CorrelationId: {CorrelationId}, EventType: {EventType}, Source: {Source}, Provider: {Provider}, Model: {Model}, FallbackReason: {FallbackReason}, DurationMs: {DurationMs}",
+                "RetryRecommendationAnalysis",
                 request.EventId,
-                request.CorrelationId);
+                request.CorrelationId,
+                request.EventType,
+                request.Source,
+                _options.Provider,
+                _options.Model,
+                AiFallbackReason.UnknownError,
+                analysisStopwatch.ElapsedMilliseconds);
             return await CreateFallbackResponseAsync(request, AiFallbackReason.UnknownError, "LLM analysis was unavailable; deterministic fallback retry recommendation was used.", cancellationToken: cancellationToken);
         }
     }
@@ -237,6 +279,18 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
                 request.CorrelationId,
                 reason);
         }
+
+        _logger.LogWarning(
+            "AI retry recommendation fallback used. EventId: {EventId}, CorrelationId: {CorrelationId}, EventType: {EventType}, Source: {Source}, Provider: {Provider}, Model: {Model}, FallbackUsed: {FallbackUsed}, FallbackReason: {FallbackReason}, DurationMs: {DurationMs}",
+            request.EventId,
+            request.CorrelationId,
+            request.EventType,
+            request.Source,
+            _options.Provider,
+            _options.Model,
+            true,
+            reason,
+            durationMs);
 
         return _fallbackService.CreateRetryRecommendationAsync(request, reason, message, durationMs, cancellationToken);
     }
