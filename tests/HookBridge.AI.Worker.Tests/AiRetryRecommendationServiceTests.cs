@@ -121,8 +121,6 @@ public sealed class AiRetryRecommendationServiceTests
         result.AiRecommendation.Should().Contain("LLM analysis was unavailable");
     }
 
-
-
     [Fact]
     public async Task AnalyzeAsync_WhenLlmReturnsEmptyResponse_UsesInvalidResponseFallbackMetadata()
     {
@@ -213,6 +211,55 @@ public sealed class AiRetryRecommendationServiceTests
         result.IsRetryRecommended.Should().BeFalse();
     }
 
+    [Theory]
+    [MemberData(nameof(InvalidAiResponseShapes))]
+    public async Task AnalyzeAsync_WithInvalidAiResponseShapes_UsesInvalidResponseFallback(
+        string llmResponse,
+        AiFallbackReason expectedReason)
+    {
+        var service = CreateService(llmResponse: llmResponse);
+
+        var result = await service.AnalyzeAsync(CreateRequest(statusCode: 500));
+
+        result.Fallback.Should().NotBeNull();
+        result.Fallback!.FallbackReason.Should().Be(expectedReason);
+        result.AiRecommendation.Should().Contain("AI response could not be used");
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenAiSuggestsRetryForForbiddenStatus_OverridesToManualReview()
+    {
+        var service = CreateService(llmResponse: ValidAiJson(action: "RetryWithBackoff", isRetryRecommended: true));
+
+        var result = await service.AnalyzeAsync(CreateRequest(statusCode: 403));
+
+        result.SuggestedRetryAction.Should().Be(SuggestedRetryAction.RequireManualReview);
+        result.IsRetryRecommended.Should().BeFalse();
+        result.AiRecommendation.Should().Contain("Authentication or authorization failures require manual review");
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_PreservesModelAndProviderFromAiResponseWhenProvided()
+    {
+        var service = CreateService(llmResponse: ValidAiJson(model: "response-model", provider: "response-provider"));
+
+        var result = await service.AnalyzeAsync(CreateRequest(statusCode: 500));
+
+        result.Model.Should().Be("response-model");
+        result.Provider.Should().Be("response-provider");
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WithLocalGeneratedAtUtc_NormalizesToUtc()
+    {
+        var localTimestamp = new DateTime(2026, 5, 13, 12, 0, 0, DateTimeKind.Local).ToString("O");
+        var service = CreateService(llmResponse: ValidAiJson(generatedAtUtc: localTimestamp));
+
+        var result = await service.AnalyzeAsync(CreateRequest(statusCode: 500));
+
+        result.GeneratedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
     private static AiRetryRecommendationService CreateService(
         bool enabled = true,
         string? llmResponse = null,
@@ -251,6 +298,76 @@ public sealed class AiRetryRecommendationServiceTests
             FailedAtUtc = DateTime.UtcNow
         };
 
+    public static IEnumerable<object[]> InvalidAiResponseShapes()
+    {
+        yield return new object[] { "[]", AiFallbackReason.InvalidResponse };
+        yield return new object[] { """
+        {
+          "eventId": "evt-ai",
+          "aiSummary": "   ",
+          "rootCause": "cause",
+          "aiRecommendation": "recommendation",
+          "riskLevel": "Medium",
+          "confidenceScore": 0.7,
+          "suggestedRetryAction": "RetryWithBackoff",
+          "isRetryRecommended": true,
+          "generatedAtUtc": "2026-05-13T00:00:00Z"
+        }
+        """, AiFallbackReason.InvalidResponse };
+        yield return new object[] { """
+        {
+          "eventId": "evt-ai",
+          "aiSummary": "summary",
+          "rootCause": "cause",
+          "aiRecommendation": "recommendation",
+          "riskLevel": "Severe",
+          "confidenceScore": 0.7,
+          "suggestedRetryAction": "RetryWithBackoff",
+          "isRetryRecommended": true,
+          "generatedAtUtc": "2026-05-13T00:00:00Z"
+        }
+        """, AiFallbackReason.InvalidResponse };
+        yield return new object[] { """
+        {
+          "eventId": "evt-ai",
+          "aiSummary": "summary",
+          "rootCause": "cause",
+          "aiRecommendation": "recommendation",
+          "riskLevel": "Medium",
+          "confidenceScore": 0.7,
+          "suggestedRetryAction": "RetryEventually",
+          "isRetryRecommended": true,
+          "generatedAtUtc": "2026-05-13T00:00:00Z"
+        }
+        """, AiFallbackReason.InvalidResponse };
+        yield return new object[] { """
+        {
+          "eventId": "evt-ai",
+          "aiSummary": "summary",
+          "rootCause": "cause",
+          "aiRecommendation": "recommendation",
+          "riskLevel": "Medium",
+          "confidenceScore": 1e9999,
+          "suggestedRetryAction": "RetryWithBackoff",
+          "isRetryRecommended": true,
+          "generatedAtUtc": "2026-05-13T00:00:00Z"
+        }
+        """, AiFallbackReason.InvalidResponse };
+        yield return new object[] { """
+        {
+          "eventId": "evt-ai",
+          "aiSummary": "summary",
+          "rootCause": "cause",
+          "aiRecommendation": "recommendation",
+          "riskLevel": "Medium",
+          "confidenceScore": 0.7,
+          "suggestedRetryAction": "RetryWithBackoff",
+          "isRetryRecommended": "yes",
+          "generatedAtUtc": "2026-05-13T00:00:00Z"
+        }
+        """, AiFallbackReason.InvalidResponse };
+    }
+
     private static string ValidAiJson(
         string eventId = "evt-ai",
         string? correlationId = "corr-ai",
@@ -258,7 +375,9 @@ public sealed class AiRetryRecommendationServiceTests
         string riskLevel = "Medium",
         string action = "RetryWithBackoff",
         bool isRetryRecommended = true,
-        string generatedAtUtc = "2026-05-13T00:00:00Z")
+        string generatedAtUtc = "2026-05-13T00:00:00Z",
+        string model = "",
+        string provider = "")
         => $$"""
         {
           "eventId": "{{eventId}}",
@@ -270,7 +389,9 @@ public sealed class AiRetryRecommendationServiceTests
           "confidenceScore": {{confidenceScore.ToString(System.Globalization.CultureInfo.InvariantCulture)}},
           "suggestedRetryAction": "{{action}}",
           "isRetryRecommended": {{isRetryRecommended.ToString().ToLowerInvariant()}},
-          "generatedAtUtc": "{{generatedAtUtc}}"
+          "generatedAtUtc": "{{generatedAtUtc}}",
+          "model": "{{model}}",
+          "provider": "{{provider}}"
         }
         """;
 
