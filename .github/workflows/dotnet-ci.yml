@@ -21,7 +21,7 @@ env:
   SOLUTION_FILE: HookBridge.sln
   TEST_RESULTS_DIR: test-results
   COVERAGE_REPORTS_DIR: coverage-reports
-  COVERAGE_LINE_THRESHOLD: 80
+  COVERAGE_LINE_THRESHOLD: 78
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:

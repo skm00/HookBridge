@@ -35,6 +35,76 @@ public sealed class SubscriptionsControllerLifecycleTests
     }
 
     [Fact]
+    public async Task GetByIdAsync_WhenSubscriptionExists_ShouldReturnOkResponse()
+    {
+        var service = new Mock<ISubscriptionService>();
+        service.Setup(x => x.GetByIdAsync("tenant-1", "sub-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildResponse("sub-1", "order.created", "https://webhooks.example.com/orders"));
+        var controller = BuildController(service.Object);
+
+        var result = await controller.GetByIdAsync("sub-1", CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var body = ok.Value.Should().BeAssignableTo<ApiResponse<SubscriptionResponseDto>>().Subject;
+        body.Data!.Id.Should().Be("sub-1");
+        service.Verify(x => x.GetByIdAsync("tenant-1", "sub-1", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WhenSubscriptionDoesNotExist_ShouldReturnNotFound()
+    {
+        var service = new Mock<ISubscriptionService>();
+        service.Setup(x => x.GetByIdAsync("tenant-1", "missing", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SubscriptionResponseDto?)null);
+        var controller = BuildController(service.Object);
+
+        var result = await controller.GetByIdAsync("missing", CancellationToken.None);
+
+        var notFound = result.Result.Should().BeOfType<NotFoundObjectResult>().Subject;
+        notFound.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task SearchAsync_ForwardsFiltersAndReturnsPagedResponse()
+    {
+        var service = new Mock<ISubscriptionService>();
+        var paged = PagedResponseDto<SubscriptionResponseDto>.Create(
+            [BuildResponse("sub-1", "order.created", "https://webhooks.example.com/orders")],
+            pageNumber: 2,
+            pageSize: 10,
+            totalCount: 21);
+        service.Setup(x => x.SearchAsync(It.IsAny<SubscriptionSearchRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paged);
+        var controller = BuildController(service.Object);
+
+        var result = await controller.SearchAsync(
+            eventType: "order.created",
+            targetUrl: "https://webhooks.example.com/orders",
+            isActive: true,
+            pageNumber: 2,
+            pageSize: 10,
+            sortBy: "createdAt",
+            sortDirection: "asc",
+            cancellationToken: CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var body = ok.Value.Should().BeAssignableTo<ApiResponse<PagedResponseDto<SubscriptionResponseDto>>>().Subject;
+        body.Data!.Items.Should().ContainSingle(item => item.Id == "sub-1");
+        body.Data.TotalCount.Should().Be(21);
+        service.Verify(x => x.SearchAsync(
+            It.Is<SubscriptionSearchRequestDto>(request =>
+                request.TenantId == "tenant-1" &&
+                request.EventType == "order.created" &&
+                request.TargetUrl == "https://webhooks.example.com/orders" &&
+                request.IsActive == true &&
+                request.PageNumber == 2 &&
+                request.PageSize == 10 &&
+                request.SortBy == "createdAt" &&
+                request.SortDirection == "asc"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task UpdateAsync_WhenSubscriptionExists_ShouldReturnUpdatedResponse()
     {
         var service = new Mock<ISubscriptionService>();
@@ -87,6 +157,58 @@ public sealed class SubscriptionsControllerLifecycleTests
         var controller = BuildController(service.Object);
 
         var result = await controller.DeleteAsync("missing", CancellationToken.None);
+
+        var notFound = result.Should().BeOfType<NotFoundObjectResult>().Subject;
+        notFound.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task EnableAsync_WhenSubscriptionExists_ShouldReturnNoContent()
+    {
+        var service = new Mock<ISubscriptionService>();
+        service.Setup(x => x.EnableAsync("tenant-1", "sub-1", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var controller = BuildController(service.Object);
+
+        var result = await controller.EnableAsync("sub-1", CancellationToken.None);
+
+        result.Should().BeOfType<NoContentResult>();
+        service.Verify(x => x.EnableAsync("tenant-1", "sub-1", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task EnableAsync_WhenSubscriptionDoesNotExist_ShouldReturnNotFound()
+    {
+        var service = new Mock<ISubscriptionService>();
+        service.Setup(x => x.EnableAsync("tenant-1", "missing", It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var controller = BuildController(service.Object);
+
+        var result = await controller.EnableAsync("missing", CancellationToken.None);
+
+        var notFound = result.Should().BeOfType<NotFoundObjectResult>().Subject;
+        notFound.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task DisableAsync_WhenSubscriptionExists_ShouldReturnNoContent()
+    {
+        var service = new Mock<ISubscriptionService>();
+        service.Setup(x => x.DisableAsync("tenant-1", "sub-1", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var controller = BuildController(service.Object);
+
+        var result = await controller.DisableAsync("sub-1", CancellationToken.None);
+
+        result.Should().BeOfType<NoContentResult>();
+        service.Verify(x => x.DisableAsync("tenant-1", "sub-1", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DisableAsync_WhenSubscriptionDoesNotExist_ShouldReturnNotFound()
+    {
+        var service = new Mock<ISubscriptionService>();
+        service.Setup(x => x.DisableAsync("tenant-1", "missing", It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var controller = BuildController(service.Object);
+
+        var result = await controller.DisableAsync("missing", CancellationToken.None);
 
         var notFound = result.Should().BeOfType<NotFoundObjectResult>().Subject;
         notFound.StatusCode.Should().Be(StatusCodes.Status404NotFound);

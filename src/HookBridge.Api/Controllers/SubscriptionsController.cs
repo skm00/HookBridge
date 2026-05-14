@@ -70,12 +70,13 @@ public sealed class SubscriptionsController(
         [FromQuery] string? sortDirection = "desc",
         CancellationToken cancellationToken = default)
     {
-        tenantAccessValidator.EnsureTenantAccess(currentUserContext.TenantId ?? string.Empty);
+        var tenantId = currentUserContext.TenantId ?? string.Empty;
+        tenantAccessValidator.EnsureTenantAccess(tenantId);
 
         var subscriptions = await subscriptionService.SearchAsync(
             new SubscriptionSearchRequestDto
             {
-                TenantId = currentUserContext.TenantId,
+                TenantId = tenantId,
                 EventType = eventType,
                 TargetUrl = targetUrl,
                 IsActive = isActive,

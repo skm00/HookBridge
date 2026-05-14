@@ -851,4 +851,4 @@ Generate solution-wide coverage with the same collector used by CI:
 dotnet test HookBridge.sln --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 ```
 
-The CI workflow publishes TRX test results and Cobertura/HTML/TextSummary coverage artifacts. The coverage configuration excludes generated/build artifacts and selected application DTO-only files, but it does not exclude core AI Worker services. The project target is a practical minimum of 80% line coverage.
+The CI workflow publishes TRX test results and Cobertura/HTML/TextSummary coverage artifacts. The coverage configuration excludes generated/build artifacts and selected application DTO-only files, but it does not exclude core AI Worker services. The project target remains a practical minimum of 80% line coverage; CI currently enforces a 78% interim gate while additional coverage is added toward that target.

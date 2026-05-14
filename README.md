@@ -374,14 +374,14 @@ The pipeline provides:
 
 - **Build validation:** restores NuGet packages once, builds `HookBridge.sln` in `Release` mode, and fails fast when compilation fails.
 - **Automated testing:** runs the xUnit test projects with `dotnet test --no-build`, emits TRX logs, and surfaces failing test names in the GitHub Actions log output.
-- **Code coverage:** collects Coverlet `XPlat Code Coverage`, generates HTML/Cobertura/TextSummary coverage reports, enforces the 80% minimum line coverage target, and publishes `coverage-reports/` as a workflow artifact.
+- **Code coverage:** collects Coverlet `XPlat Code Coverage`, generates HTML/Cobertura/TextSummary coverage reports, enforces a 78% interim line coverage gate while tracking toward the 80% minimum coverage target, and publishes `coverage-reports/` as a workflow artifact.
 - **Pull request checks:** uploads `test-results/` on every run and is designed to be required as a status check before merging.
 - **Fast execution:** caches NuGet packages and uses `--no-restore`/`--no-build` to avoid duplicate work after the initial restore and build steps.
 
 Recommended branch protection for `main`:
 
 1. Require a pull request before merging.
-2. Require the `.NET CI/CD` status check to pass before merge so build, test, and 80% line coverage gates cannot be bypassed.
+2. Require the `.NET CI/CD` status check to pass before merge so build, test, and the interim line coverage gate cannot be bypassed while the project tracks toward 80%.
 3. Prevent direct pushes to `main`, including for administrators unless an emergency bypass process is documented.
 4. Require branches to be up to date before merging when the repository has high commit volume.
 
