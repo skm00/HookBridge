@@ -21,6 +21,7 @@ public sealed class AiKafkaOptionsTests
             [$"{AiKafkaOptions.SectionName}:SaslUsername"] = "user",
             [$"{AiKafkaOptions.SectionName}:SaslPassword"] = "password",
             [$"{AiKafkaOptions.SectionName}:AiAnalysisTopic"] = "hookbridge.ai.analysis",
+            [$"{AiKafkaOptions.SectionName}:AnomaliesTopic"] = "hookbridge.ai.anomalies",
             [$"{AiKafkaOptions.SectionName}:ConsumerGroupId"] = "hookbridge-ai-tests",
             [$"{AiKafkaOptions.SectionName}:EnableAutoCommit"] = "true",
         });
@@ -33,6 +34,7 @@ public sealed class AiKafkaOptionsTests
         options.SaslUsername.Should().Be("user");
         options.SaslPassword.Should().Be("password");
         options.AiAnalysisTopic.Should().Be("hookbridge.ai.analysis");
+        options.AnomaliesTopic.Should().Be("hookbridge.ai.anomalies");
         options.ConsumerGroupId.Should().Be("hookbridge-ai-tests");
         options.EnableAutoCommit.Should().BeTrue();
     }
@@ -44,6 +46,7 @@ public sealed class AiKafkaOptionsTests
 
         options.AiAnalysisTopic.Should().Be(AiKafkaTopics.Analysis);
         options.AiAnalysisTopic.Should().Be("hookbridge.ai.analysis");
+        options.AnomaliesTopic.Should().Be("hookbridge.ai.anomalies");
     }
 
     [Fact]
@@ -68,6 +71,13 @@ public sealed class AiKafkaOptionsTests
     }
 
     [Fact]
+    public void AiKafkaTopics_Anomalies_HasExpectedValue()
+    {
+        AiKafkaTopics.Anomalies.Should().Be("hookbridge.ai.anomalies");
+        new AiKafkaOptions().AnomaliesTopic.Should().Be(AiKafkaTopics.Anomalies);
+    }
+
+    [Fact]
     public void Validate_WhenTopicMissing_ThrowsOptionsValidationException()
     {
         var settings = ValidSettings();
@@ -78,6 +88,19 @@ public sealed class AiKafkaOptionsTests
 
         act.Should().Throw<OptionsValidationException>()
             .WithMessage("*AiKafka:AiAnalysisTopic is required.*");
+    }
+
+    [Fact]
+    public void Validate_WhenAnomaliesTopicMissing_ThrowsOptionsValidationException()
+    {
+        var settings = ValidSettings();
+        settings[$"{AiKafkaOptions.SectionName}:AnomaliesTopic"] = " ";
+        var configuration = BuildConfiguration(settings);
+
+        var act = () => CreateOptions(configuration);
+
+        act.Should().Throw<OptionsValidationException>()
+            .WithMessage("*AiKafka:AnomaliesTopic is required when anomaly detection is enabled.*");
     }
 
     [Fact]
@@ -99,6 +122,7 @@ public sealed class AiKafkaOptionsTests
             [$"{AiKafkaOptions.SectionName}:BootstrapServers"] = "localhost:9092",
             [$"{AiKafkaOptions.SectionName}:SecurityProtocol"] = "Plaintext",
             [$"{AiKafkaOptions.SectionName}:AiAnalysisTopic"] = "hookbridge.ai.analysis",
+            [$"{AiKafkaOptions.SectionName}:AnomaliesTopic"] = "hookbridge.ai.anomalies",
             [$"{AiKafkaOptions.SectionName}:ConsumerGroupId"] = "hookbridge-ai-worker",
             [$"{AiKafkaOptions.SectionName}:EnableAutoCommit"] = "false",
         };

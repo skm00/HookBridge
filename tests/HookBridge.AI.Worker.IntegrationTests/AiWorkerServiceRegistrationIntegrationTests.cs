@@ -35,6 +35,7 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
                 ["AiKafka:BootstrapServers"] = "localhost:9092",
                 ["AiKafka:SecurityProtocol"] = "Plaintext",
                 ["AiKafka:AiAnalysisTopic"] = "hookbridge.ai.analysis",
+                ["AiKafka:AnomaliesTopic"] = "hookbridge.ai.anomalies",
                 ["AiKafka:ConsumerGroupId"] = "hookbridge-ai-worker-tests"
             })
             .Build();
@@ -67,6 +68,8 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
         provider.GetRequiredService<IAiLogSummaryPromptBuilder>().Should().NotBeNull();
         provider.GetRequiredService<IAiAnalysisProducer>().Should().NotBeNull();
         provider.GetRequiredService<IAiAnalysisConsumer>().Should().NotBeNull();
+        provider.GetRequiredService<IAiAnomalyProducer>().Should().NotBeNull();
+        provider.GetRequiredService<IAiAnomalyConsumer>().Should().NotBeNull();
         provider.GetRequiredService<IAiAnalysisResultRepository>().Should().NotBeNull();
     }
 }

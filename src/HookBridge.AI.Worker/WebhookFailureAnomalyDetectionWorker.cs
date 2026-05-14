@@ -1,5 +1,6 @@
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.Kafka;
+using HookBridge.AI.Worker.Mappers;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using Microsoft.Extensions.Hosting;
@@ -13,14 +14,16 @@ public sealed class WebhookFailureAnomalyDetectionWorker : BackgroundService
     private readonly IWebhookFailureAnomalyDetectionConsumer _consumer;
     private readonly IWebhookFailureAnomalyDetectionService _detectionService;
     private readonly IWebhookFailureAnomalyDetectionRepository _repository;
+    private readonly IAiAnomalyProducer _anomalyProducer;
     private readonly ILogger<WebhookFailureAnomalyDetectionWorker> _logger;
     private readonly AiKafkaOptions _kafkaOptions;
 
-    public WebhookFailureAnomalyDetectionWorker(IWebhookFailureAnomalyDetectionConsumer consumer, IWebhookFailureAnomalyDetectionService detectionService, IWebhookFailureAnomalyDetectionRepository repository, ILogger<WebhookFailureAnomalyDetectionWorker> logger, IOptions<AiKafkaOptions> kafkaOptions)
+    public WebhookFailureAnomalyDetectionWorker(IWebhookFailureAnomalyDetectionConsumer consumer, IWebhookFailureAnomalyDetectionService detectionService, IWebhookFailureAnomalyDetectionRepository repository, IAiAnomalyProducer anomalyProducer, ILogger<WebhookFailureAnomalyDetectionWorker> logger, IOptions<AiKafkaOptions> kafkaOptions)
     {
         _consumer = consumer;
         _detectionService = detectionService;
         _repository = repository;
+        _anomalyProducer = anomalyProducer;
         _logger = logger;
         _kafkaOptions = kafkaOptions.Value;
     }
@@ -47,6 +50,18 @@ public sealed class WebhookFailureAnomalyDetectionWorker : BackgroundService
 
             var response = _detectionService.DetectAnomalies(request, DateTime.UtcNow);
             await _repository.InsertAsync(WebhookFailureAnomalyDetectionResult.FromResponse(response), stoppingToken);
+
+            if (response.IsAnomalyDetected)
+            {
+                var anomalyEvent = AiAnomalyEventMapper.FromWebhookFailureAnomalyDetectionResponse(response);
+                var publishResult = await _anomalyProducer.PublishAsync(anomalyEvent, stoppingToken);
+
+                if (!publishResult.IsSuccess)
+                {
+                    _logger.LogWarning("AI anomaly event publish failed after detection. Topic: {Topic}, Key: {Key}, ErrorMessage: {ErrorMessage}", publishResult.Topic, publishResult.Key, publishResult.ErrorMessage);
+                }
+            }
+
             await message.AcknowledgeAsync(stoppingToken);
 
             _logger.LogInformation("Webhook failure anomaly detection completed. CustomerId: {CustomerId}, SubscriptionId: {SubscriptionId}, EndpointId: {EndpointId}, EventType: {EventType}, Environment: {Environment}, IsAnomalyDetected: {IsAnomalyDetected}, AnomalyScore: {AnomalyScore}, RiskLevel: {RiskLevel}, DetectedAnomalyCount: {DetectedAnomalyCount}", response.CustomerId, response.SubscriptionId, response.EndpointId, response.EventType, response.Environment, response.IsAnomalyDetected, response.AnomalyScore, response.RiskLevel, response.DetectedAnomalies.Count);

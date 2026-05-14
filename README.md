@@ -270,7 +270,7 @@ CloudEvents__StrictValidation=true
 
 ## AI Analysis Kafka Topic
 
-HookBridge AI analysis events use Kafka topic `hookbridge.ai.analysis`. The topic is consumed by `HookBridge.AI.Worker` for asynchronous webhook failure analysis and event enrichment workflows. The worker binds Kafka settings from the `AiKafka` section, including `BootstrapServers`, `SecurityProtocol`, `SaslMechanism`, `SaslUsername`, `SaslPassword`, `AiAnalysisTopic`, `ConsumerGroupId`, and `EnableAutoCommit`. AI analysis results are persisted to MongoDB using the `AiMongo` section, with the default collection name `ai_analysis_results`. See [HookBridge AI Worker docs](docs/ai-worker.md#kafka-ai-analysis-topic) for the example message payload and local Kafka test command, and [MongoDB AI analysis result storage](docs/ai-worker.md#mongodb-ai-analysis-result-storage) for the required MongoDB configuration and example stored document.
+HookBridge AI analysis events use Kafka topic `hookbridge.ai.analysis`. Detected AI anomaly events use Kafka topic `hookbridge.ai.anomalies`. The topic is consumed by `HookBridge.AI.Worker` for asynchronous webhook failure analysis and event enrichment workflows. The worker binds Kafka settings from the `AiKafka` section, including `BootstrapServers`, `SecurityProtocol`, `SaslMechanism`, `SaslUsername`, `SaslPassword`, `AiAnalysisTopic`, `AnomaliesTopic`, `ConsumerGroupId`, and `EnableAutoCommit`. AI analysis results are persisted to MongoDB using the `AiMongo` section, with the default collection name `ai_analysis_results`. See [HookBridge AI Worker docs](docs/ai-worker.md#kafka-ai-analysis-topic) for the example message payload and local Kafka test command, and [MongoDB AI analysis result storage](docs/ai-worker.md#mongodb-ai-analysis-result-storage) for the required MongoDB configuration and example stored document.
 
 ## Observability
 
@@ -806,4 +806,50 @@ The detector compares the current metric window to a baseline window, adds deter
 
 Primary thresholds are: failure rate, retry count, timeout count, rate-limit count, client error count, server error count, average latency, and P95 latency increases of at least `50%`; dead-letter and authentication increases of at least `25%`; signature validation and suspicious payload counts increasing by at least `1` from a zero baseline.
 
-Results are stored in MongoDB collection `webhook_failure_anomaly_detection_results`, and the worker consumes requests from Kafka topic `hookbridge.ai.failure-anomalies`.
+Results are stored in MongoDB collection `webhook_failure_anomaly_detection_results`, and the worker consumes requests from Kafka topic `hookbridge.ai.failure-anomalies`. When a detected result has `isAnomalyDetected: true`, HookBridge publishes a compact anomaly notification to Kafka topic `hookbridge.ai.anomalies` for downstream alerting and incident workflows.
+
+Example anomaly event payload:
+
+```json
+{
+  "anomalyId": "anm_1001",
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "customerId": "cust_123",
+  "customerIdType": "MDM",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "eventType": "OrderCreated",
+  "anomalyType": "RateLimitSpike",
+  "riskLevel": "High",
+  "anomalyScore": 78,
+  "summary": "HTTP 429 rate-limit failures increased sharply compared to the baseline window.",
+  "recommendation": "Reduce concurrency and retry with exponential backoff.",
+  "source": "HookBridge.AI.Worker",
+  "createdAtUtc": "2026-05-14T10:16:30Z"
+}
+```
+
+Create the local Kafka anomaly topic:
+
+```bash
+docker exec -it kafka kafka-topics \
+  --create \
+  --if-not-exists \
+  --topic hookbridge.ai.anomalies \
+  --bootstrap-server kafka:9092 \
+  --partitions 3 \
+  --replication-factor 1
+```
+
+Consume local anomaly events:
+
+```bash
+docker exec -it kafka kafka-console-consumer \
+  --bootstrap-server kafka:9092 \
+  --topic hookbridge.ai.anomalies \
+  --from-beginning \
+  --property print.key=true
+```

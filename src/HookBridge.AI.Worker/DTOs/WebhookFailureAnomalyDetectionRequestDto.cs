@@ -2,6 +2,8 @@ namespace HookBridge.AI.Worker.DTOs;
 
 public sealed class WebhookFailureAnomalyDetectionRequestDto
 {
+    public string? EventId { get; set; }
+    public string? CorrelationId { get; set; }
     public string CustomerId { get; set; } = string.Empty;
     public string? CustomerIdType { get; set; }
     public string? SubscriptionId { get; set; }

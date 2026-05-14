@@ -1,6 +1,7 @@
 using FluentAssertions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Extensions;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
@@ -86,6 +87,30 @@ public sealed class AiDependencyInjectionTests
         provider.GetRequiredService<IAiFallbackService>().Should().NotBeNull();
         provider.GetRequiredService<IAiRetryRecommendationService>().Should().NotBeNull();
         provider.GetRequiredService<IAiLogSummarizationService>().Should().NotBeNull();
+    }
+
+
+    [Fact]
+    public void AddAiKafkaServices_RegistersAnomalyProducerAndConsumer()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAiKafkaOptions(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{AiKafkaOptions.SectionName}:BootstrapServers"] = "localhost:9092",
+                [$"{AiKafkaOptions.SectionName}:SecurityProtocol"] = "Plaintext",
+                [$"{AiKafkaOptions.SectionName}:AiAnalysisTopic"] = AiKafkaTopics.Analysis,
+                [$"{AiKafkaOptions.SectionName}:AnomaliesTopic"] = AiKafkaTopics.Anomalies,
+                [$"{AiKafkaOptions.SectionName}:ConsumerGroupId"] = "hookbridge-ai-tests"
+            })
+            .Build());
+        services.AddAiKafkaServices();
+
+        using var provider = services.BuildServiceProvider(validateScopes: true);
+
+        provider.GetRequiredService<IAiAnomalyProducer>().Should().BeOfType<AiAnomalyProducer>();
+        provider.GetRequiredService<IAiAnomalyConsumer>().Should().BeOfType<AiAnomalyConsumer>();
     }
 
     private static IConfiguration BuildConfiguration(bool enabled)

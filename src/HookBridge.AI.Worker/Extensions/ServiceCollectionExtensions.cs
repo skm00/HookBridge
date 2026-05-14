@@ -129,6 +129,9 @@ public static class ServiceCollectionExtensions
                 options => !string.IsNullOrWhiteSpace(options.WebhookFailureAnomalyDetectionTopic),
                 "AiKafka:WebhookFailureAnomalyDetectionTopic is required.")
             .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AnomaliesTopic),
+                "AiKafka:AnomaliesTopic is required when anomaly detection is enabled.")
+            .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
             .ValidateOnStart();
@@ -222,6 +225,8 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IAiAnalysisProducer, AiAnalysisProducer>();
         services.AddSingleton<IAiAnalysisConsumer, AiAnalysisConsumer>();
+        services.AddSingleton<IAiAnomalyProducer, AiAnomalyProducer>();
+        services.AddSingleton<IAiAnomalyConsumer, AiAnomalyConsumer>();
         services.AddSingleton<IPayloadSchemaDetectionConsumer, PayloadSchemaDetectionConsumer>();
         services.AddSingleton<IJsonToDtoSuggestionConsumer, JsonToDtoSuggestionConsumer>();
         services.AddSingleton<IFluentValidationRuleGenerationConsumer, FluentValidationRuleGenerationConsumer>();
