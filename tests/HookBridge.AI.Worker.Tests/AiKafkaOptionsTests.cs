@@ -61,6 +61,13 @@ public sealed class AiKafkaOptionsTests
     }
 
     [Fact]
+    public void AiKafkaTopics_FailureAnomalies_HasExpectedValue()
+    {
+        AiKafkaTopics.FailureAnomalies.Should().Be("hookbridge.ai.failure-anomalies");
+        new AiKafkaOptions().WebhookFailureAnomalyDetectionTopic.Should().Be(AiKafkaTopics.FailureAnomalies);
+    }
+
+    [Fact]
     public void Validate_WhenTopicMissing_ThrowsOptionsValidationException()
     {
         var settings = ValidSettings();

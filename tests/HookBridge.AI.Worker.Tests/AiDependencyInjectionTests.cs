@@ -9,6 +9,7 @@ using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
+using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -30,6 +31,7 @@ public sealed class AiDependencyInjectionTests
         services.AddAiLogSummarizationServices();
         services.AddEndpointHealthScoringServices();
         services.AddCustomerEndpointRiskScoringServices();
+        services.AddWebhookFailureAnomalyDetectionServices();
 
         using var provider = services.BuildServiceProvider(validateScopes: true);
 
@@ -41,6 +43,7 @@ public sealed class AiDependencyInjectionTests
         provider.GetRequiredService<IAiLogSummarizationService>().Should().BeOfType<AiLogSummarizationService>();
         provider.GetRequiredService<IEndpointHealthScoringService>().Should().BeOfType<EndpointHealthScoringService>();
         provider.GetRequiredService<ICustomerEndpointRiskScoringService>().Should().BeOfType<CustomerEndpointRiskScoringService>();
+        provider.GetRequiredService<IWebhookFailureAnomalyDetectionService>().Should().BeOfType<WebhookFailureAnomalyDetectionService>();
         provider.GetRequiredService<IAiFallbackService>().Should().BeOfType<AiFallbackService>();
     }
 

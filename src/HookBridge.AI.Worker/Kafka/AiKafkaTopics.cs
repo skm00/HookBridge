@@ -16,4 +16,6 @@ public static class AiKafkaTopics
     public const string TransformationRecommendation = "hookbridge.ai.transformation-recommendation";
 
     public const string EndpointRiskScore = "hookbridge.ai.endpoint-risk-score";
+
+    public const string FailureAnomalies = "hookbridge.ai.failure-anomalies";
 }

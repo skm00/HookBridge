@@ -8,12 +8,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
 {
     private readonly IAiAnalysisResultCollectionProvider _collectionProvider;
     private readonly ICustomerEndpointRiskScoreCollectionProvider? _riskScoreCollectionProvider;
+    private readonly IWebhookFailureAnomalyDetectionCollectionProvider? _failureAnomalyCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, logger)
+        : this(collectionProvider, null, null, logger)
     {
     }
 
@@ -21,9 +22,19 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, logger)
+    {
+    }
+
+    public AiMongoIndexInitializer(
+        IAiAnalysisResultCollectionProvider collectionProvider,
+        ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
+        IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
+        ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
         _riskScoreCollectionProvider = riskScoreCollectionProvider;
+        _failureAnomalyCollectionProvider = failureAnomalyCollectionProvider;
         _logger = logger;
     }
 
@@ -38,6 +49,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
         {
             var riskScoreCollection = _riskScoreCollectionProvider.GetCollection();
             await riskScoreCollection.Indexes.CreateManyAsync(CreateCustomerEndpointRiskScoreIndexModels(), cancellationToken);
+        }
+
+        if (_failureAnomalyCollectionProvider is not null)
+        {
+            var failureAnomalyCollection = _failureAnomalyCollectionProvider.GetCollection();
+            await failureAnomalyCollection.Indexes.CreateManyAsync(CreateWebhookFailureAnomalyDetectionIndexModels(), cancellationToken);
         }
 
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
@@ -70,6 +87,21 @@ public sealed class AiMongoIndexInitializer : IHostedService
             new CreateIndexModel<CustomerEndpointRiskScoreResult>(Builders<CustomerEndpointRiskScoreResult>.IndexKeys.Ascending(result => result.EndpointId), new CreateIndexOptions { Name = "idx_customer_endpoint_risk_score_endpoint_id" }),
             new CreateIndexModel<CustomerEndpointRiskScoreResult>(Builders<CustomerEndpointRiskScoreResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_customer_endpoint_risk_score_risk_level" }),
             new CreateIndexModel<CustomerEndpointRiskScoreResult>(Builders<CustomerEndpointRiskScoreResult>.IndexKeys.Descending(result => result.CalculatedAtUtc), new CreateIndexOptions { Name = "idx_customer_endpoint_risk_score_calculated_at_utc_desc" })
+        };
+    }
+
+    public static IReadOnlyList<CreateIndexModel<WebhookFailureAnomalyDetectionResult>> CreateWebhookFailureAnomalyDetectionIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.CustomerId), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_customer_id" }),
+            new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.SubscriptionId), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_subscription_id" }),
+            new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.EndpointId), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_endpoint_id" }),
+            new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.EventType), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_event_type" }),
+            new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.Environment), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_environment" }),
+            new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.IsAnomalyDetected), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_is_anomaly_detected" }),
+            new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_risk_level" }),
+            new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Descending(result => result.CalculatedAtUtc), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_calculated_at_utc_desc" })
         };
     }
 }
