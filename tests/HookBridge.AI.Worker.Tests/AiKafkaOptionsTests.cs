@@ -52,6 +52,14 @@ public sealed class AiKafkaOptionsTests
         AiKafkaTopics.Analysis.Should().Be("hookbridge.ai.analysis");
     }
 
+
+    [Fact]
+    public void AiKafkaTopics_EndpointRiskScore_HasExpectedValue()
+    {
+        AiKafkaTopics.EndpointRiskScore.Should().Be("hookbridge.ai.endpoint-risk-score");
+        new AiKafkaOptions().CustomerEndpointRiskScoreTopic.Should().Be(AiKafkaTopics.EndpointRiskScore);
+    }
+
     [Fact]
     public void Validate_WhenTopicMissing_ThrowsOptionsValidationException()
     {

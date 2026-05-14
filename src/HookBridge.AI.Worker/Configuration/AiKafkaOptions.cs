@@ -29,6 +29,8 @@ public sealed class AiKafkaOptions
 
     public string WebhookTransformationRecommendationTopic { get; set; } = AiKafkaTopics.TransformationRecommendation;
 
+    public string CustomerEndpointRiskScoreTopic { get; set; } = AiKafkaTopics.EndpointRiskScore;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

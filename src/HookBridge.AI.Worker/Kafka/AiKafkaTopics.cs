@@ -14,4 +14,6 @@ public static class AiKafkaTopics
     public const string ValidationRuleGeneration = "hookbridge.ai.validation-rule-generation";
 
     public const string TransformationRecommendation = "hookbridge.ai.transformation-recommendation";
+
+    public const string EndpointRiskScore = "hookbridge.ai.endpoint-risk-score";
 }
