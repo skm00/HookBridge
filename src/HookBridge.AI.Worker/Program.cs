@@ -14,12 +14,14 @@ builder.Services.AddAiRetryRecommendationServices();
 builder.Services.AddAiLogSummarizationServices();
 builder.Services.AddPayloadSchemaDetectionServices();
 builder.Services.AddJsonToDtoSuggestionServices();
+builder.Services.AddFluentValidationRuleGenerationServices();
 builder.Services.AddEndpointHealthScoringServices();
 builder.Services.AddAiKafkaServices();
 builder.Services.AddAiMongoServices();
 builder.Services.AddHostedService<AiProcessingWorker>();
 builder.Services.AddHostedService<PayloadSchemaDetectionWorker>();
 builder.Services.AddHostedService<JsonToDtoSuggestionWorker>();
+builder.Services.AddHostedService<FluentValidationRuleGenerationWorker>();
 
 var host = builder.Build();
 host.Run();
