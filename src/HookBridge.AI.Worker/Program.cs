@@ -12,10 +12,12 @@ builder.Services.AddAiKernelServices();
 builder.Services.AddAiPromptServices();
 builder.Services.AddAiRetryRecommendationServices();
 builder.Services.AddAiLogSummarizationServices();
+builder.Services.AddPayloadSchemaDetectionServices();
 builder.Services.AddEndpointHealthScoringServices();
 builder.Services.AddAiKafkaServices();
 builder.Services.AddAiMongoServices();
 builder.Services.AddHostedService<AiProcessingWorker>();
+builder.Services.AddHostedService<PayloadSchemaDetectionWorker>();
 
 var host = builder.Build();
 host.Run();

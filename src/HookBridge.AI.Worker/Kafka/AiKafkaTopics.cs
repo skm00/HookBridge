@@ -6,4 +6,6 @@ namespace HookBridge.AI.Worker.Kafka;
 public static class AiKafkaTopics
 {
     public const string Analysis = "hookbridge.ai.analysis";
+
+    public const string SchemaDetection = "hookbridge.ai.schema-detection";
 }

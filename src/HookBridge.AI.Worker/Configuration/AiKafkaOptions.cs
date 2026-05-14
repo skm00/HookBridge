@@ -21,6 +21,8 @@ public sealed class AiKafkaOptions
 
     public string AiAnalysisTopic { get; set; } = AiKafkaTopics.Analysis;
 
+    public string PayloadSchemaDetectionTopic { get; set; } = AiKafkaTopics.SchemaDetection;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }
