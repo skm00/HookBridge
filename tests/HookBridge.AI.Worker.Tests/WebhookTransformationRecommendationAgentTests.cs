@@ -3,9 +3,11 @@ using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Extensions;
 using HookBridge.AI.Worker.Kafka;
+using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Prompts;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
+using HookBridge.AI.Worker.Validation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -92,6 +94,109 @@ public sealed class WebhookTransformationRecommendationAgentTests
         prompt.Should().NotContain("super-secret");
         prompt.Should().NotContain("Bearer secret");
         prompt.Should().Contain("truncated from");
+    }
+
+
+    [Fact]
+    public async Task RecommendAsync_FallbackUsesTargetSchemaWhenSamplePayloadIsMissing()
+    {
+        var request = CreateRequest(sourcePayload: """{"identifier":"ORD-1","other":"value"}""", targetSamplePayload: " ", targetSchema: """{"properties":{"id":{"type":"string"}}}""");
+
+        var response = await CreateAgent(Mock.Of<ILocalLlmClient>(), enabled: false).RecommendAsync(request);
+
+        response.RecommendedMappings.Should().ContainSingle(m => m.SourceFieldName == "identifier" && m.TargetFieldName == "id");
+        response.UnmappedSourceFields.Should().Contain("$.other");
+    }
+
+    [Fact]
+    public async Task RecommendAsync_FallsBackWhenLlmReturnsFailureOrThrows()
+    {
+        var failureLlm = new Mock<ILocalLlmClient>();
+        failureLlm.Setup(client => client.GenerateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LlmResponseResult.Failure(AiFallbackReason.ProviderUnavailable, "provider down", 10));
+        var throwingLlm = new Mock<ILocalLlmClient>();
+        throwingLlm.Setup(client => client.GenerateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var failureResponse = await CreateAgent(failureLlm.Object).RecommendAsync(CreateRequest());
+        var thrownResponse = await CreateAgent(throwingLlm.Object).RecommendAsync(CreateRequest());
+
+        failureResponse.Fallback!.FallbackReason.Should().Be(AiFallbackReason.ProviderUnavailable);
+        failureResponse.Fallback.FallbackMessage.Should().Be("provider down");
+        thrownResponse.Fallback!.FallbackReason.Should().Be(AiFallbackReason.UnknownError);
+        thrownResponse.Fallback.FallbackMessage.Should().Contain("boom");
+    }
+
+    [Fact]
+    public async Task RecommendAsync_RejectsInvalidRequiredRequestMetadata()
+    {
+        var missingEventId = CreateRequest();
+        missingEventId.EventId = " ";
+        var missingPayload = CreateRequest();
+        missingPayload.SourcePayload = null;
+        var nonUtcReceivedAt = CreateRequest();
+        nonUtcReceivedAt.ReceivedAtUtc = new DateTime(2026, 5, 14, 10, 30, 0, DateTimeKind.Local);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => CreateAgent(Mock.Of<ILocalLlmClient>()).RecommendAsync(missingEventId));
+        await Assert.ThrowsAsync<ArgumentException>(() => CreateAgent(Mock.Of<ILocalLlmClient>()).RecommendAsync(missingPayload));
+        await Assert.ThrowsAsync<ArgumentException>(() => CreateAgent(Mock.Of<ILocalLlmClient>()).RecommendAsync(nonUtcReceivedAt));
+    }
+
+    [Fact]
+    public void BuildPrompt_WhenMaskingDisabled_KeepsSensitiveValuesAndHandlesNullHeaders()
+    {
+        var builder = new WebhookTransformationPromptBuilder(Options.Create(new AiOptions { MaxPromptPayloadLength = 4000, MaskSensitiveValues = false }));
+        var request = CreateRequest(sourcePayload: """{"accessToken":"super-secret"}""");
+        request.Headers = null!;
+
+        var prompt = builder.BuildPrompt(request);
+
+        prompt.Should().Contain("super-secret");
+        prompt.Should().NotContain(WebhookTransformationPromptBuilder.MaskedValue);
+    }
+
+    [Fact]
+    public void RequestValidator_CoversValidInvalidJsonAndUtcBranches()
+    {
+        var validator = new WebhookTransformationRecommendationRequestDtoValidator();
+        var valid = validator.Validate(CreateRequest());
+        var invalidJson = CreateRequest(sourcePayload: "not-json");
+        var nonUtc = CreateRequest();
+        nonUtc.ReceivedAtUtc = DateTime.SpecifyKind(nonUtc.ReceivedAtUtc, DateTimeKind.Unspecified);
+
+        valid.IsValid.Should().BeTrue();
+        validator.Validate(invalidJson).Errors.Should().Contain(error => error.PropertyName == nameof(WebhookTransformationRecommendationRequestDto.SourcePayload));
+        validator.Validate(nonUtc).Errors.Should().Contain(error => error.PropertyName == nameof(WebhookTransformationRecommendationRequestDto.ReceivedAtUtc));
+    }
+
+    [Fact]
+    public void MongoResult_FromResponse_CopiesMetadataAndUtcDates()
+    {
+        var response = new WebhookTransformationRecommendationResponseDto
+        {
+            EventId = "evt_1",
+            CorrelationId = "corr_1",
+            Summary = "summary",
+            RecommendedMappings = new[] { new WebhookFieldMappingRecommendationDto { SourceFieldName = "id", TargetFieldName = "id" } },
+            MissingTargetFields = new[] { "$.missing" },
+            UnmappedSourceFields = new[] { "$.extra" },
+            TransformationNotes = new[] { "review" },
+            GeneratedTransformationCode = "// code",
+            ConfidenceScore = 0.4,
+            RiskLevel = "Medium",
+            GeneratedAtUtc = DateTime.SpecifyKind(new DateTime(2026, 5, 14, 10, 30, 0), DateTimeKind.Utc),
+            Model = "llama3",
+            Provider = "Ollama",
+            Fallback = new AiFallbackMetadataDto { UsedFallback = true }
+        };
+
+        var result = WebhookTransformationRecommendationResult.FromResponse(response, CreateRequest());
+
+        result.RecommendedMappings.Should().ContainSingle();
+        result.MissingTargetFields.Should().Contain("$.missing");
+        result.UnmappedSourceFields.Should().Contain("$.extra");
+        result.FallbackUsed.Should().BeTrue();
+        result.GeneratedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
     }
 
     [Fact]
