@@ -326,22 +326,6 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
     private static bool HasReachedMaxRetryCount(WebhookFailureAnalysisRequestDto request)
         => request.MaxRetryCount > 0 && request.RetryCount >= request.MaxRetryCount;
 
-    private static string BuildFallbackSummary(WebhookFailureAnalysisRequestDto request)
-        => request.StatusCode is null
-            ? "Rule-based analysis could not determine an HTTP status code for this failed webhook delivery."
-            : $"Rule-based analysis evaluated failed webhook delivery status code {request.StatusCode}.";
-
-    private static string BuildFallbackRootCause(WebhookFailureAnalysisRequestDto request)
-        => request.StatusCode switch
-        {
-            429 => "The target endpoint reported rate limiting.",
-            408 or 504 => "The delivery attempt timed out or the upstream gateway timed out.",
-            500 or 502 or 503 => "The target endpoint or upstream service returned a transient server error.",
-            401 or 403 => "The target endpoint rejected the request due to authentication or authorization.",
-            400 or 404 => "The target endpoint rejected the request as a client-side or not-found error.",
-            _ => "The failure cause is unknown from available status information."
-        };
-
     private static string AppendSafetyNote(string recommendation, string note)
         => string.IsNullOrWhiteSpace(recommendation) ? note : $"{recommendation} Safety override: {note}";
 

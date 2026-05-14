@@ -362,8 +362,29 @@ dotnet restore
 dotnet build HookBridge.sln
 dotnet test HookBridge.sln
 
-# Run only AI Worker unit tests and collect Coverlet XPlat coverage
-dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+# Run AI Worker unit tests and collect Coverlet XPlat coverage
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj \
+  --configuration Release \
+  --no-build \
+  --collect:"XPlat Code Coverage" \
+  --settings coverlet.runsettings \
+  --results-directory ./TestResults/Unit
+
+# Run AI Worker integration tests with coverage. Omit this command locally when
+# you need the same behavior as SKIP_INTEGRATION_TESTS=true in CI.
+dotnet test tests/HookBridge.AI.Worker.IntegrationTests/HookBridge.AI.Worker.IntegrationTests.csproj \
+  --configuration Release \
+  --no-build \
+  --collect:"XPlat Code Coverage" \
+  --settings coverlet.runsettings \
+  --results-directory ./TestResults/Integration
+
+# Generate an HTML, Cobertura XML, and Markdown coverage report.
+dotnet tool install --global dotnet-reportgenerator-globaltool
+reportgenerator \
+  -reports:"TestResults/**/coverage.cobertura.xml" \
+  -targetdir:"CoverageReport" \
+  -reporttypes:"Html;Cobertura;MarkdownSummaryGithub;TextSummary"
 ```
 
 ## Continuous Integration
@@ -373,15 +394,16 @@ HookBridge uses the [`.NET CI/CD`](.github/workflows/dotnet-ci.yml) GitHub Actio
 The pipeline provides:
 
 - **Build validation:** restores NuGet packages once, builds `HookBridge.sln` in `Release` mode, and fails fast when compilation fails.
-- **Automated testing:** runs the xUnit test projects with `dotnet test --no-build`, emits TRX logs, and surfaces failing test names in the GitHub Actions log output.
-- **Code coverage:** collects Coverlet `XPlat Code Coverage`, generates HTML/Cobertura/TextSummary coverage reports, enforces a 78% interim line coverage gate while tracking toward the 80% minimum coverage target, and publishes `coverage-reports/` as a workflow artifact.
-- **Pull request checks:** uploads `test-results/` on every run and is designed to be required as a status check before merging.
+- **Automated testing:** runs the existing API, application, worker, AI Worker unit, and AI Worker integration xUnit test projects with `dotnet test --no-build`, emits TRX logs, and surfaces failing test names in the GitHub Actions log output. The AI Worker integration test stage runs by default; repository maintainers can set `SKIP_INTEGRATION_TESTS=true` as a GitHub Actions variable when an emergency skip is needed.
+- **Code coverage:** collects Coverlet `XPlat Code Coverage` for the AI Worker unit and integration test stages, generates HTML, Cobertura XML, Markdown, and text summaries with ReportGenerator, enforces at least 80% line coverage and 70% branch coverage, and publishes `CoverageReport/` as the `hookbridge-coverage-report` workflow artifact.
+- **Coverage visibility:** appends the ReportGenerator Markdown summary to the GitHub Actions job summary, including line and branch coverage totals. Open the completed workflow run, download `hookbridge-coverage-report`, and view `index.html` locally for the readable HTML report or `Cobertura.xml` for tooling integrations.
+- **Pull request checks:** uploads `TestResults/` on every run and is designed to be required as a status check before merging.
 - **Fast execution:** caches NuGet packages and uses `--no-restore`/`--no-build` to avoid duplicate work after the initial restore and build steps.
 
 Recommended branch protection for `main`:
 
 1. Require a pull request before merging.
-2. Require the `.NET CI/CD` status check to pass before merge so build, test, and the interim line coverage gate cannot be bypassed while the project tracks toward 80%.
+2. Require the `.NET CI/CD` status check to pass before merge so build, test, the 80% line coverage gate, and the 70% branch coverage gate cannot be bypassed.
 3. Prevent direct pushes to `main`, including for administrators unless an emergency bypass process is documented.
 4. Require branches to be up to date before merging when the repository has high commit volume.
 

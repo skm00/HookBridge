@@ -19,9 +19,13 @@ env:
   DOTNET_VERSION: 8.0.x
   CONFIGURATION: Release
   SOLUTION_FILE: HookBridge.sln
-  TEST_RESULTS_DIR: test-results
-  COVERAGE_REPORTS_DIR: coverage-reports
-  COVERAGE_LINE_THRESHOLD: 78
+  UNIT_TEST_PROJECT: tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj
+  INTEGRATION_TEST_PROJECT: tests/HookBridge.AI.Worker.IntegrationTests/HookBridge.AI.Worker.IntegrationTests.csproj
+  TEST_RESULTS_DIR: ./TestResults
+  COVERAGE_REPORT_DIR: ./CoverageReport
+  COVERAGE_LINE_THRESHOLD: 80
+  COVERAGE_BRANCH_THRESHOLD: 70
+  SKIP_INTEGRATION_TESTS: ${{ vars.SKIP_INTEGRATION_TESTS || 'false' }}
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
@@ -39,9 +43,6 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      # Restore NuGet packages from one dependency-based cache key. The cache is
-      # saved only from main, so pull requests and feature branches reuse the
-      # default-branch cache without creating duplicate branch/tag entries.
       - name: Restore NuGet package cache
         id: nuget-cache
         uses: actions/cache/restore@v4
@@ -54,9 +55,6 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore "$SOLUTION_FILE"
 
-      # Save NuGet packages after restore on main only. This keeps fast restores
-      # for .NET builds while preventing every pull request branch from consuming
-      # GitHub Actions cache storage with near-identical package archives.
       - name: Save NuGet package cache
         if: github.ref == 'refs/heads/main' && steps.nuget-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -67,21 +65,50 @@ jobs:
       - name: Build solution
         run: dotnet build "$SOLUTION_FILE" --configuration "$CONFIGURATION" --no-restore --verbosity minimal
 
-      - name: Run unit tests with coverage, including AI Worker tests
+
+      - name: Run existing non-AI test projects
         shell: bash
         run: |
-          mkdir -p "$TEST_RESULTS_DIR" "$COVERAGE_REPORTS_DIR"
-          dotnet test "$SOLUTION_FILE" \
+          for test_project in \
+            tests/HookBridge.Api.Tests/HookBridge.Api.Tests.csproj \
+            tests/HookBridge.Application.Tests/HookBridge.Application.Tests.csproj \
+            tests/HookBridge.Worker.Tests/HookBridge.Worker.Tests.csproj; do
+            dotnet test "$test_project" \
+              --configuration "$CONFIGURATION" \
+              --no-build \
+              --logger "trx;LogFilePrefix=$(basename "$test_project" .csproj)" \
+              --results-directory "$TEST_RESULTS_DIR/Existing" \
+              --verbosity normal
+          done
+
+      - name: Run unit tests with coverage
+        shell: bash
+        run: |
+          dotnet test "$UNIT_TEST_PROJECT" \
             --configuration "$CONFIGURATION" \
-            --no-restore \
             --no-build \
             --collect:"XPlat Code Coverage" \
             --settings coverlet.runsettings \
-            --logger "trx;LogFilePrefix=hookbridge-tests" \
-            --results-directory "$TEST_RESULTS_DIR" \
-            --blame-hang \
-            --blame-hang-timeout 20m \
+            --logger "trx;LogFilePrefix=hookbridge-ai-worker-unit-tests" \
+            --results-directory "$TEST_RESULTS_DIR/Unit" \
             --verbosity normal
+
+      - name: Run integration tests with coverage
+        if: env.SKIP_INTEGRATION_TESTS != 'true'
+        shell: bash
+        run: |
+          dotnet test "$INTEGRATION_TEST_PROJECT" \
+            --configuration "$CONFIGURATION" \
+            --no-build \
+            --collect:"XPlat Code Coverage" \
+            --settings coverlet.runsettings \
+            --logger "trx;LogFilePrefix=hookbridge-ai-worker-integration-tests" \
+            --results-directory "$TEST_RESULTS_DIR/Integration" \
+            --verbosity normal
+
+      - name: Skip integration tests notice
+        if: env.SKIP_INTEGRATION_TESTS == 'true'
+        run: echo "SKIP_INTEGRATION_TESTS=true; integration tests were skipped."
 
       - name: Install coverage report generator
         if: always()
@@ -97,13 +124,53 @@ jobs:
           if find "$TEST_RESULTS_DIR" -name 'coverage.cobertura.xml' -print -quit | grep -q .; then
             reportgenerator \
               -reports:"$TEST_RESULTS_DIR/**/coverage.cobertura.xml" \
-              -targetdir:"$COVERAGE_REPORTS_DIR" \
-              -reporttypes:"HtmlInline_AzurePipelines;Cobertura;TextSummary"
+              -targetdir:"$COVERAGE_REPORT_DIR" \
+              -reporttypes:"Html;Cobertura;MarkdownSummaryGithub;TextSummary"
           else
-            echo "::warning::No coverage.cobertura.xml files were found under $TEST_RESULTS_DIR."
+            echo "::error::No coverage.cobertura.xml files were found under $TEST_RESULTS_DIR."
+            exit 1
           fi
 
-      - name: Enforce minimum line coverage
+      - name: Add coverage summary to job summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$COVERAGE_REPORT_DIR/SummaryGithub.md" ]; then
+            cat "$COVERAGE_REPORT_DIR/SummaryGithub.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f "$COVERAGE_REPORT_DIR/Summary.txt" ]; then
+            {
+              echo ""
+              echo "### Coverage text summary"
+              echo '```text'
+              cat "$COVERAGE_REPORT_DIR/Summary.txt"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          {
+            echo ""
+            echo "Coverage artifact: \`hookbridge-coverage-report\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hookbridge-coverage-report
+          path: ./CoverageReport
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hookbridge-test-results
+          path: ./TestResults
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Enforce coverage thresholds
         if: always()
         shell: bash
         run: |
@@ -113,8 +180,9 @@ jobs:
           import sys
           import xml.etree.ElementTree as ET
 
-          coverage_file = pathlib.Path(os.environ["COVERAGE_REPORTS_DIR"]) / "Cobertura.xml"
-          threshold = float(os.environ["COVERAGE_LINE_THRESHOLD"])
+          coverage_file = pathlib.Path(os.environ["COVERAGE_REPORT_DIR"]) / "Cobertura.xml"
+          line_threshold = float(os.environ["COVERAGE_LINE_THRESHOLD"])
+          branch_threshold = float(os.environ["COVERAGE_BRANCH_THRESHOLD"])
 
           if not coverage_file.exists():
               print(f"Coverage file not found: {coverage_file}", file=sys.stderr)
@@ -126,30 +194,21 @@ jobs:
 
           print(f"Line coverage: {line_rate:.2f}%")
           print(f"Branch coverage: {branch_rate:.2f}%")
-          print(f"Required line coverage: {threshold:.2f}%")
+          print(f"Required line coverage: {line_threshold:.2f}%")
+          print(f"Required branch coverage: {branch_threshold:.2f}%")
 
-          if line_rate < threshold:
-              print(
-                  f"Line coverage {line_rate:.2f}% is below the required {threshold:.2f}% threshold.",
-                  file=sys.stderr,
+          failures = []
+          if line_rate < line_threshold:
+              failures.append(
+                  f"Line coverage {line_rate:.2f}% is below the required {line_threshold:.2f}% threshold."
               )
+          if branch_rate < branch_threshold:
+              failures.append(
+                  f"Branch coverage {branch_rate:.2f}% is below the required {branch_threshold:.2f}% threshold."
+              )
+
+          if failures:
+              for failure in failures:
+                  print(failure, file=sys.stderr)
               sys.exit(1)
           PY
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: ${{ env.TEST_RESULTS_DIR }}/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-reports
-          path: ${{ env.COVERAGE_REPORTS_DIR }}/
-          if-no-files-found: warn
-          retention-days: 14
