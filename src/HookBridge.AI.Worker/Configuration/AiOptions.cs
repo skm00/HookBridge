@@ -40,6 +40,14 @@ public sealed class AiOptions
 
     public bool MaskSensitiveValues { get; set; } = true;
 
+    [Range(1, int.MaxValue, ErrorMessage = "AI:MaxSecurityPayloadLength must be greater than 0.")]
+    public int MaxSecurityPayloadLength { get; set; } = 4000;
+
+    [Range(1, long.MaxValue, ErrorMessage = "AI:LargePayloadThresholdBytes must be greater than 0.")]
+    public long LargePayloadThresholdBytes { get; set; } = 1048576;
+
+    public bool EnableSecurityAnalysisFallback { get; set; } = true;
+
     [Range(1, int.MaxValue, ErrorMessage = "AI:MaxLogEntriesForSummary must be greater than 0.")]
     public int MaxLogEntriesForSummary { get; set; } = 100;
 

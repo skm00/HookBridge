@@ -10,12 +10,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly ICustomerEndpointRiskScoreCollectionProvider? _riskScoreCollectionProvider;
     private readonly IWebhookFailureAnomalyDetectionCollectionProvider? _failureAnomalyCollectionProvider;
     private readonly IAiAnomalyRecordCollectionProvider? _anomalyRecordCollectionProvider;
+    private readonly IAiSecurityAnalysisCollectionProvider? _securityAnalysisCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, logger)
     {
     }
 
@@ -23,7 +24,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, logger)
     {
     }
 
@@ -32,7 +33,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, logger)
     {
     }
 
@@ -41,12 +42,14 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         IAiAnomalyRecordCollectionProvider? anomalyRecordCollectionProvider,
+        IAiSecurityAnalysisCollectionProvider? securityAnalysisCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
         _riskScoreCollectionProvider = riskScoreCollectionProvider;
         _failureAnomalyCollectionProvider = failureAnomalyCollectionProvider;
         _anomalyRecordCollectionProvider = anomalyRecordCollectionProvider;
+        _securityAnalysisCollectionProvider = securityAnalysisCollectionProvider;
         _logger = logger;
     }
 
@@ -73,6 +76,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
         {
             var anomalyRecordCollection = _anomalyRecordCollectionProvider.GetCollection();
             await anomalyRecordCollection.Indexes.CreateManyAsync(CreateAiAnomalyRecordIndexModels(), cancellationToken);
+        }
+
+        if (_securityAnalysisCollectionProvider is not null)
+        {
+            var securityAnalysisCollection = _securityAnalysisCollectionProvider.GetCollection();
+            await securityAnalysisCollection.Indexes.CreateManyAsync(CreateAiSecurityAnalysisIndexModels(), cancellationToken);
         }
 
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
@@ -143,6 +152,22 @@ public sealed class AiMongoIndexInitializer : IHostedService
             new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.IsAnomalyDetected), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_is_anomaly_detected" }),
             new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_risk_level" }),
             new CreateIndexModel<WebhookFailureAnomalyDetectionResult>(Builders<WebhookFailureAnomalyDetectionResult>.IndexKeys.Descending(result => result.CalculatedAtUtc), new CreateIndexOptions { Name = "idx_webhook_failure_anomaly_calculated_at_utc_desc" })
+        };
+    }
+
+    public static IReadOnlyList<CreateIndexModel<AiSecurityAnalysisResult>> CreateAiSecurityAnalysisIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Ascending(result => result.EventId), new CreateIndexOptions { Name = "idx_ai_security_analysis_event_id" }),
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Ascending(result => result.CorrelationId), new CreateIndexOptions { Name = "idx_ai_security_analysis_correlation_id" }),
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Ascending(result => result.CustomerId), new CreateIndexOptions { Name = "idx_ai_security_analysis_customer_id" }),
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Ascending(result => result.SubscriptionId), new CreateIndexOptions { Name = "idx_ai_security_analysis_subscription_id" }),
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Ascending(result => result.EndpointId), new CreateIndexOptions { Name = "idx_ai_security_analysis_endpoint_id" }),
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Ascending(result => result.Environment), new CreateIndexOptions { Name = "idx_ai_security_analysis_environment" }),
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_ai_security_analysis_risk_level" }),
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Ascending(result => result.IsSuspicious), new CreateIndexOptions { Name = "idx_ai_security_analysis_is_suspicious" }),
+            new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Descending(result => result.GeneratedAtUtc), new CreateIndexOptions { Name = "idx_ai_security_analysis_generated_at_utc_desc" })
         };
     }
 }

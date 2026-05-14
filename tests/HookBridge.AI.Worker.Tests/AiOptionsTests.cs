@@ -29,7 +29,10 @@ public sealed class AiOptionsTests
             [$"{AiOptions.SectionName}:MaxPromptPayloadLength"] = "2048",
             [$"{AiOptions.SectionName}:MaskSensitiveValues"] = "false",
             [$"{AiOptions.SectionName}:MaxLogEntriesForSummary"] = "50",
-            [$"{AiOptions.SectionName}:MaxLogMessageLength"] = "1024"
+            [$"{AiOptions.SectionName}:MaxLogMessageLength"] = "1024",
+            [$"{AiOptions.SectionName}:MaxSecurityPayloadLength"] = "3000",
+            [$"{AiOptions.SectionName}:LargePayloadThresholdBytes"] = "2048",
+            [$"{AiOptions.SectionName}:EnableSecurityAnalysisFallback"] = "false"
         });
 
         var options = CreateOptions(configuration);
@@ -50,6 +53,9 @@ public sealed class AiOptionsTests
         options.MaskSensitiveValues.Should().BeFalse();
         options.MaxLogEntriesForSummary.Should().Be(50);
         options.MaxLogMessageLength.Should().Be(1024);
+        options.MaxSecurityPayloadLength.Should().Be(3000);
+        options.LargePayloadThresholdBytes.Should().Be(2048);
+        options.EnableSecurityAnalysisFallback.Should().BeFalse();
     }
 
     [Fact]
@@ -73,6 +79,9 @@ public sealed class AiOptionsTests
         options.MaskSensitiveValues.Should().BeTrue();
         options.MaxLogEntriesForSummary.Should().Be(100);
         options.MaxLogMessageLength.Should().Be(2000);
+        options.MaxSecurityPayloadLength.Should().Be(4000);
+        options.LargePayloadThresholdBytes.Should().Be(1048576);
+        options.EnableSecurityAnalysisFallback.Should().BeTrue();
     }
 
     [Fact]
@@ -295,6 +304,9 @@ public sealed class AiOptionsTests
         options.MaskSensitiveValues.Should().BeTrue();
         options.MaxLogEntriesForSummary.Should().Be(100);
         options.MaxLogMessageLength.Should().Be(2000);
+        options.MaxSecurityPayloadLength.Should().Be(4000);
+        options.LargePayloadThresholdBytes.Should().Be(1048576);
+        options.EnableSecurityAnalysisFallback.Should().BeTrue();
     }
 
     [Fact]
@@ -319,6 +331,9 @@ public sealed class AiOptionsTests
         options.MaskSensitiveValues.Should().BeTrue();
         options.MaxLogEntriesForSummary.Should().Be(100);
         options.MaxLogMessageLength.Should().Be(2000);
+        options.MaxSecurityPayloadLength.Should().Be(4000);
+        options.LargePayloadThresholdBytes.Should().Be(1048576);
+        options.EnableSecurityAnalysisFallback.Should().BeTrue();
     }
 
     private static Dictionary<string, string?> ValidEnabledSettings()

@@ -856,3 +856,118 @@ docker exec -it kafka kafka-console-consumer \
   --from-beginning \
   --property print.key=true
 ```
+
+## AI Security Analysis
+
+HookBridge AI Security Analysis inspects webhook payloads, headers, source metadata, and delivery context for advisory security review. It is designed to flag suspicious events before replay or forwarding, store the analysis in MongoDB, and publish suspicious findings to the AI anomalies stream for downstream review workflows.
+
+> **Important:** AI Security Analysis is advisory. Do not automatically block production traffic solely from an AI or fallback score. Use the suggested action to guide human review and operational runbooks.
+
+### Kafka and MongoDB
+
+- Kafka input topic: `hookbridge.ai.security-analysis`
+- Optional suspicious-event anomaly topic: `hookbridge.ai.anomalies`
+- MongoDB collection: `ai_security_analysis_results`
+
+### Security scoring rules
+
+The deterministic fallback scanner starts at `0` and clamps the final `securityRiskScore` to `0..100`:
+
+| Signal | Score impact |
+| --- | ---: |
+| Signature validation failure | +30 |
+| Authentication failure | +30 |
+| Payload size greater than `AI:LargePayloadThresholdBytes` | +15 |
+| Script/XSS-like content (`<script`, `javascript:`) | +20 |
+| SQL injection-like content (`DROP TABLE`, `UNION SELECT`) | +25 |
+| Command injection-like content (`cmd.exe`, `/bin/sh`, `powershell`) | +30 |
+| Path traversal (`../`, `..\\`) | +20 |
+| Secret-looking values (`Bearer `, `password`, `client_secret`, `access_token`) | +15 |
+| Suspicious or missing User-Agent | +10 |
+
+### Risk levels and suggested actions
+
+| Score | Risk level | Typical suggested action |
+| ---: | --- | --- |
+| 0-20 | Low | Allow or Monitor |
+| 21-50 | Medium | Monitor |
+| 51-80 | High | RequireManualReview or Quarantine |
+| 81-100 | Critical | Quarantine or Reject |
+
+Signature validation or authentication failures never recommend `Allow`. Suggested actions are advisory and include `None`, `Allow`, `Monitor`, `RequireManualReview`, `Quarantine`, `BlockTemporarily`, and `Reject`.
+
+### Configuration
+
+```json
+{
+  "AI": {
+    "MaxSecurityPayloadLength": 4000,
+    "LargePayloadThresholdBytes": 1048576,
+    "EnableSecurityAnalysisFallback": true
+  }
+}
+```
+
+`MaxSecurityPayloadLength` truncates prompt payload context safely, `LargePayloadThresholdBytes` controls the large-payload fallback signal, and `EnableSecurityAnalysisFallback` keeps deterministic scanning available when AI is disabled, unavailable, or returns invalid JSON.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "environment": "qa",
+  "source": "HookBridge.API",
+  "eventType": "OrderCreated",
+  "targetUrl": "https://customer.example.com/webhook",
+  "httpMethod": "POST",
+  "sourceIp": "10.10.10.10",
+  "userAgent": "unknown-client",
+  "signatureValidationFailed": true,
+  "authenticationFailed": false,
+  "payloadSizeBytes": 2048,
+  "payload": {
+    "orderId": "ORD-1001",
+    "comment": "<script>alert('x')</script>"
+  },
+  "receivedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_1001",
+  "correlationId": "corr_2001",
+  "isSuspicious": true,
+  "securityRiskScore": 60,
+  "riskLevel": "High",
+  "summary": "Detected 3 deterministic webhook security signal(s).",
+  "recommendation": "Quarantine the event and perform manual security review before replaying or forwarding.",
+  "detectedSecuritySignals": [
+    {
+      "signalName": "SignatureValidationFailed",
+      "severity": "High",
+      "description": "The webhook signature validation failed.",
+      "evidence": "signatureValidationFailed=true",
+      "recommendation": "Verify signing secret and timestamp tolerance."
+    }
+  ],
+  "suggestedAction": "Quarantine",
+  "confidenceScore": 0.6,
+  "generatedAtUtc": "2026-05-14T10:31:00Z",
+  "model": "llama3",
+  "provider": "Ollama",
+  "fallback": {
+    "usedFallback": true,
+    "fallbackReason": "AiDisabled",
+    "fallbackMessage": "AI is disabled; deterministic security scanning was used.",
+    "provider": "Ollama",
+    "model": "llama3",
+    "generatedAtUtc": "2026-05-14T10:31:00Z"
+  }
+}
+```
