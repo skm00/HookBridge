@@ -1095,3 +1095,93 @@ GET /api/ai-dashboard/summary?environment=qa&customerId=cust_123&fromUtc=2026-05
 - `averageConfidenceScore` combines non-zero confidence averages from AI failure and security analysis sources.
 - `riskDistribution`, `anomalyTypeDistribution`, `retryActionDistribution`, and `endpointHealthDistribution` power dashboard charts.
 - `recentFindings` returns the most recent AI analysis, anomaly, and security findings, capped internally by `RecentFindingsLimit`.
+
+## AI Natural Language Query Endpoint
+
+HookBridge exposes a safe natural language investigation endpoint for users and administrators who need quick answers about webhook failures, anomalies, retry recommendations, endpoint risk, endpoint health, and security findings.
+
+### Endpoint
+
+```http
+POST /api/ai/query
+Content-Type: application/json
+```
+
+### Example questions
+
+- Why are my webhook deliveries failing?
+- Show high-risk endpoints in QA.
+- Why did event `evt_12345` fail?
+- Which customers have the most anomalies today?
+- Show recent HTTP 429 failures.
+- What should I retry?
+- Which events should move to dead letter?
+- Summarize security issues for customer `cust_123`.
+
+### Example request
+
+```json
+{
+  "query": "Why are webhook deliveries failing for customer cust_123 in QA today?",
+  "environment": "qa",
+  "customerId": "cust_123",
+  "fromUtc": "2026-05-14T00:00:00Z",
+  "toUtc": "2026-05-14T23:59:59Z",
+  "maxResults": 20
+}
+```
+
+Optional filters include `environment`, `customerId`, `customerIdType`, `subscriptionId`, `endpointId`, `eventId`, `correlationId`, `fromUtc`, `toUtc`, and `maxResults`. When no date range is supplied, HookBridge uses the last 24 hours. `maxResults` defaults to 20 and is capped at 100.
+
+### Example response
+
+```json
+{
+  "query": "Why are webhook deliveries failing for customer cust_123 in QA today?",
+  "answer": "Most failures are related to HTTP 429 rate limiting and timeout responses. Retry with exponential backoff is recommended, and delivery concurrency should be reduced for the affected endpoint.",
+  "intent": "FailureAnalysis",
+  "filtersUsed": {
+    "environment": "qa",
+    "customerId": "cust_123",
+    "fromUtc": "2026-05-14T00:00:00Z",
+    "toUtc": "2026-05-14T23:59:59Z",
+    "maxResults": 20
+  },
+  "results": [
+    {
+      "id": "66460f4f9f1e2a5a12345678",
+      "eventId": "evt_12345",
+      "correlationId": "corr_789",
+      "customerId": "cust_123",
+      "subscriptionId": "sub_456",
+      "endpointId": "endpoint_789",
+      "resultType": "FailureAnalysis",
+      "title": "HTTP 429 rate limit failure",
+      "summary": "Target endpoint returned Too Many Requests.",
+      "riskLevel": "Medium",
+      "suggestedAction": "RetryWithBackoff",
+      "createdAtUtc": "2026-05-14T10:16:30Z"
+    }
+  ],
+  "suggestedActions": [
+    "Retry with exponential backoff.",
+    "Reduce delivery concurrency for the affected endpoint.",
+    "Review repeated failures before replaying dead-letter events."
+  ],
+  "confidenceScore": 0.82,
+  "generatedAtUtc": "2026-05-14T10:30:00Z",
+  "model": "llama3",
+  "provider": "Ollama",
+  "fallback": false
+}
+```
+
+### Safety rules and limitations
+
+- User text is never converted into arbitrary MongoDB queries.
+- AI-generated database queries are never executed.
+- The endpoint reads through predefined repository methods and returns redacted DTOs, not Mongo entities.
+- AI can summarize and recommend only; it does not execute production actions directly.
+- Suggested actions are advisory and should be reviewed before retries, replay, dead-letter movement, or security response.
+- Prompts instruct the model not to expose secrets, headers, tokens, raw payloads, target credentials, or connection strings.
+- If AI is disabled or unavailable, HookBridge returns a deterministic fallback summary based on matching repository results.
