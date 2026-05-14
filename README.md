@@ -797,3 +797,13 @@ The Kafka topic for DTO suggestion events is `hookbridge.ai.dto-suggestion`, and
 ### AI Webhook Transformation Recommendations
 
 HookBridge AI Worker includes a Webhook Transformation Recommendation Agent that compares a source webhook payload with a target schema or sample payload and recommends human-reviewed transformation mappings. The worker consumes `hookbridge.ai.transformation-recommendation`, stores results in MongoDB collection `webhook_transformation_recommendation_results`, masks sensitive values before prompt creation, and falls back to deterministic field-name matching when AI is disabled or unavailable. See [docs/ai-worker.md](docs/ai-worker.md#webhook-transformation-recommendation-agent) for request/response examples, generated code guidance, fallback behavior, and security rules.
+
+### Webhook failure anomaly detection
+
+The AI worker includes deterministic webhook failure anomaly detection for sudden spikes in delivery failure rate, retries, dead-letter records, HTTP 429 rate limits, timeouts, HTTP 4xx/5xx errors, authentication failures, signature validation failures, suspicious payloads, and average/P95 latency. This score is rule-based and does not require Ollama or any LLM.
+
+The detector compares the current metric window to a baseline window, adds deterministic score impacts for breached thresholds, and clamps `anomalyScore` from `0` to `100`. `isAnomalyDetected` becomes `true` at score `>= 25`. Risk levels map to `Low` for `0-20`, `Medium` for `21-50`, `High` for `51-80`, `Critical` for `81-100`, and `Unknown` when current or baseline delivery data is insufficient.
+
+Primary thresholds are: failure rate, retry count, timeout count, rate-limit count, client error count, server error count, average latency, and P95 latency increases of at least `50%`; dead-letter and authentication increases of at least `25%`; signature validation and suspicious payload counts increasing by at least `1` from a zero baseline.
+
+Results are stored in MongoDB collection `webhook_failure_anomaly_detection_results`, and the worker consumes requests from Kafka topic `hookbridge.ai.failure-anomalies`.

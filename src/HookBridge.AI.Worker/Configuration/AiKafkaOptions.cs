@@ -31,6 +31,8 @@ public sealed class AiKafkaOptions
 
     public string CustomerEndpointRiskScoreTopic { get; set; } = AiKafkaTopics.EndpointRiskScore;
 
+    public string WebhookFailureAnomalyDetectionTopic { get; set; } = AiKafkaTopics.FailureAnomalies;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

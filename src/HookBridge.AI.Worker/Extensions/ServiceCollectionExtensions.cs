@@ -13,6 +13,7 @@ using HookBridge.AI.Worker.Services.JsonToDtoSuggestion;
 using HookBridge.AI.Worker.Services.FluentValidationRuleGeneration;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
+using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -76,6 +77,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.CustomerEndpointRiskScoreResultsCollectionName),
                 "AiMongo:CustomerEndpointRiskScoreResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.WebhookFailureAnomalyDetectionResultsCollectionName),
+                "AiMongo:WebhookFailureAnomalyDetectionResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -121,6 +125,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.WebhookTransformationRecommendationTopic),
                 "AiKafka:WebhookTransformationRecommendationTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.WebhookFailureAnomalyDetectionTopic),
+                "AiKafka:WebhookFailureAnomalyDetectionTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -180,6 +187,12 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddWebhookFailureAnomalyDetectionServices(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IWebhookFailureAnomalyDetectionService, WebhookFailureAnomalyDetectionService>();
+        return services;
+    }
+
     public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
@@ -214,6 +227,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFluentValidationRuleGenerationConsumer, FluentValidationRuleGenerationConsumer>();
         services.AddSingleton<IWebhookTransformationRecommendationConsumer, WebhookTransformationRecommendationConsumer>();
         services.AddSingleton<ICustomerEndpointRiskScoreConsumer, CustomerEndpointRiskScoreConsumer>();
+        services.AddSingleton<IWebhookFailureAnomalyDetectionConsumer, WebhookFailureAnomalyDetectionConsumer>();
         return services;
     }
 
@@ -236,6 +250,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWebhookTransformationRecommendationRepository, WebhookTransformationRecommendationRepository>();
         services.AddSingleton<ICustomerEndpointRiskScoreCollectionProvider, CustomerEndpointRiskScoreCollectionProvider>();
         services.AddSingleton<ICustomerEndpointRiskScoreRepository, CustomerEndpointRiskScoreRepository>();
+        services.AddSingleton<IWebhookFailureAnomalyDetectionCollectionProvider, WebhookFailureAnomalyDetectionCollectionProvider>();
+        services.AddSingleton<IWebhookFailureAnomalyDetectionRepository, WebhookFailureAnomalyDetectionRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

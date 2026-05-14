@@ -1294,3 +1294,123 @@ The final score is clamped to `0` through `100`.
 
 - MongoDB collection: `customer_endpoint_risk_score_results`
 - Kafka topic: `hookbridge.ai.endpoint-risk-score`
+
+## Webhook failure anomaly detection
+
+HookBridge includes a deterministic webhook failure anomaly detector for sudden spikes in delivery failures and operational/security signals. This detector does **not** call Ollama, Semantic Kernel, or any other LLM. It compares a `currentWindow` against a `baselineWindow`, records each threshold breach, sums the configured score impact for detected anomalies, and clamps the final `anomalyScore` to the range `0` through `100`.
+
+### Score formula
+
+1. Validate that both windows are present, use UTC timestamps, have `WindowEndUtc > WindowStartUtc`, and contain only non-negative metric values.
+2. Calculate percentage increase for each metric as `((current - baseline) / baseline) * 100`.
+3. Treat a positive current value from a zero baseline as a spike for zero-baseline security signals.
+4. Add each detected metric's deterministic score impact.
+5. Clamp the total score between `0` and `100`.
+6. Set `isAnomalyDetected` to `true` when `anomalyScore >= 25`; otherwise it is `false`.
+7. Return `riskLevel = Unknown` when current or baseline delivery volume is insufficient.
+
+### Thresholds
+
+| Metric | Threshold |
+| --- | --- |
+| Failure rate | Increase >= 50% |
+| RetryCount | Increase >= 50% |
+| DeadLetterCount | Increase >= 25% |
+| TimeoutCount | Increase >= 50% |
+| RateLimitCount / HTTP 429 | Increase >= 50% |
+| ServerErrorCount / HTTP 5xx | Increase >= 50% |
+| ClientErrorCount / HTTP 4xx | Increase >= 50% |
+| AuthenticationFailureCount | Increase >= 25% |
+| SignatureValidationFailureCount | Increase >= 1 from baseline 0 |
+| SuspiciousPayloadCount | Increase >= 1 from baseline 0 |
+| AverageLatencyMs | Increase >= 50% |
+| P95LatencyMs | Increase >= 50% |
+
+### Risk levels
+
+| Score | Risk level |
+| --- | --- |
+| 0-20 | Low |
+| 21-50 | Medium |
+| 51-80 | High |
+| 81-100 | Critical |
+| Insufficient data | Unknown |
+
+### Example request
+
+```json
+{
+  "customerId": "cust_123",
+  "customerIdType": "MDM",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "eventType": "OrderCreated",
+  "currentWindow": {
+    "windowStartUtc": "2026-05-14T10:00:00Z",
+    "windowEndUtc": "2026-05-14T10:15:00Z",
+    "totalDeliveries": 500,
+    "successfulDeliveries": 350,
+    "failedDeliveries": 150,
+    "retryCount": 120,
+    "deadLetterCount": 12,
+    "timeoutCount": 20,
+    "rateLimitCount": 50,
+    "serverErrorCount": 40,
+    "authenticationFailureCount": 5,
+    "p95LatencyMs": 3500
+  },
+  "baselineWindow": {
+    "windowStartUtc": "2026-05-14T09:00:00Z",
+    "windowEndUtc": "2026-05-14T09:15:00Z",
+    "totalDeliveries": 500,
+    "successfulDeliveries": 470,
+    "failedDeliveries": 30,
+    "retryCount": 20,
+    "deadLetterCount": 1,
+    "timeoutCount": 3,
+    "rateLimitCount": 5,
+    "serverErrorCount": 6,
+    "authenticationFailureCount": 0,
+    "p95LatencyMs": 900
+  },
+  "createdAtUtc": "2026-05-14T10:16:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "customerId": "cust_123",
+  "customerIdType": "MDM",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "targetUrl": "https://customer.example.com/webhook",
+  "environment": "qa",
+  "eventType": "OrderCreated",
+  "isAnomalyDetected": true,
+  "anomalyScore": 78,
+  "riskLevel": "High",
+  "summary": "A webhook failure anomaly was detected. The following metrics increased compared to the baseline window: FailureRate, RetryCount, RateLimitCount, P95LatencyMs.",
+  "recommendation": "Use exponential backoff and reduce delivery concurrency. Investigate receiver performance.",
+  "detectedAnomalies": [
+    {
+      "metricName": "RateLimitCount",
+      "currentValue": 50,
+      "baselineValue": 5,
+      "percentageIncrease": 900,
+      "scoreImpact": 15,
+      "severity": "High",
+      "description": "HTTP 429 rate-limit failures increased significantly.",
+      "recommendation": "Use exponential backoff and reduce delivery concurrency."
+    }
+  ],
+  "calculatedAtUtc": "2026-05-14T10:16:30Z"
+}
+```
+
+### Persistence and messaging
+
+Anomaly results are persisted to the MongoDB collection `webhook_failure_anomaly_detection_results`. The AI worker consumes anomaly detection requests from the Kafka topic `hookbridge.ai.failure-anomalies` when the topic is configured, stores the deterministic result in MongoDB, and logs structured metadata only.
