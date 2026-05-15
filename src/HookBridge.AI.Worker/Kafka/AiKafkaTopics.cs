@@ -26,4 +26,6 @@ public static class AiKafkaTopics
     public const string DuplicateReplayDetection = "hookbridge.ai.duplicate-replay-detection";
 
     public const string Orchestration = "hookbridge.ai.orchestration";
+
+    public const string RetryAgent = "hookbridge.ai.retry-agent";
 }
