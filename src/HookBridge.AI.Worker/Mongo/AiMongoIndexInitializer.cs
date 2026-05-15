@@ -12,12 +12,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly IAiAnomalyRecordCollectionProvider? _anomalyRecordCollectionProvider;
     private readonly IAiSecurityAnalysisCollectionProvider? _securityAnalysisCollectionProvider;
     private readonly IWebhookEventFingerprintCollectionProvider? _fingerprintCollectionProvider;
+    private readonly IAiRecommendationApprovalCollectionProvider? _approvalCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, null, logger)
     {
     }
 
@@ -25,7 +26,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, logger)
     {
     }
 
@@ -34,7 +35,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, logger)
     {
     }
 
@@ -45,6 +46,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnomalyRecordCollectionProvider? anomalyRecordCollectionProvider,
         IAiSecurityAnalysisCollectionProvider? securityAnalysisCollectionProvider,
         IWebhookEventFingerprintCollectionProvider? fingerprintCollectionProvider,
+        IAiRecommendationApprovalCollectionProvider? approvalCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -53,6 +55,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _anomalyRecordCollectionProvider = anomalyRecordCollectionProvider;
         _securityAnalysisCollectionProvider = securityAnalysisCollectionProvider;
         _fingerprintCollectionProvider = fingerprintCollectionProvider;
+        _approvalCollectionProvider = approvalCollectionProvider;
         _logger = logger;
     }
 
@@ -93,6 +96,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
             await fingerprintCollection.Indexes.CreateManyAsync(CreateWebhookEventFingerprintIndexModels(), cancellationToken);
         }
 
+        if (_approvalCollectionProvider is not null)
+        {
+            var approvalCollection = _approvalCollectionProvider.GetCollection();
+            await approvalCollection.Indexes.CreateManyAsync(CreateAiRecommendationApprovalIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -115,6 +124,25 @@ public sealed class AiMongoIndexInitializer : IHostedService
     }
 
 
+
+
+    public static IReadOnlyList<CreateIndexModel<AiRecommendationApproval>> CreateAiRecommendationApprovalIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.RecommendationId), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_recommendation_id_unique", Unique = true }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.EventId), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_event_id" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.CorrelationId), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_correlation_id" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.CustomerId), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_customer_id" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.SubscriptionId), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_subscription_id" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.EndpointId), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_endpoint_id" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.RecommendationType), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_recommendation_type" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.ApprovalStatus), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_approval_status" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.RiskLevel), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_risk_level" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Descending(approval => approval.CreatedAtUtc), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_created_at_utc_desc" }),
+            new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.ExpiresAtUtc), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_expires_at_utc" })
+        };
+    }
 
     public static IReadOnlyList<CreateIndexModel<WebhookEventFingerprint>> CreateWebhookEventFingerprintIndexModels()
     {

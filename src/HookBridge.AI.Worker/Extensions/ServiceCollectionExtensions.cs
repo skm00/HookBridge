@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using HookBridge.AI.Worker.Approval;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mongo;
@@ -101,7 +102,26 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.WebhookEventFingerprintsCollectionName),
                 "AiMongo:WebhookEventFingerprintsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AiRecommendationApprovalsCollectionName),
+                "AiMongo:AiRecommendationApprovalsCollectionName is required.")
             .ValidateOnStart();
+
+        return services;
+    }
+
+
+    public static IServiceCollection AddAiRecommendationApprovalServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<AiRecommendationApprovalOptions>()
+            .Bind(configuration.GetSection(AiRecommendationApprovalOptions.SectionName))
+            .Validate(options => options.ApprovalExpiryHours > 0, "AiRecommendationApproval:ApprovalExpiryHours must be greater than 0.")
+            .ValidateOnStart();
+
+        services.TryAddSingleton<IAiRecommendationApprovalService, AiRecommendationApprovalService>();
 
         return services;
     }
@@ -266,6 +286,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAiPromptServices(this IServiceCollection services)
     {
+        services.AddLogging();
         services.TryAddSingleton<IAiPromptVersionProvider, AiPromptVersionProvider>();
         services.AddSingleton<IWebhookFailurePromptBuilder, WebhookFailurePromptBuilder>();
         services.AddSingleton<IAiLogSummaryPromptBuilder, AiLogSummaryPromptBuilder>();
@@ -321,6 +342,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiSecurityAnalysisRepository, AiSecurityAnalysisRepository>();
         services.AddSingleton<IWebhookEventFingerprintCollectionProvider, WebhookEventFingerprintCollectionProvider>();
         services.AddSingleton<IWebhookEventFingerprintRepository, WebhookEventFingerprintRepository>();
+        services.AddSingleton<IAiRecommendationApprovalCollectionProvider, AiRecommendationApprovalCollectionProvider>();
+        services.AddSingleton<IAiRecommendationApprovalRepository, AiRecommendationApprovalRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

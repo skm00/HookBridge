@@ -41,7 +41,7 @@ public sealed class AiPromptsControllerTests
     {
         var controller = new AiPromptsController(Mock.Of<IAiPromptVersionProvider>(), NullLogger<AiPromptsController>.Instance);
 
-        var result = controller.GetPromptVersion(AiPromptNames.AiLogSummary, "1.0.0").Result.Should().BeOfType<ObjectResult>().Subject;
+        var result = controller.GetPromptVersion(AiPromptNames.AiLogSummary, "1.0.0").Result.Should().BeOfType<BadRequestObjectResult>().Subject;
 
         result.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
     }
@@ -53,7 +53,7 @@ public sealed class AiPromptsControllerTests
         provider.Setup(item => item.GetPromptMetadata(AiPromptNames.AiLogSummary, "v9.9.9", false)).Throws(new FileNotFoundException());
         var controller = new AiPromptsController(provider.Object, NullLogger<AiPromptsController>.Instance);
 
-        var result = controller.GetPromptVersion(AiPromptNames.AiLogSummary, "v9.9.9").Result.Should().BeOfType<ObjectResult>().Subject;
+        var result = controller.GetPromptVersion(AiPromptNames.AiLogSummary, "v9.9.9").Result.Should().BeOfType<NotFoundObjectResult>().Subject;
 
         result.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }

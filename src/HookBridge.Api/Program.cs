@@ -148,6 +148,7 @@ builder.Services.AddScoped<IClientIpResolver, ClientIpResolver>();
 builder.Services.AddScoped<IIpAllowlistService, IpAllowlistService>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
 builder.Services.AddAiOptions(builder.Configuration);
+builder.Services.AddAiRecommendationApprovalServices(builder.Configuration);
 builder.Services.AddAiPromptServices();
 builder.Services.AddAiKernelServices();
 builder.Services.AddOptions<AiNaturalLanguageQueryOptions>()
@@ -186,6 +187,11 @@ builder.Services.AddOptions<AiMongoOptions>()
         {
             options.AiAnomalyRecordsCollectionName = AiMongoOptions.DefaultAiAnomalyRecordsCollectionName;
         }
+
+        if (string.IsNullOrWhiteSpace(options.AiRecommendationApprovalsCollectionName))
+        {
+            options.AiRecommendationApprovalsCollectionName = AiMongoOptions.DefaultAiRecommendationApprovalsCollectionName;
+        }
     });
 builder.Services.AddSingleton<IAiAnalysisResultCollectionProvider, AiAnalysisResultCollectionProvider>();
 builder.Services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
@@ -197,6 +203,8 @@ builder.Services.AddSingleton<ICustomerEndpointRiskScoreCollectionProvider, Cust
 builder.Services.AddSingleton<ICustomerEndpointRiskScoreRepository, CustomerEndpointRiskScoreRepository>();
 builder.Services.AddSingleton<IWebhookFailureAnomalyDetectionCollectionProvider, WebhookFailureAnomalyDetectionCollectionProvider>();
 builder.Services.AddSingleton<IWebhookFailureAnomalyDetectionRepository, WebhookFailureAnomalyDetectionRepository>();
+builder.Services.AddSingleton<IAiRecommendationApprovalCollectionProvider, AiRecommendationApprovalCollectionProvider>();
+builder.Services.AddSingleton<IAiRecommendationApprovalRepository, AiRecommendationApprovalRepository>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();

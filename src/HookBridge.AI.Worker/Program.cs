@@ -5,6 +5,7 @@ using HookBridge.AI.Worker.Health;
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddAiOptions(builder.Configuration);
+builder.Services.AddAiRecommendationApprovalServices(builder.Configuration);
 builder.Services.AddAiKafkaOptions(builder.Configuration);
 builder.Services.AddDuplicateReplayDetectionOptions(builder.Configuration);
 builder.Services.AddAiMongoOptions(builder.Configuration);

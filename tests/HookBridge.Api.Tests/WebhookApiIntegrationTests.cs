@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using FluentAssertions;
+using HookBridge.AI.Worker.Approval;
+using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.Application.DTOs.AiAnalysis;
 using HookBridge.Application.DTOs.AiDashboard;
@@ -356,6 +358,47 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         body.Data.SuggestedActions.Should().NotBeEmpty();
     }
 
+
+    [Fact]
+    public async Task AiRecommendationApprovalApi_CreateUpdateSearchAndInvalidTransition_ShouldWork()
+    {
+        var createResponse = await _client.PostAsJsonAsync("/api/ai-recommendations/approvals", new AiRecommendationApprovalCreateRequestDto
+        {
+            RecommendationId = "rec_integration_1",
+            EventId = "evt_integration_approval",
+            CustomerId = "cust_integration",
+            RecommendationType = AiRecommendationType.SecurityRecommendation,
+            RiskLevel = "High",
+            SuggestedAction = "ReviewSecuritySignals",
+            Summary = "Security review recommended.",
+            Recommendation = "Investigate suspicious delivery pattern.",
+            RequestedBy = "integration-tests"
+        });
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<AiRecommendationApprovalResponseDto>>();
+        created!.Data!.ApprovalStatus.Should().Be(AiRecommendationApprovalStatus.PendingReview);
+
+        var pendingResponse = await _client.GetAsync("/api/ai-recommendations/approvals/pending");
+        pendingResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pending = await pendingResponse.Content.ReadFromJsonAsync<ApiResponse<IReadOnlyList<AiRecommendationApprovalResponseDto>>>();
+        pending!.Data.Should().Contain(approval => approval.RecommendationId == "rec_integration_1");
+
+        var updateResponse = await _client.PutAsJsonAsync($"/api/ai-recommendations/approvals/{created.Data.Id}/status", new AiRecommendationApprovalUpdateRequestDto
+        {
+            ApprovalStatus = AiRecommendationApprovalStatus.Approved,
+            ReviewedBy = "admin@hookbridge.local",
+            ReviewComment = "Approved during API integration test."
+        });
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var invalidResponse = await _client.PutAsJsonAsync($"/api/ai-recommendations/approvals/{created.Data.Id}/status", new AiRecommendationApprovalUpdateRequestDto
+        {
+            ApprovalStatus = AiRecommendationApprovalStatus.Rejected
+        });
+        invalidResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
     [Theory]
     [InlineData("/health")]
     [InlineData("/api/v1/health/kafka")]
@@ -429,6 +472,8 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                 services.RemoveAll<IAiSecurityAnalysisRepository>();
                 services.RemoveAll<ICustomerEndpointRiskScoreRepository>();
                 services.RemoveAll<IWebhookFailureAnomalyDetectionRepository>();
+                services.RemoveAll<IAiRecommendationApprovalService>();
+                services.RemoveAll<IAiRecommendationApprovalRepository>();
 
                 services.AddSingleton(State);
                 services.AddScoped<ISubscriptionService, InMemorySubscriptionService>();
@@ -444,6 +489,8 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                 services.AddScoped<IAiSecurityAnalysisRepository, EmptyAiSecurityAnalysisRepository>();
                 services.AddScoped<ICustomerEndpointRiskScoreRepository, InMemoryCustomerEndpointRiskScoreRepository>();
                 services.AddScoped<IWebhookFailureAnomalyDetectionRepository, EmptyWebhookFailureAnomalyDetectionRepository>();
+                services.AddScoped<IAiRecommendationApprovalRepository, InMemoryAiRecommendationApprovalRepository>();
+                services.AddScoped<IAiRecommendationApprovalService, AiRecommendationApprovalService>();
 
                 var mongoDatabase = new Mock<IMongoDatabase>();
                 mongoDatabase
@@ -484,6 +531,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         public List<PublishedMessage> PublishedMessages { get; } = [];
         public List<AiAnalysisResult> AiAnalysisResults { get; } = [];
         public List<CustomerEndpointRiskScoreResult> RiskScores { get; } = [];
+        public List<AiRecommendationApproval> AiRecommendationApprovals { get; } = [];
         public bool SubscriptionServiceShouldRejectInvalidRequests { get; set; }
 
         public void Reset()
@@ -494,6 +542,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
             PublishedMessages.Clear();
             AiAnalysisResults.Clear();
             RiskScores.Clear();
+            AiRecommendationApprovals.Clear();
             SubscriptionServiceShouldRejectInvalidRequests = false;
         }
 
@@ -513,6 +562,59 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
     public sealed record StoredSubscription(string Id, string TenantId, string EventType, string TargetUrl);
     public sealed record FailedEventRecord(string EventId, string SubscriptionId, string Status);
     public sealed record PublishedMessage(string Topic, string Key, object Message);
+
+
+    private sealed class InMemoryAiRecommendationApprovalRepository(IntegrationTestState state) : IAiRecommendationApprovalRepository
+    {
+        public Task InsertAsync(AiRecommendationApproval approval, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(approval.Id))
+            {
+                approval.Id = ObjectId.GenerateNewId().ToString();
+            }
+
+            if (string.IsNullOrWhiteSpace(approval.RecommendationId))
+            {
+                throw new ArgumentException("RecommendationId is required.", nameof(approval));
+            }
+
+            state.AiRecommendationApprovals.Add(approval);
+            return Task.CompletedTask;
+        }
+
+        public Task<AiRecommendationApproval?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+            => Task.FromResult(state.AiRecommendationApprovals.FirstOrDefault(approval => approval.Id == id));
+
+        public Task<AiRecommendationApproval?> GetByRecommendationIdAsync(string recommendationId, CancellationToken cancellationToken = default)
+            => Task.FromResult(state.AiRecommendationApprovals.FirstOrDefault(approval => approval.RecommendationId == recommendationId));
+
+        public Task<IReadOnlyList<AiRecommendationApproval>> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AiRecommendationApproval>>(state.AiRecommendationApprovals.Where(approval => approval.EventId == eventId).ToArray());
+
+        public Task<IReadOnlyList<AiRecommendationApproval>> GetPendingAsync(int limit = 100, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<AiRecommendationApproval>>(state.AiRecommendationApprovals.Where(approval => approval.ApprovalStatus == AiRecommendationApprovalStatus.PendingReview).Take(limit).ToArray());
+
+        public Task<IReadOnlyList<AiRecommendationApproval>> SearchAsync(AiRecommendationApprovalSearchRequestDto request, CancellationToken cancellationToken = default)
+        {
+            var query = state.AiRecommendationApprovals.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(request.CustomerId)) query = query.Where(approval => approval.CustomerId == request.CustomerId);
+            if (request.ApprovalStatus.HasValue) query = query.Where(approval => approval.ApprovalStatus == request.ApprovalStatus.Value);
+            if (request.RecommendationType.HasValue) query = query.Where(approval => approval.RecommendationType == request.RecommendationType.Value);
+            return Task.FromResult<IReadOnlyList<AiRecommendationApproval>>(query.Skip((request.PageNumber - 1) * request.PageSize).Take(request.PageSize).ToArray());
+        }
+
+        public Task<AiRecommendationApproval?> UpdateStatusAsync(string id, AiRecommendationApprovalStatusUpdate update, CancellationToken cancellationToken = default)
+        {
+            var approval = state.AiRecommendationApprovals.FirstOrDefault(item => item.Id == id);
+            if (approval is null) return Task.FromResult<AiRecommendationApproval?>(null);
+            approval.ApprovalStatus = update.ApprovalStatus;
+            approval.ReviewedBy = update.ReviewedBy;
+            approval.ReviewComment = update.ReviewComment;
+            approval.ReviewedAtUtc = update.ReviewedAtUtc;
+            approval.AppliedAtUtc = update.AppliedAtUtc;
+            return Task.FromResult<AiRecommendationApproval?>(approval);
+        }
+    }
 
     private sealed class InMemoryAiAnalysisResultRepository(IntegrationTestState state) : IAiAnalysisResultRepository
     {
