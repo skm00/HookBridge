@@ -26,7 +26,7 @@ public sealed class AiRecommendationApprovalsControllerTests
 
         var result = await controller.CreateAsync(CreateRequest(), CancellationToken.None);
 
-        Assert.IsType<CreatedAtActionResult>(result.Result);
+        Assert.IsType<CreatedResult>(result.Result);
     }
 
     [Fact]

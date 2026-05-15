@@ -107,7 +107,7 @@ public sealed class AiRecommendationApprovalsController(
         try
         {
             var approval = await approvalService.CreateAsync(request, cancellationToken);
-            return CreatedResponse(nameof(GetByIdAsync), new { id = approval.Id }, approval, "AI recommendation approval created.");
+            return Created($"/api/ai-recommendations/approvals/{approval.Id}", ApiResponseFactory.Success(approval, "AI recommendation approval created.", TraceId));
         }
         catch (ArgumentException ex)
         {

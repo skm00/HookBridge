@@ -568,7 +568,16 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
     {
         public Task InsertAsync(AiRecommendationApproval approval, CancellationToken cancellationToken = default)
         {
-            approval.Id ??= ObjectId.GenerateNewId().ToString();
+            if (string.IsNullOrWhiteSpace(approval.Id))
+            {
+                approval.Id = ObjectId.GenerateNewId().ToString();
+            }
+
+            if (string.IsNullOrWhiteSpace(approval.RecommendationId))
+            {
+                throw new ArgumentException("RecommendationId is required.", nameof(approval));
+            }
+
             state.AiRecommendationApprovals.Add(approval);
             return Task.CompletedTask;
         }
