@@ -36,10 +36,10 @@ public sealed class AiSecurityAnalysisAgentTests
 
     [Theory]
     [InlineData("{\"comment\":\"<script>alert(1)</script>\"}", "ScriptContent")]
-    [InlineData("{\"query\":\"DROP TABLE users\"}", "SqlInjectionLikeContent")]
-    [InlineData("{\"cmd\":\"/bin/sh -c whoami\"}", "CommandInjectionLikeContent")]
+    [InlineData("{\"query\":\"DROP TABLE users\"}", "SqlInjectionPattern")]
+    [InlineData("{\"cmd\":\"/bin/sh -c whoami\"}", "CommandInjectionPattern")]
     [InlineData("{\"path\":\"../../etc/passwd\"}", "PathTraversalPattern")]
-    [InlineData("{\"client_secret\":\"secret\",\"access_token\":\"abc\"}", "SecretLookingValue")]
+    [InlineData("{\"client_secret\":\"secret\",\"access_token\":\"abc\"}", "SecretDetected")]
     public async Task AnalyzeAsync_FallbackDetectsSuspiciousPatterns(string payload, string signalName)
     {
         var response = await CreateAgent(Mock.Of<ILocalLlmClient>(), enabled: false).AnalyzeAsync(CreateRequest(payload: payload, signatureFailed: false, userAgent: "HookBridgeTest/1.0"));

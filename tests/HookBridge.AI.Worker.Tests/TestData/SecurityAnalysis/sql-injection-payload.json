@@ -1,0 +1,4 @@
+{
+  "search": "abc' UNION SELECT password FROM users --",
+  "maintenance": "DROP TABLE audit_log"
+}

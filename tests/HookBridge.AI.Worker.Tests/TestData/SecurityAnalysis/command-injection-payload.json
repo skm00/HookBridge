@@ -1,0 +1,5 @@
+{
+  "runner": "cmd.exe /c whoami",
+  "shell": "/bin/sh -c id",
+  "automation": "powershell -NoProfile Invoke-WebRequest"
+}

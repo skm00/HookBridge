@@ -10,6 +10,7 @@ using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
+using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -50,6 +51,7 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
             .AddAiLogSummarizationServices()
             .AddEndpointHealthScoringServices()
             .AddAiPromptServices()
+            .AddAiSecurityAnalysisServices()
             .AddAiKafkaServices()
             .AddAiMongoServices();
 
@@ -66,11 +68,14 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
         provider.GetRequiredService<IAiFallbackService>().Should().NotBeNull();
         provider.GetRequiredService<IWebhookFailurePromptBuilder>().Should().NotBeNull();
         provider.GetRequiredService<IAiLogSummaryPromptBuilder>().Should().NotBeNull();
+        provider.GetRequiredService<IAiSecurityAnalysisPromptBuilder>().Should().NotBeNull();
+        provider.GetRequiredService<IAiSecurityAnalysisAgent>().Should().NotBeNull();
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnalysisProducer));
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnalysisConsumer));
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnomalyProducer));
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnomalyConsumer));
         provider.GetRequiredService<IAiAnalysisResultRepository>().Should().NotBeNull();
+        provider.GetRequiredService<IAiSecurityAnalysisRepository>().Should().NotBeNull();
     }
 }
 

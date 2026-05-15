@@ -1412,6 +1412,35 @@ dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj
 
 Coverage reporting remains subject to the repository thresholds of at least 80% line coverage and 70% branch coverage. Unit tests use Moq and do not require real Kafka, MongoDB, Ollama, or Semantic Kernel calls; Testcontainers should only be used by separately runnable integration tests.
 
+## AI security analysis agent tests
+
+Security analysis agent coverage lives in `tests/HookBridge.AI.Worker.Tests` and exercises deterministic fallback rules, AI JSON parsing/fallback behavior, sensitive-data masking, repository query behavior, anomaly publishing, and DI registration for `IAiSecurityAnalysisAgent`, `IAiSecurityAnalysisPromptBuilder`, and `IAiSecurityAnalysisRepository`.
+
+Sample payload fixtures are stored in `tests/HookBridge.AI.Worker.Tests/TestData/SecurityAnalysis/`:
+
+- `safe-payload.json`
+- `xss-payload.json`
+- `sql-injection-payload.json`
+- `command-injection-payload.json`
+- `path-traversal-payload.json`
+- `secret-looking-payload.json`
+- `large-payload.json`
+- `invalid-json-payload.json`
+
+Run the focused security analysis tests with:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --filter "FullyQualifiedName~AiSecurityAnalysis"
+```
+
+Run the full AI worker unit suite with coverage using the same collector used by CI:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --collect:"XPlat Code Coverage"
+```
+
+Coverage remains gated at 80% line coverage and 70% branch coverage. Unit tests use Moq and deterministic fixtures, so they do not require real Ollama, Kafka, MongoDB, or Testcontainers. MongoDB and Kafka Testcontainers, when present, should remain isolated in the integration test project.
+
 ### Example request
 
 ```json

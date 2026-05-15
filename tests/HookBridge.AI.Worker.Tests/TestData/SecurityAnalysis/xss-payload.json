@@ -1,0 +1,5 @@
+{
+  "orderId": "ORD-XSS-1",
+  "comment": "<script>alert('x')</script>",
+  "callback": "javascript:alert('x')"
+}

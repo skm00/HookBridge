@@ -83,6 +83,35 @@ public sealed class AiSecurityAnalysisRepositoryTests
     }
 
 
+
+    [Theory]
+    [InlineData("risk")]
+    [InlineData("suspicious")]
+    [InlineData("environment")]
+    [InlineData("date-range")]
+    public async Task SearchAsync_SupportsRequiredSecurityFilters(string scenario)
+    {
+        var collection = CreateCollectionReturning(new AiSecurityAnalysisResult { EventId = "evt-1", RiskLevel = "High", IsSuspicious = true, Environment = "qa", GeneratedAtUtc = DateTime.UtcNow });
+        var repository = CreateRepository(collection.Object);
+        var request = new AiSecurityAnalysisSearchRequestDto { Limit = 10 };
+        if (scenario == "risk") request.RiskLevel = AiRiskLevel.High;
+        if (scenario == "suspicious") request.IsSuspicious = true;
+        if (scenario == "environment") request.Environment = "qa";
+        if (scenario == "date-range")
+        {
+            request.FromUtc = new DateTime(2026, 5, 14, 0, 0, 0, DateTimeKind.Utc);
+            request.ToUtc = new DateTime(2026, 5, 15, 0, 0, 0, DateTimeKind.Utc);
+        }
+
+        var results = await repository.SearchAsync(request);
+
+        results.Should().ContainSingle();
+        collection.Verify(mongoCollection => mongoCollection.FindAsync(
+            It.IsAny<FilterDefinition<AiSecurityAnalysisResult>>(),
+            It.Is<FindOptions<AiSecurityAnalysisResult, AiSecurityAnalysisResult>>(options => options.Limit == 10 && options.Sort != null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public void FromResponse_CopiesRequestMetadataAndNormalizesUtc()
     {
