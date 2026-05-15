@@ -346,6 +346,105 @@ public sealed class AiRecommendationApprovalServiceTests
         update.ReviewComment.Should().Be("applied");
     }
 
+
+    [Fact]
+    public async Task GetByRecommendationIdAsync_ReturnsNull_WhenApprovalDoesNotExist()
+    {
+        var service = CreateService(new InMemoryAiRecommendationApprovalRepository());
+
+        var response = await service.GetByRecommendationIdAsync("missing");
+
+        response.Should().BeNull();
+    }
+
+    [Fact]
+    public void AiRecommendationApprovalOptions_DefaultsMatchSafetyRequirements()
+    {
+        var options = new AiRecommendationApprovalOptions();
+
+        options.RequireApprovalForHighRisk.Should().BeTrue();
+        options.RequireApprovalForCriticalRisk.Should().BeTrue();
+        options.RequireApprovalForSecurityActions.Should().BeTrue();
+        options.RequireApprovalForTransformations.Should().BeTrue();
+        options.AllowLowRiskAutoApproval.Should().BeFalse();
+        options.ApprovalExpiryHours.Should().Be(72);
+    }
+
+    [Fact]
+    public void Mapper_ToResponseDto_MapsNullableTimestampsAndCompletedStatus()
+    {
+        var reviewedAt = new DateTime(2026, 5, 15, 10, 0, 0, DateTimeKind.Utc);
+        var appliedAt = new DateTime(2026, 5, 15, 11, 0, 0, DateTimeKind.Utc);
+        var expiresAt = new DateTime(2026, 5, 18, 10, 0, 0, DateTimeKind.Utc);
+        var entity = new AiRecommendationApproval
+        {
+            Id = "approval_2",
+            RecommendationId = "rec_2",
+            EventId = "evt_2",
+            CorrelationId = "corr_2",
+            CustomerId = "cust_2",
+            SubscriptionId = "sub_2",
+            EndpointId = "endpoint_2",
+            RecommendationType = AiRecommendationType.SecurityRecommendation,
+            ApprovalStatus = AiRecommendationApprovalStatus.Applied,
+            RiskLevel = "Critical",
+            SuggestedAction = "ReviewSecuritySignals",
+            Summary = "Summary",
+            Recommendation = "Recommendation",
+            RequestedBy = "worker",
+            ReviewedBy = "admin",
+            ReviewComment = "approved",
+            CreatedAtUtc = reviewedAt,
+            ReviewedAtUtc = reviewedAt,
+            AppliedAtUtc = appliedAt,
+            ExpiresAtUtc = expiresAt
+        };
+
+        var dto = AiRecommendationApprovalMapper.ToResponseDto(entity);
+
+        dto.RequiresApproval.Should().BeFalse();
+        dto.ReviewedAtUtc.Should().Be(reviewedAt);
+        dto.AppliedAtUtc.Should().Be(appliedAt);
+        dto.ExpiresAtUtc.Should().Be(expiresAt);
+        dto.ReviewedBy.Should().Be("admin");
+        dto.ReviewComment.Should().Be("approved");
+    }
+
+    [Fact]
+    public void Mapper_ToEntity_TrimsOptionalStringFields()
+    {
+        var request = CreateRequest(recommendationId: " rec_trim ");
+        request.EventId = " evt_trim ";
+        request.CorrelationId = " corr_trim ";
+        request.CustomerId = " cust_trim ";
+        request.SubscriptionId = " sub_trim ";
+        request.EndpointId = " endpoint_trim ";
+        request.SuggestedAction = " action ";
+        request.RequestedBy = " worker ";
+
+        var entity = AiRecommendationApprovalMapper.ToEntity(request, new AiRecommendationApprovalOptions(), DateTime.UtcNow);
+
+        entity.RecommendationId.Should().Be("rec_trim");
+        entity.EventId.Should().Be("evt_trim");
+        entity.CorrelationId.Should().Be("corr_trim");
+        entity.CustomerId.Should().Be("cust_trim");
+        entity.SubscriptionId.Should().Be("sub_trim");
+        entity.EndpointId.Should().Be("endpoint_trim");
+        entity.SuggestedAction.Should().Be("action");
+        entity.RequestedBy.Should().Be("worker");
+    }
+
+    [Fact]
+    public void ConflictException_CanWrapInnerException()
+    {
+        var inner = new InvalidOperationException("duplicate key");
+
+        var exception = new AiRecommendationApprovalConflictException("duplicate", inner);
+
+        exception.Message.Should().Be("duplicate");
+        exception.InnerException.Should().BeSameAs(inner);
+    }
+
     private static AiRecommendationApprovalService CreateService(InMemoryAiRecommendationApprovalRepository repository, AiRecommendationApprovalOptions? options = null)
         => new(repository, Options.Create(options ?? new AiRecommendationApprovalOptions()), NullLogger<AiRecommendationApprovalService>.Instance);
 

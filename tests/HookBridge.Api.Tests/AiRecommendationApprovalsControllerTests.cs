@@ -182,6 +182,71 @@ public sealed class AiRecommendationApprovalsControllerTests
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
+
+    [Fact]
+    public async Task SearchAsync_Returns500_ForUnexpectedError()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowUnexpected = true });
+
+        var result = await controller.SearchAsync(new AiRecommendationApprovalSearchRequestDto(), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetPendingAsync_Returns500_ForUnexpectedError()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowUnexpected = true });
+
+        var result = await controller.GetPendingAsync(100, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_Returns500_ForUnexpectedError()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowUnexpected = true });
+
+        var result = await controller.GetByIdAsync(ValidApprovalId, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Returns500_ForUnexpectedError()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowUnexpected = true });
+
+        var result = await controller.UpdateStatusAsync(ValidApprovalId, new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Returns400_ForNullRequestBody()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.CreateAsync(null!, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Returns400_ForNullRequestBody()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.UpdateStatusAsync(ValidApprovalId, null!, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
     private const string ValidApprovalId = "507f1f77bcf86cd799439011";
 
     private static AiRecommendationApprovalsController CreateController(IAiRecommendationApprovalService service)
