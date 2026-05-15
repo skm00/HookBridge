@@ -61,7 +61,7 @@ public sealed class WebhookDuplicateReplayDetectionService : IWebhookDuplicateRe
         {
             if (request.EventTimestampUtc.Value < request.ReceivedAtUtc.AddMinutes(-_options.ReplayWindowMinutes))
             {
-                score += 35; isReplay = true; if (replayReason == WebhookDuplicateReplayReason.None) replayReason = WebhookDuplicateReplayReason.EventTimestampTooOld;
+                score += 55; isReplay = true; if (replayReason == WebhookDuplicateReplayReason.None) replayReason = WebhookDuplicateReplayReason.EventTimestampTooOld;
             }
             else if (request.EventTimestampUtc.Value > request.ReceivedAtUtc.AddMinutes(_options.FutureTimestampToleranceMinutes))
             {
