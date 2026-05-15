@@ -30,7 +30,7 @@ public sealed class SecurityAgentWorkerIntegrationTests
     }
 
     [SkippableFact]
-    public async Task SecurityAgentWorker_HighRiskPublishesAnomalyAndCreatesApproval()
+    public async Task SecurityAgentWorker_HighOrCriticalRiskPublishesAnomalyAndCreatesApproval()
     {
         Skip.If(_fixture.IsSkipped, _fixture.SkipReason);
         await _fixture.CleanMongoAsync(CancellationToken.None);
@@ -41,7 +41,7 @@ public sealed class SecurityAgentWorkerIntegrationTests
 
         var result = await _fixture.WaitForSecurityAgentResultAsync(eventId, cts.Token);
         result.Should().NotBeNull();
-        result!.RiskLevel.Should().Be(AiRiskLevel.High);
+        result!.RiskLevel.Should().BeOneOf(AiRiskLevel.High, AiRiskLevel.Critical);
         (await _fixture.WaitForAnomalyRecordAsync(eventId, cts.Token)).Should().NotBeNull();
         (await _fixture.WaitForApprovalAsync(eventId, cts.Token)).Should().NotBeNull();
     }

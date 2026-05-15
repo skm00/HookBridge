@@ -2,9 +2,12 @@ using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.SecurityAgent;
+using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 
 namespace HookBridge.AI.Worker.Tests;
 
@@ -200,8 +203,119 @@ public sealed class SecurityAgentTests
         agent.ShouldPublishAnomaly(response).Should().BeTrue();
     }
 
-    private static SecurityAgent CreateAgent(SecurityAgentOptions? options = null)
-        => new(Options.Create(options ?? new SecurityAgentOptions()), NullLogger<SecurityAgent>.Instance);
+
+    [Fact]
+    public async Task DuplicateReplayServiceResult_ContributesReplayAndDuplicateSignals()
+    {
+        var duplicateReplay = new Mock<IWebhookDuplicateReplayDetectionService>();
+        duplicateReplay.Setup(service => service.DetectAsync(It.IsAny<WebhookDuplicateReplayDetectionRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WebhookDuplicateReplayDetectionResponseDto { EventId = "evt-1", IsDuplicate = true, IsReplay = true });
+        var agent = CreateAgent(duplicateReplayService: duplicateReplay.Object);
+
+        var response = await agent.AnalyzeAsync(CreateRequest());
+
+        response.ReasonCodes.Should().Contain(SecurityAgentReasonCode.DuplicateDetected);
+        response.ReasonCodes.Should().Contain(SecurityAgentReasonCode.ReplayDetected);
+        response.SecurityDecision.Should().Be(SecurityAgentDecision.Quarantine);
+        duplicateReplay.Verify(service => service.DetectAsync(It.Is<WebhookDuplicateReplayDetectionRequestDto>(request => request.EventId == "evt-1"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DuplicateReplayServiceFailure_DoesNotFailAnalysis()
+    {
+        var duplicateReplay = new Mock<IWebhookDuplicateReplayDetectionService>();
+        duplicateReplay.Setup(service => service.DetectAsync(It.IsAny<WebhookDuplicateReplayDetectionRequestDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("duplicate service unavailable"));
+        var agent = CreateAgent(duplicateReplayService: duplicateReplay.Object);
+
+        var response = await agent.AnalyzeAsync(CreateRequest());
+
+        response.RiskLevel.Should().Be(AiRiskLevel.Low);
+        response.SecurityDecision.Should().Be(SecurityAgentDecision.Allow);
+    }
+
+    [Fact]
+    public async Task AiSecurityAnalysisHighScore_RaisesRiskAndCopiesSignals()
+    {
+        var aiSecurity = new Mock<IAiSecurityAnalysisAgent>();
+        aiSecurity.Setup(agent => agent.AnalyzeAsync(It.IsAny<AiSecurityAnalysisRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AiSecurityAnalysisResponseDto
+            {
+                EventId = "evt-1",
+                RiskLevel = AiRiskLevel.Critical,
+                SecurityRiskScore = 95,
+                ConfidenceScore = 0.97,
+                DetectedSecuritySignals = [new AiSecuritySignalDto { SignalName = "AiCritical", Severity = "Critical" }]
+            });
+        var agent = CreateAgent(aiSecurityAnalysisAgent: aiSecurity.Object);
+
+        var response = await agent.AnalyzeAsync(CreateRequest());
+
+        response.SecurityRiskScore.Should().Be(95);
+        response.RiskLevel.Should().Be(AiRiskLevel.Critical);
+        response.SecuritySignals.Should().Contain(signal => signal.SignalName == "AiCritical");
+        response.ConfidenceScore.Should().Be(0.97);
+        response.ReasonCodes.Should().Contain(SecurityAgentReasonCode.CriticalSecurityFinding);
+    }
+
+    [Fact]
+    public async Task AiSecurityAnalysisFailure_DoesNotFailAnalysis()
+    {
+        var aiSecurity = new Mock<IAiSecurityAnalysisAgent>();
+        aiSecurity.Setup(agent => agent.AnalyzeAsync(It.IsAny<AiSecurityAnalysisRequestDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("ai unavailable"));
+        var agent = CreateAgent(aiSecurityAnalysisAgent: aiSecurity.Object);
+
+        var response = await agent.AnalyzeAsync(CreateRequest());
+
+        response.RiskLevel.Should().Be(AiRiskLevel.Low);
+        response.SecurityDecision.Should().Be(SecurityAgentDecision.Allow);
+    }
+
+    [Fact]
+    public async Task HeaderUserAgent_IsUsedWhenRequestUserAgentIsMissing()
+    {
+        var request = CreateRequest(userAgent: null);
+        request.Headers = new Dictionary<string, string> { ["User-Agent"] = "python-requests/2.0" };
+
+        var response = await CreateAgent().AnalyzeAsync(request);
+
+        response.ReasonCodes.Should().Contain(SecurityAgentReasonCode.SuspiciousUserAgent);
+    }
+
+    [Theory]
+    [InlineData(-1, AiRiskLevel.Unknown)]
+    [InlineData(101, AiRiskLevel.Critical)]
+    public void RiskLevelMapping_HandlesOutOfRangeScores(int score, AiRiskLevel expected)
+        => SecurityAgent.MapRiskLevel(score).Should().Be(expected);
+
+    [Fact]
+    public void DecisionMapping_ReplayOverridesOtherSignalsToQuarantine()
+    {
+        var decision = SecurityAgent.MapDecision(AiRiskLevel.Critical, new HashSet<SecurityAgentReasonCode>
+        {
+            SecurityAgentReasonCode.ReplayDetected,
+            SecurityAgentReasonCode.CommandInjectionPattern
+        });
+
+        decision.Should().Be(SecurityAgentDecision.Quarantine);
+    }
+
+    [Fact]
+    public async Task CriticalRisk_DoesNotPublishAnomalyWhenDisabledByOptions()
+    {
+        var agent = CreateAgent(new SecurityAgentOptions { PublishAnomalyForCriticalRisk = false });
+        var response = await agent.AnalyzeAsync(CreateRequest(signatureFailed: true, authFailed: true, isReplay: true));
+
+        response.RiskLevel.Should().Be(AiRiskLevel.Critical);
+        agent.ShouldPublishAnomaly(response).Should().BeFalse();
+    }
+
+    private static SecurityAgent CreateAgent(
+        SecurityAgentOptions? options = null,
+        IAiSecurityAnalysisAgent? aiSecurityAnalysisAgent = null,
+        IWebhookDuplicateReplayDetectionService? duplicateReplayService = null)
+        => new(Options.Create(options ?? new SecurityAgentOptions()), NullLogger<SecurityAgent>.Instance, aiSecurityAnalysisAgent, duplicateReplayService);
 
     private static SecurityAgentRequestDto CreateRequest(
         bool signatureFailed = false,
