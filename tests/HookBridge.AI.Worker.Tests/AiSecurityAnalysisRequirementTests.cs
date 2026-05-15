@@ -22,7 +22,7 @@ public sealed class AiSecurityAnalysisRequirementTests
     [Fact]
     public async Task SafePayload_FallbackProducesLowNonSuspiciousResult()
     {
-        var response = await CreateFallbackAgent().AnalyzeAsync(CreateRequest(payload: Fixture("safe-payload.json"), payloadSizeBytes: 128, userAgent: "HookBridgeTest/1.0"));
+        var response = await CreateFallbackAgent().AnalyzeAsync(CreateRequest(payload: Fixture("safe-payload.json"), signatureFailed: false, payloadSizeBytes: 128, userAgent: "HookBridgeTest/1.0"));
 
         response.IsSuspicious.Should().BeFalse();
         response.SecurityRiskScore.Should().BeInRange(0, 20);
