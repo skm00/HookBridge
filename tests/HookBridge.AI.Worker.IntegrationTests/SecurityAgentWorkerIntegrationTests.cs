@@ -4,16 +4,19 @@ using Xunit;
 
 namespace HookBridge.AI.Worker.IntegrationTests;
 
-[Collection(nameof(SampleWebhookFailureIntegrationTestCollection))]
+[Collection(SampleWebhookFailureIntegrationTestCollection.Name)]
+[Trait("Category", "Integration")]
+[Trait("Category", "Kafka")]
+[Trait("Category", "Mongo")]
 public sealed class SecurityAgentWorkerIntegrationTests
 {
     private readonly SampleWebhookFailureIntegrationTestFixture _fixture;
     public SecurityAgentWorkerIntegrationTests(SampleWebhookFailureIntegrationTestFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public async Task SecurityAgentWorker_ConsumesEventAndStoresResult()
     {
-        SampleWebhookFailureIntegrationTestFixture.SkipIfUnavailable();
+        Skip.If(_fixture.IsSkipped, _fixture.SkipReason);
         await _fixture.CleanMongoAsync(CancellationToken.None);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var eventId = $"security_{Guid.NewGuid():N}";
@@ -26,10 +29,10 @@ public sealed class SecurityAgentWorkerIntegrationTests
         result.RequiresApproval.Should().BeTrue();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SecurityAgentWorker_HighRiskPublishesAnomalyAndCreatesApproval()
     {
-        SampleWebhookFailureIntegrationTestFixture.SkipIfUnavailable();
+        Skip.If(_fixture.IsSkipped, _fixture.SkipReason);
         await _fixture.CleanMongoAsync(CancellationToken.None);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var eventId = $"security_high_{Guid.NewGuid():N}";
@@ -43,10 +46,10 @@ public sealed class SecurityAgentWorkerIntegrationTests
         (await _fixture.WaitForApprovalAsync(eventId, cts.Token)).Should().NotBeNull();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SecurityAgentWorker_ReplayEventReturnsQuarantineOrReject()
     {
-        SampleWebhookFailureIntegrationTestFixture.SkipIfUnavailable();
+        Skip.If(_fixture.IsSkipped, _fixture.SkipReason);
         await _fixture.CleanMongoAsync(CancellationToken.None);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var eventId = $"security_replay_{Guid.NewGuid():N}";
