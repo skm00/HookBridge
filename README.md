@@ -1348,3 +1348,15 @@ dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj -
 ```
 
 The GitHub Actions coverage gate remains 80% line coverage and 70% branch coverage. Payload mapping tests use fake LLM responses and mocked Mongo collections, so they do not require Ollama, Kafka, or a real MongoDB instance.
+
+## Multi-Agent AI Orchestration
+
+HookBridge includes a central multi-agent orchestration layer that coordinates retry recommendation, security analysis, duplicate/replay detection, payload schema detection, endpoint risk scoring, and anomaly detection for webhook events. It produces a unified summary, highest risk level, recommended action, confidence score, approval requirement, and per-agent results without allowing AI to execute production actions directly.
+
+- Kafka topic: `hookbridge.ai.orchestration`
+- MongoDB collection: `ai_agent_orchestration_results`
+- API lookup: `GET /api/ai-orchestration/events/{eventId}`
+- Modes: `Sequential` (default) and `Parallel`
+- Approval: High/Critical risk requires approval by default
+
+See [Multi-Agent AI Orchestration](docs/multi-agent-orchestration.md) for configuration, decision rules, and example request/response payloads.
