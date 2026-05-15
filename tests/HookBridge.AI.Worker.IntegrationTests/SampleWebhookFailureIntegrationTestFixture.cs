@@ -38,6 +38,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
 
     public bool IsSkipped => string.Equals(Environment.GetEnvironmentVariable("SKIP_INTEGRATION_TESTS"), "true", StringComparison.OrdinalIgnoreCase);
 
+    public string SkipReason => "Integration tests are disabled because SKIP_INTEGRATION_TESTS=true.";
+
     public string DatabaseName { get; } = $"hookbridge_ai_integration_{Guid.NewGuid():N}";
 
     public async Task InitializeAsync()
@@ -71,6 +73,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
         builder.Services.AddAiMongoOptions(builder.Configuration);
         builder.Services.AddAiPromptServices();
         builder.Services.AddAiRetryRecommendationServices();
+        builder.Services.AddRetryAgentServices(builder.Configuration);
         builder.Services.AddAiLogSummarizationServices();
         builder.Services.AddEndpointHealthScoringServices();
         builder.Services.AddWebhookFailureAnomalyDetectionServices();
@@ -84,6 +87,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
         builder.Services.AddSingleton<IAiNaturalLanguageQueryService, AiNaturalLanguageQueryService>();
         builder.Services.AddHostedService<AiProcessingWorker>();
         builder.Services.AddHostedService<AiSecurityAnalysisWorker>();
+        builder.Services.AddHostedService<RetryAgentWorker>();
         builder.Services.AddHostedService<WebhookDuplicateReplayDetectionWorker>();
         builder.Services.AddHostedService<AiAnomalyRecordPersistenceWorker>();
 
@@ -111,6 +115,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
         }
     }
 
+    public Task ResetAsync(CancellationToken cancellationToken = default) => CleanMongoAsync(cancellationToken);
+
     public async Task CleanMongoAsync(CancellationToken cancellationToken)
     {
         if (IsSkipped || _database is null)
@@ -130,7 +136,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
                      AiMongoOptions.DefaultFluentValidationRuleGenerationResultsCollectionName,
                      AiMongoOptions.DefaultWebhookTransformationRecommendationResultsCollectionName,
                      AiMongoOptions.DefaultCustomerEndpointRiskScoreResultsCollectionName,
-                     AiMongoOptions.DefaultWebhookFailureAnomalyDetectionResultsCollectionName
+                     AiMongoOptions.DefaultWebhookFailureAnomalyDetectionResultsCollectionName,
+                     AiMongoOptions.DefaultRetryAgentResultsCollectionName
                  })
         {
             await _database.GetCollection<object>(collectionName).DeleteManyAsync(FilterDefinition<object>.Empty, cancellationToken);
@@ -194,6 +201,15 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
     public async Task PublishDuplicateReplayRequestAsync(WebhookDuplicateReplayDetectionRequestDto request, CancellationToken cancellationToken)
         => await PublishJsonAsync(AiKafkaTopics.DuplicateReplayDetection, request.EventId ?? request.CorrelationId ?? Guid.NewGuid().ToString("N"), request, cancellationToken);
 
+
+    public async Task<string> PublishRetryAgentEventAsync(RetryAgentRequestDto request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.EventId)) request.EventId = $"retry_{Guid.NewGuid():N}";
+        request.CorrelationId ??= $"corr_{request.EventId}";
+        await PublishJsonAsync(AiKafkaTopics.RetryAgent, request.EventId, request, cancellationToken);
+        return request.EventId;
+    }
+
     public async Task<AiAnalysisResult?> WaitForMongoResultAsync(string eventId, CancellationToken cancellationToken)
         => await WaitForAsync(async ct => await GetCollection<AiAnalysisResult>(AiMongoOptions.DefaultAiAnalysisResultsCollectionName)
             .Find(result => result.EventId == eventId)
@@ -206,6 +222,11 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
 
     public async Task<AiAnomalyRecord?> WaitForAnomalyRecordAsync(string eventId, CancellationToken cancellationToken)
         => await WaitForAsync(async ct => await GetCollection<AiAnomalyRecord>(AiMongoOptions.DefaultAiAnomalyRecordsCollectionName)
+            .Find(result => result.EventId == eventId)
+            .FirstOrDefaultAsync(ct), cancellationToken);
+
+    public async Task<RetryAgentResult?> WaitForRetryAgentResultAsync(string eventId, CancellationToken cancellationToken)
+        => await WaitForAsync(async ct => await GetCollection<RetryAgentResult>(AiMongoOptions.DefaultRetryAgentResultsCollectionName)
             .Find(result => result.EventId == eventId)
             .FirstOrDefaultAsync(ct), cancellationToken);
 
@@ -246,6 +267,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
                 ["AiMongo:AiSecurityAnalysisResultsCollectionName"] = AiMongoOptions.DefaultAiSecurityAnalysisResultsCollectionName,
                 ["AiMongo:WebhookEventFingerprintsCollectionName"] = AiMongoOptions.DefaultWebhookEventFingerprintsCollectionName,
                 ["AiMongo:AiRecommendationApprovalsCollectionName"] = AiMongoOptions.DefaultAiRecommendationApprovalsCollectionName,
+                ["AiMongo:RetryAgentResultsCollectionName"] = AiMongoOptions.DefaultRetryAgentResultsCollectionName,
                 ["AiKafka:BootstrapServers"] = KafkaContainer.GetBootstrapAddress(),
                 ["AiKafka:SecurityProtocol"] = "Plaintext",
                 ["AiKafka:AiAnalysisTopic"] = AiKafkaTopics.Analysis,
@@ -257,6 +279,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
                 ["AiKafka:AnomaliesTopic"] = AiKafkaTopics.Anomalies,
                 ["AiKafka:SecurityAnalysisTopic"] = AiKafkaTopics.SecurityAnalysis,
                 ["AiKafka:DuplicateReplayDetectionTopic"] = AiKafkaTopics.DuplicateReplayDetection,
+                ["AiKafka:RetryAgentTopic"] = AiKafkaTopics.RetryAgent,
                 ["AiKafka:ConsumerGroupId"] = $"hookbridge-ai-integration-{Guid.NewGuid():N}",
                 ["AiKafka:EnableAutoCommit"] = "false",
                 ["DuplicateReplayDetection:Enabled"] = "true",
@@ -286,7 +309,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
             AiKafkaTopics.Analysis,
             AiKafkaTopics.Anomalies,
             AiKafkaTopics.SecurityAnalysis,
-            AiKafkaTopics.DuplicateReplayDetection
+            AiKafkaTopics.DuplicateReplayDetection,
+            AiKafkaTopics.RetryAgent
         };
 
         try

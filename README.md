@@ -1360,3 +1360,7 @@ HookBridge includes a central multi-agent orchestration layer that coordinates r
 - Approval: High/Critical risk requires approval by default
 
 See [Multi-Agent AI Orchestration](docs/multi-agent-orchestration.md) for configuration, decision rules, and example request/response payloads.
+
+### Retry Agent
+
+HookBridge includes a deterministic Retry Agent for failed webhook deliveries. It consumes retry-agent events on `hookbridge.ai.retry-agent`, evaluates retry count, HTTP status, endpoint risk, and safety signals, persists results in MongoDB collection `retry_agent_results`, and creates approval records for high-risk or manual-review retry actions. The agent uses exponential backoff (`min(BaseDelaySeconds * 2^RetryCount, MaxDelaySeconds)`) for rate limits, timeouts, and transient server errors, and it never auto-retries authentication, authorization, critical-risk, replay, or max-retry-exhausted failures.

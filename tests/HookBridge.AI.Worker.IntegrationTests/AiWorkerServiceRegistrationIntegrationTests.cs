@@ -10,6 +10,7 @@ using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
+using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,7 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
             .AddAiMongoOptions(configuration)
             .AddAiKafkaOptions(configuration)
             .AddAiRetryRecommendationServices()
+            .AddRetryAgentServices(configuration)
             .AddAiLogSummarizationServices()
             .AddEndpointHealthScoringServices()
             .AddAiPromptServices()
@@ -63,6 +65,7 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
 
         provider.GetRequiredService<IOptions<AiOptions>>().Value.Provider.Should().Be("ollama");
         provider.GetRequiredService<IAiRetryRecommendationService>().Should().NotBeNull();
+        provider.GetRequiredService<IRetryAgent>().Should().NotBeNull();
         provider.GetRequiredService<IAiLogSummarizationService>().Should().NotBeNull();
         provider.GetRequiredService<IEndpointHealthScoringService>().Should().NotBeNull();
         provider.GetRequiredService<IAiFallbackService>().Should().NotBeNull();

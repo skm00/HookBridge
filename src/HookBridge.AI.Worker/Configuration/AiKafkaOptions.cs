@@ -41,6 +41,8 @@ public sealed class AiKafkaOptions
 
     public string OrchestrationTopic { get; set; } = AiKafkaTopics.Orchestration;
 
+    public string RetryAgentTopic { get; set; } = AiKafkaTopics.RetryAgent;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

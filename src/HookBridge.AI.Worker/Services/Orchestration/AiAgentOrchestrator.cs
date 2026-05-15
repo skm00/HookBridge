@@ -7,6 +7,7 @@ using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
+using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
@@ -18,6 +19,7 @@ namespace HookBridge.AI.Worker.Services.Orchestration;
 public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 {
     private readonly IAiRetryRecommendationService _retryService;
+    private readonly IRetryAgent _retryAgent;
     private readonly IAiSecurityAnalysisAgent _securityAgent;
     private readonly IWebhookDuplicateReplayDetectionService _duplicateReplayService;
     private readonly IPayloadSchemaDetectionAgent _payloadSchemaAgent;
@@ -30,6 +32,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 
     public AiAgentOrchestrator(
         IAiRetryRecommendationService retryService,
+        IRetryAgent retryAgent,
         IAiSecurityAnalysisAgent securityAgent,
         IWebhookDuplicateReplayDetectionService duplicateReplayService,
         IPayloadSchemaDetectionAgent payloadSchemaAgent,
@@ -41,6 +44,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         ILogger<AiAgentOrchestrator> logger)
     {
         _retryService = retryService;
+        _retryAgent = retryAgent;
         _securityAgent = securityAgent;
         _duplicateReplayService = duplicateReplayService;
         _payloadSchemaAgent = payloadSchemaAgent;
@@ -179,27 +183,38 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 
     private async Task<AiAgentResultDto> RunRetryAgentAsync(AiAgentOrchestrationRequestDto request, CancellationToken cancellationToken)
     {
-        var response = await _retryService.AnalyzeAsync(new WebhookFailureAnalysisRequestDto
+        var response = await _retryAgent.AnalyzeAsync(new RetryAgentRequestDto
         {
             EventId = request.EventId,
             CorrelationId = request.CorrelationId,
-            SubscriptionId = request.SubscriptionId,
             CustomerId = request.CustomerId,
             CustomerIdType = request.CustomerIdType,
-            EventType = request.EventType ?? string.Empty,
-            Source = request.Source,
+            SubscriptionId = request.SubscriptionId,
+            EndpointId = request.EndpointId,
+            Environment = request.Environment,
+            EventType = request.EventType,
             TargetUrl = request.TargetUrl,
             StatusCode = request.StatusCode,
             FailureReason = request.FailureReason,
             RetryCount = request.RetryCount,
             MaxRetryCount = request.MaxRetryCount,
-            RequestHeaders = request.Headers?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
-            RequestPayload = request.Payload?.ToString(),
-            FailedAtUtc = request.ReceivedAtUtc
+            FailedAtUtc = request.ReceivedAtUtc,
+            PayloadSizeBytes = request.Payload?.ToString()?.Length ?? 0
         }, cancellationToken);
 
-        return Success(AiAgentName.RetryRecommendationAgent, response.AiSummary, response.RiskLevel, response.SuggestedRetryAction.ToString(), response.ConfidenceScore, response.Fallback?.UsedFallback ?? false);
+        var riskLevel = Enum.TryParse<AiRiskLevel>(response.RiskLevel, true, out var parsedRisk) ? parsedRisk : AiRiskLevel.Unknown;
+        return Success(AiAgentName.RetryRecommendationAgent, response.Summary, riskLevel, MapRetryAgentSuggestedAction(response.RetryDecision), response.ConfidenceScore, response.Fallback);
     }
+
+    private static string MapRetryAgentSuggestedAction(RetryAgentDecision decision) => decision switch
+    {
+        RetryAgentDecision.RetryImmediately => SuggestedRetryAction.RetryImmediately.ToString(),
+        RetryAgentDecision.RetryWithFixedDelay or RetryAgentDecision.RetryWithExponentialBackoff => SuggestedRetryAction.RetryWithBackoff.ToString(),
+        RetryAgentDecision.MoveToDeadLetter => SuggestedRetryAction.MoveToDeadLetter.ToString(),
+        RetryAgentDecision.PauseEndpoint => SuggestedRetryAction.PauseEndpoint.ToString(),
+        RetryAgentDecision.RequireManualReview => SuggestedRetryAction.RequireManualReview.ToString(),
+        _ => SuggestedRetryAction.None.ToString()
+    };
 
     private async Task<AiAgentResultDto> RunSecurityAgentAsync(AiAgentOrchestrationRequestDto request, CancellationToken cancellationToken)
     {

@@ -14,6 +14,7 @@ builder.Services.AddSingleton<AiWorkerHealthStatus>();
 builder.Services.AddAiKernelServices();
 builder.Services.AddAiPromptServices();
 builder.Services.AddAiRetryRecommendationServices();
+builder.Services.AddRetryAgentServices(builder.Configuration);
 builder.Services.AddAiLogSummarizationServices();
 builder.Services.AddPayloadSchemaDetectionServices();
 builder.Services.AddJsonToDtoSuggestionServices();
@@ -37,6 +38,7 @@ builder.Services.AddHostedService<AiAnomalyRecordPersistenceWorker>();
 builder.Services.AddHostedService<AiSecurityAnalysisWorker>();
 builder.Services.AddHostedService<WebhookDuplicateReplayDetectionWorker>();
 builder.Services.AddHostedService<AiAgentOrchestrationWorker>();
+builder.Services.AddHostedService<RetryAgentWorker>();
 
 var host = builder.Build();
 host.Run();
