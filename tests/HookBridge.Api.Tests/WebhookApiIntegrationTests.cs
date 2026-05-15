@@ -6,6 +6,7 @@ using FluentAssertions;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.Application.DTOs.AiAnalysis;
 using HookBridge.Application.DTOs.AiDashboard;
+using HookBridge.Application.DTOs.AiNaturalLanguageQuery;
 using HookBridge.Api.Health;
 using HookBridge.Application.DTOs.ApiKeys;
 using HookBridge.Application.DTOs.Common;
@@ -253,6 +254,108 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         body.Data.TotalAiAnalyses.Should().Be(1);
     }
 
+    [Fact]
+    public async Task PostAiNaturalLanguageQuery_WithFailureQuestion_ShouldReturnSuccessfulJsonResponseShape()
+    {
+        _factory.State.AiAnalysisResults.Add(new AiAnalysisResult
+        {
+            Id = "663f0c7a9f1e2a5a12345684",
+            EventId = "evt_nlq_failure",
+            CorrelationId = "corr_nlq_failure",
+            Environment = "qa",
+            CustomerId = "cust_123",
+            CustomerIdType = "external",
+            SubscriptionId = "sub_123",
+            EndpointId = "endpoint_123",
+            FailureReason = "HTTP 429 rate limit failure",
+            AiSummary = "Target endpoint returned Too Many Requests.",
+            RiskLevel = "Medium",
+            SuggestedRetryAction = "RetryWithBackoff",
+            CreatedAtUtc = new DateTime(2026, 5, 14, 10, 16, 30, DateTimeKind.Utc),
+        });
+
+        var response = await _client.PostAsJsonAsync("/api/ai/query", new AiNaturalLanguageQueryRequestDto
+        {
+            Query = "Why are webhook deliveries failing for customer cust_123 in QA today?",
+            Environment = "qa",
+            CustomerId = "cust_123",
+            FromUtc = new DateTime(2026, 5, 14, 0, 0, 0, DateTimeKind.Utc),
+            ToUtc = new DateTime(2026, 5, 14, 23, 59, 59, DateTimeKind.Utc),
+            MaxResults = 20,
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<AiNaturalLanguageQueryResponseDto>>();
+        body!.Success.Should().BeTrue();
+        body.Data!.Intent.Should().Be(AiNaturalLanguageQueryIntent.FailureAnalysis);
+        body.Data.Results.Should().ContainSingle(x => x.EventId == "evt_nlq_failure");
+        body.Data.FiltersUsed.Should().ContainKey("maxResults");
+        body.Data.Fallback.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PostAiNaturalLanguageQuery_WithEventId_ShouldReturnEventLookupResult()
+    {
+        _factory.State.AiAnalysisResults.Add(new AiAnalysisResult
+        {
+            Id = "663f0c7a9f1e2a5a12345685",
+            EventId = "evt_nlq_event",
+            CorrelationId = "corr_nlq_event",
+            CustomerId = "cust_123",
+            FailureReason = "Timeout",
+            AiSummary = "The event failed because the endpoint timed out.",
+            RiskLevel = "High",
+            SuggestedRetryAction = "RetryWithBackoff",
+            CreatedAtUtc = new DateTime(2026, 5, 14, 9, 0, 0, DateTimeKind.Utc),
+        });
+
+        var response = await _client.PostAsJsonAsync("/api/ai/query", new AiNaturalLanguageQueryRequestDto
+        {
+            Query = "Why did event evt_nlq_event fail?",
+            EventId = "evt_nlq_event",
+            FromUtc = new DateTime(2026, 5, 14, 0, 0, 0, DateTimeKind.Utc),
+            ToUtc = new DateTime(2026, 5, 14, 23, 59, 59, DateTimeKind.Utc),
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<AiNaturalLanguageQueryResponseDto>>();
+        body!.Data!.Intent.Should().Be(AiNaturalLanguageQueryIntent.EventLookup);
+        body.Data.Results.Should().ContainSingle(x => x.EventId == "evt_nlq_event" && x.ResultType == "FailureAnalysis");
+    }
+
+    [Fact]
+    public async Task PostAiNaturalLanguageQuery_WithHighRiskEndpointQuestion_ShouldReturnEndpointRiskResult()
+    {
+        _factory.State.RiskScores.Add(new CustomerEndpointRiskScoreResult
+        {
+            Id = "risk_nlq_1",
+            Environment = "qa",
+            CustomerId = "cust_123",
+            CustomerIdType = "external",
+            SubscriptionId = "sub_123",
+            EndpointId = "endpoint_high_risk",
+            RiskLevel = "High",
+            HealthStatus = "Degraded",
+            Summary = "Endpoint is high risk due to repeated rate limits.",
+            Recommendation = "Reduce delivery concurrency.",
+            CreatedAtUtc = new DateTime(2026, 5, 14, 8, 0, 0, DateTimeKind.Utc),
+        });
+
+        var response = await _client.PostAsJsonAsync("/api/ai/query", new AiNaturalLanguageQueryRequestDto
+        {
+            Query = "Show high-risk endpoints in QA.",
+            Environment = "qa",
+            FromUtc = new DateTime(2026, 5, 14, 0, 0, 0, DateTimeKind.Utc),
+            ToUtc = new DateTime(2026, 5, 14, 23, 59, 59, DateTimeKind.Utc),
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<AiNaturalLanguageQueryResponseDto>>();
+        body!.Data!.Intent.Should().Be(AiNaturalLanguageQueryIntent.EndpointRisk);
+        body.Data.Results.Should().ContainSingle(x => x.EndpointId == "endpoint_high_risk" && x.RiskLevel == "High");
+        body.Data.SuggestedActions.Should().NotBeEmpty();
+    }
+
     [Theory]
     [InlineData("/health")]
     [InlineData("/api/v1/health/kafka")]
@@ -305,6 +408,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                     ["DataRetention:AuditLogsDays"] = "30",
                     ["DataRetention:NotificationsDays"] = "30",
                     ["DemoData:Enabled"] = "false",
+                    ["AI:Enabled"] = "false",
                 });
             });
 
@@ -324,6 +428,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                 services.RemoveAll<IAiAnomalyRecordRepository>();
                 services.RemoveAll<IAiSecurityAnalysisRepository>();
                 services.RemoveAll<ICustomerEndpointRiskScoreRepository>();
+                services.RemoveAll<IWebhookFailureAnomalyDetectionRepository>();
 
                 services.AddSingleton(State);
                 services.AddScoped<ISubscriptionService, InMemorySubscriptionService>();
@@ -337,7 +442,8 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
                 services.AddScoped<IAiAnalysisResultRepository, InMemoryAiAnalysisResultRepository>();
                 services.AddScoped<IAiAnomalyRecordRepository, EmptyAiAnomalyRecordRepository>();
                 services.AddScoped<IAiSecurityAnalysisRepository, EmptyAiSecurityAnalysisRepository>();
-                services.AddScoped<ICustomerEndpointRiskScoreRepository, EmptyCustomerEndpointRiskScoreRepository>();
+                services.AddScoped<ICustomerEndpointRiskScoreRepository, InMemoryCustomerEndpointRiskScoreRepository>();
+                services.AddScoped<IWebhookFailureAnomalyDetectionRepository, EmptyWebhookFailureAnomalyDetectionRepository>();
 
                 var mongoDatabase = new Mock<IMongoDatabase>();
                 mongoDatabase
@@ -377,6 +483,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         public List<FailedEventRecord> FailedEvents { get; } = [];
         public List<PublishedMessage> PublishedMessages { get; } = [];
         public List<AiAnalysisResult> AiAnalysisResults { get; } = [];
+        public List<CustomerEndpointRiskScoreResult> RiskScores { get; } = [];
         public bool SubscriptionServiceShouldRejectInvalidRequests { get; set; }
 
         public void Reset()
@@ -386,6 +493,7 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
             FailedEvents.Clear();
             PublishedMessages.Clear();
             AiAnalysisResults.Clear();
+            RiskScores.Clear();
             SubscriptionServiceShouldRejectInvalidRequests = false;
         }
 
@@ -497,13 +605,35 @@ public sealed class WebhookApiIntegrationTests : IClassFixture<WebhookApiIntegra
         public Task<IReadOnlyList<AiSecurityAnalysisResult>> SearchAsync(HookBridge.AI.Worker.DTOs.AiSecurityAnalysisSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiSecurityAnalysisResult>>([]);
     }
 
-    private sealed class EmptyCustomerEndpointRiskScoreRepository : ICustomerEndpointRiskScoreRepository
+    private sealed class InMemoryCustomerEndpointRiskScoreRepository(IntegrationTestState state) : ICustomerEndpointRiskScoreRepository
     {
-        public Task InsertAsync(CustomerEndpointRiskScoreResult result, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>([]);
-        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetBySubscriptionIdAsync(string subscriptionId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>([]);
-        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetByEndpointIdAsync(string endpointId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>([]);
-        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>([]);
+        public Task InsertAsync(CustomerEndpointRiskScoreResult result, CancellationToken cancellationToken = default)
+        {
+            state.RiskScores.Add(result);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>(state.RiskScores.Where(x => x.CustomerId == customerId).ToList());
+
+        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetBySubscriptionIdAsync(string subscriptionId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>(state.RiskScores.Where(x => x.SubscriptionId == subscriptionId).ToList());
+
+        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetByEndpointIdAsync(string endpointId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>(state.RiskScores.Where(x => x.EndpointId == endpointId).ToList());
+
+        public Task<IReadOnlyList<CustomerEndpointRiskScoreResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<CustomerEndpointRiskScoreResult>>(state.RiskScores.OrderByDescending(x => x.CreatedAtUtc).Take(limit).ToList());
+    }
+
+    private sealed class EmptyWebhookFailureAnomalyDetectionRepository : IWebhookFailureAnomalyDetectionRepository
+    {
+        public Task InsertAsync(WebhookFailureAnomalyDetectionResult result, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<WebhookFailureAnomalyDetectionResult>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WebhookFailureAnomalyDetectionResult>>([]);
+        public Task<IReadOnlyList<WebhookFailureAnomalyDetectionResult>> GetBySubscriptionIdAsync(string subscriptionId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WebhookFailureAnomalyDetectionResult>>([]);
+        public Task<IReadOnlyList<WebhookFailureAnomalyDetectionResult>> GetByEndpointIdAsync(string endpointId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WebhookFailureAnomalyDetectionResult>>([]);
+        public Task<IReadOnlyList<WebhookFailureAnomalyDetectionResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WebhookFailureAnomalyDetectionResult>>([]);
+        public Task<IReadOnlyList<WebhookFailureAnomalyDetectionResult>> GetAnomaliesAsync(HookBridge.AI.Worker.DTOs.AiRiskLevel? minimumRiskLevel = null, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WebhookFailureAnomalyDetectionResult>>([]);
     }
 
     private sealed class InMemorySubscriptionService(IntegrationTestState state) : ISubscriptionService
