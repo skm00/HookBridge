@@ -146,6 +146,50 @@ public sealed class AiAnomalyKafkaTests
         result!.AnomalyType.Should().Be(AiAnomalyType.Unknown);
     }
 
+
+    [Fact]
+    public async Task Consumer_RespectsCancellationTokenBeforeConsuming()
+    {
+        var kafkaClient = new Mock<IConsumer<string, string>>();
+        kafkaClient.Setup(client => client.Subscribe(AiKafkaTopics.Anomalies));
+        var consumer = CreateConsumer(kafkaClient.Object);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var messages = new List<AiAnomalyEventDto>();
+        await foreach (var message in consumer.ConsumeAsync(cts.Token))
+        {
+            messages.Add(message);
+        }
+
+        messages.Should().BeEmpty();
+        kafkaClient.Verify(client => client.Consume(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Consumer_LogsMetadataOnlyWithoutPayloadOrSecrets()
+    {
+        const string payloadSecret = "super-secret-payload-token";
+        var kafkaClient = new Mock<IConsumer<string, string>>();
+        kafkaClient.Setup(client => client.Subscribe(AiKafkaTopics.Anomalies));
+        kafkaClient.SetupSequence(client => client.Consume(It.IsAny<CancellationToken>()))
+            .Returns(BuildResult("corr-1", JsonSerializer.Serialize(CreateEvent(summary: payloadSecret, recommendation: payloadSecret), SerializerOptions)))
+            .Throws(new OperationCanceledException());
+        var logger = new TestLogger<AiAnomalyConsumer>();
+        var consumer = CreateConsumer(kafkaClient.Object, logger);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        await foreach (var _ in consumer.ConsumeAsync(cts.Token))
+        {
+            break;
+        }
+
+        logger.Records.Should().Contain(record => record.Message.Contains("AI anomaly event consumed", StringComparison.Ordinal));
+        logger.Records.Select(record => record.Message).Should().NotContain(message => message.Contains(payloadSecret, StringComparison.Ordinal));
+        logger.Records.SelectMany(record => record.Properties.Values).Select(value => value?.ToString()).Should().NotContain(payloadSecret);
+    }
+
     private static Mock<IProducer<string, string>> CreateKafkaProducer(out Func<Message<string, string>?> published, bool succeeds)
     {
         Message<string, string>? message = null;
@@ -203,7 +247,7 @@ public sealed class AiAnomalyKafkaTests
             },
         };
 
-    private static AiAnomalyEventDto CreateEvent(string? correlationId = "corr-1")
+    private static AiAnomalyEventDto CreateEvent(string? correlationId = "corr-1", string? summary = null, string? recommendation = null)
         => new()
         {
             AnomalyId = "anm-1",
@@ -219,8 +263,8 @@ public sealed class AiAnomalyKafkaTests
             AnomalyType = AiAnomalyType.RateLimitSpike,
             RiskLevel = AiRiskLevel.High,
             AnomalyScore = 78,
-            Summary = "HTTP 429 rate-limit failures increased sharply compared to the baseline window.",
-            Recommendation = "Reduce concurrency and retry with exponential backoff.",
+            Summary = summary ?? "HTTP 429 rate-limit failures increased sharply compared to the baseline window.",
+            Recommendation = recommendation ?? "Reduce concurrency and retry with exponential backoff.",
             Source = "HookBridge.AI.Worker",
             CreatedAtUtc = new DateTime(2026, 5, 14, 10, 16, 30, DateTimeKind.Utc),
         };

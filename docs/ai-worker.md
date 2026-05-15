@@ -1394,6 +1394,24 @@ HookBridge includes a deterministic webhook failure anomaly detector for sudden 
 | 81-100 | Critical |
 | Insufficient data | Unknown |
 
+### Test coverage
+
+Unit tests for the anomaly detector, DTO contracts, event mapper, Kafka producer/consumer behavior, Mongo record repository queries, DI registrations, and dashboard-oriented query helpers live in `tests/HookBridge.AI.Worker.Tests`. Shared metric-window JSON fixtures are stored under `tests/HookBridge.AI.Worker.Tests/TestData/AnomalyDetection` and cover no-anomaly, failure spike, retry spike, HTTP 429 rate-limit spike, and latency spike scenarios.
+
+Run the focused anomaly suite with:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --filter "FullyQualifiedName~Anomaly"
+```
+
+Run the full AI worker unit suite with:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj
+```
+
+Coverage reporting remains subject to the repository thresholds of at least 80% line coverage and 70% branch coverage. Unit tests use Moq and do not require real Kafka, MongoDB, Ollama, or Semantic Kernel calls; Testcontainers should only be used by separately runnable integration tests.
+
 ### Example request
 
 ```json

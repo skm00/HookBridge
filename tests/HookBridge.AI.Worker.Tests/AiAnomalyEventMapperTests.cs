@@ -39,8 +39,18 @@ public sealed class AiAnomalyEventMapperTests
         dto.EventId.Should().Be("evt-1");
         dto.CorrelationId.Should().Be("corr-1");
         dto.CustomerId.Should().Be("cust-1");
+        dto.CustomerIdType.Should().Be("MDM");
+        dto.SubscriptionId.Should().Be("sub-1");
+        dto.EndpointId.Should().Be("endpoint-1");
+        dto.TargetUrl.Should().Be("https://customer.example.com/webhook");
+        dto.Environment.Should().Be("qa");
+        dto.EventType.Should().Be("OrderCreated");
         dto.RiskLevel.Should().Be(AiRiskLevel.High);
+        dto.AnomalyScore.Should().Be(78);
+        dto.Summary.Should().Be("Rate limits spiked.");
+        dto.Recommendation.Should().Be("Reduce concurrency.");
         dto.AnomalyType.Should().Be(AiAnomalyType.RateLimitSpike);
+        dto.Source.Should().Be("HookBridge.AI.Worker");
         dto.CreatedAtUtc.Should().Be(response.CalculatedAtUtc);
     }
 
@@ -49,6 +59,13 @@ public sealed class AiAnomalyEventMapperTests
     [InlineData("RetryCount", AiAnomalyType.RetrySpike)]
     [InlineData("DeadLetterCount", AiAnomalyType.DeadLetterSpike)]
     [InlineData("TimeoutCount", AiAnomalyType.TimeoutSpike)]
+    [InlineData("RateLimitCount", AiAnomalyType.RateLimitSpike)]
+    [InlineData("ServerErrorCount", AiAnomalyType.ServerErrorSpike)]
+    [InlineData("ClientErrorCount", AiAnomalyType.ClientErrorSpike)]
+    [InlineData("AuthenticationFailureCount", AiAnomalyType.AuthenticationFailureSpike)]
+    [InlineData("SignatureValidationFailureCount", AiAnomalyType.SignatureValidationSpike)]
+    [InlineData("SuspiciousPayloadCount", AiAnomalyType.SuspiciousPayloadSpike)]
+    [InlineData("AverageLatencyMs", AiAnomalyType.LatencySpike)]
     [InlineData("P95LatencyMs", AiAnomalyType.LatencySpike)]
     [InlineData("NewMetric", AiAnomalyType.Unknown)]
     public void MapAnomalyType_MapsMetricNames(string metricName, AiAnomalyType expected)
