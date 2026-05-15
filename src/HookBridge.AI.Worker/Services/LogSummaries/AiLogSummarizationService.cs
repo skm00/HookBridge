@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Prompts;
+using HookBridge.AI.Worker.PromptVersioning;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.Fallback;
 using Microsoft.Extensions.Logging;
@@ -81,7 +82,8 @@ public sealed class AiLogSummarizationService : IAiLogSummarizationService
 
         try
         {
-            var prompt = _promptBuilder.BuildPrompt(request);
+            var promptResult = await _promptBuilder.BuildPromptWithMetadataAsync(request, cancellationToken);
+            var prompt = promptResult.Content;
             var llmResponse = await _llmClient.GenerateAsync(prompt, cancellationToken);
 
             if (!llmResponse.IsSuccess)
@@ -110,6 +112,7 @@ public sealed class AiLogSummarizationService : IAiLogSummarizationService
             }
 
             var normalized = NormalizeResponse(parsed, request);
+            normalized.ApplyPromptMetadata(promptResult.Metadata);
             _logger.LogInformation(
                 "AI log summarization succeeded. EventId: {EventId}, CorrelationId: {CorrelationId}, RiskLevel: {RiskLevel}, ConfidenceScore: {ConfidenceScore}",
                 normalized.EventId,

@@ -16,4 +16,10 @@ public sealed class AiNaturalLanguageQueryResponseDto
     public string Model { get; set; } = string.Empty;
     public string Provider { get; set; } = string.Empty;
     public bool Fallback { get; set; }
+
+    public string PromptName { get; set; } = string.Empty;
+
+    public string PromptVersion { get; set; } = string.Empty;
+
+    public string PromptHash { get; set; } = string.Empty;
 }

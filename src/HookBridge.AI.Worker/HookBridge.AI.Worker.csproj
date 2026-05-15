@@ -19,4 +19,8 @@
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.76.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.Ollama" Version="1.76.0-alpha" />
   </ItemGroup>
+  <ItemGroup>
+    <None Remove="Prompts/**/*.prompt.txt" />
+    <None Include="Prompts/**/*.prompt.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

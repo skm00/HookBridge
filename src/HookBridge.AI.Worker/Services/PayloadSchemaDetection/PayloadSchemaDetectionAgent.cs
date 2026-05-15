@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Prompts;
+using HookBridge.AI.Worker.PromptVersioning;
 using HookBridge.AI.Worker.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -54,7 +55,8 @@ public sealed partial class PayloadSchemaDetectionAgent : IPayloadSchemaDetectio
 
         try
         {
-            var prompt = _promptBuilder.BuildPrompt(request);
+            var promptResult = await _promptBuilder.BuildPromptWithMetadataAsync(request, cancellationToken);
+            var prompt = promptResult.Content;
             var llmResponse = await _llmClient.GenerateAsync(prompt, cancellationToken);
             if (!llmResponse.IsSuccess)
             {
@@ -71,6 +73,7 @@ public sealed partial class PayloadSchemaDetectionAgent : IPayloadSchemaDetectio
                 return CreateFallback(request, AiFallbackReason.InvalidJson, $"AI response could not be used: {failure}");
             }
 
+            response.ApplyPromptMetadata(promptResult.Metadata);
             return response;
         }
         catch (OperationCanceledException)

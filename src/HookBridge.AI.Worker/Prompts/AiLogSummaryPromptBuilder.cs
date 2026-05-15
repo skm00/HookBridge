@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.PromptVersioning;
 using Microsoft.Extensions.Options;
 
 namespace HookBridge.AI.Worker.Prompts;
@@ -30,11 +31,13 @@ public sealed class AiLogSummaryPromptBuilder : IAiLogSummaryPromptBuilder
     };
 
     private readonly AiOptions _options;
+    private readonly IAiPromptVersionProvider? _promptVersionProvider;
 
-    public AiLogSummaryPromptBuilder(IOptions<AiOptions> options)
+    public AiLogSummaryPromptBuilder(IOptions<AiOptions> options, IAiPromptVersionProvider? promptVersionProvider = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
+        _promptVersionProvider = promptVersionProvider;
     }
 
     public string BuildPrompt(AiLogSummaryRequestDto request)
@@ -174,4 +177,22 @@ Webhook log context:
             $@"(?<key>\b{Regex.Escape(term)}\b)(?<separator>\s*(?:=|:|=>)\s*""?)[^\r\n,}}\]""]+",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
             TimeSpan.FromMilliseconds(100));
+
+    public async Task<AiPromptBuildResult> BuildPromptWithMetadataAsync(AiLogSummaryRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var content = BuildPrompt(request);
+        var metadata = new AiPromptVersionInfoDto
+        {
+            PromptName = AiPromptNames.AiLogSummary,
+            Version = AiPromptOptions.DefaultPromptVersion
+        };
+
+        if (_promptVersionProvider is not null)
+        {
+            metadata = (await _promptVersionProvider.GetPromptAsync(AiPromptNames.AiLogSummary, cancellationToken: cancellationToken)).Metadata;
+        }
+
+        return new AiPromptBuildResult { Content = content, Metadata = metadata };
+    }
+
 }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.PromptVersioning;
 using Microsoft.Extensions.Options;
 
 namespace HookBridge.AI.Worker.Prompts;
@@ -28,11 +29,13 @@ public sealed class WebhookFailurePromptBuilder : IWebhookFailurePromptBuilder
     };
 
     private readonly AiOptions _options;
+    private readonly IAiPromptVersionProvider? _promptVersionProvider;
 
-    public WebhookFailurePromptBuilder(IOptions<AiOptions> options)
+    public WebhookFailurePromptBuilder(IOptions<AiOptions> options, IAiPromptVersionProvider? promptVersionProvider = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
+        _promptVersionProvider = promptVersionProvider;
     }
 
     public string BuildPrompt(WebhookFailureAnalysisRequestDto request)
@@ -154,4 +157,22 @@ Webhook failure context:
             normalizedValue.AsSpan(0, maxLength),
             $"... [truncated from {normalizedValue.Length} to {maxLength} characters]");
     }
+
+    public async Task<AiPromptBuildResult> BuildPromptWithMetadataAsync(WebhookFailureAnalysisRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var content = BuildPrompt(request);
+        var metadata = new AiPromptVersionInfoDto
+        {
+            PromptName = AiPromptNames.WebhookFailureAnalysis,
+            Version = AiPromptOptions.DefaultPromptVersion
+        };
+
+        if (_promptVersionProvider is not null)
+        {
+            metadata = (await _promptVersionProvider.GetPromptAsync(AiPromptNames.WebhookFailureAnalysis, cancellationToken: cancellationToken)).Metadata;
+        }
+
+        return new AiPromptBuildResult { Content = content, Metadata = metadata };
+    }
+
 }

@@ -28,6 +28,9 @@ public sealed class AiAnalysisResultMongoTests
             IsRetryRecommended = true,
             Model = "llama3",
             Provider = "Ollama",
+            PromptName = "WebhookFailureAnalysis",
+            PromptVersion = "v1.0.0",
+            PromptHash = "sha256:abc",
             CreatedAtUtc = createdAtUtc
         };
 
@@ -48,6 +51,9 @@ public sealed class AiAnalysisResultMongoTests
         document["isRetryRecommended"].AsBoolean.Should().BeTrue();
         document["model"].AsString.Should().Be("llama3");
         document["provider"].AsString.Should().Be("Ollama");
+        document["promptName"].AsString.Should().Be("WebhookFailureAnalysis");
+        document["promptVersion"].AsString.Should().Be("v1.0.0");
+        document["promptHash"].AsString.Should().Be("sha256:abc");
         BsonSerializer.Deserialize<AiAnalysisResult>(document).CreatedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
     }
 }

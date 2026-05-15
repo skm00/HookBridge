@@ -39,6 +39,16 @@ public sealed class AiSecurityAnalysisResult
     [BsonElement("model")] public string Model { get; set; } = string.Empty;
     [BsonElement("provider")] public string Provider { get; set; } = string.Empty;
     [BsonElement("fallback")] public AiFallbackMetadataDto? Fallback { get; set; }
+
+    [BsonElement("promptName")]
+    public string PromptName { get; set; } = string.Empty;
+
+    [BsonElement("promptVersion")]
+    public string PromptVersion { get; set; } = string.Empty;
+
+    [BsonElement("promptHash")]
+    public string PromptHash { get; set; } = string.Empty;
+
     [BsonElement("createdAtUtc")][BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public static AiSecurityAnalysisResult FromResponse(AiSecurityAnalysisResponseDto response, AiSecurityAnalysisRequestDto request)
@@ -75,6 +85,9 @@ public sealed class AiSecurityAnalysisResult
             GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc, DateTimeKind.Utc),
             Model = response.Model,
             Provider = response.Provider,
+            PromptName = response.PromptName,
+            PromptVersion = response.PromptVersion,
+            PromptHash = response.PromptHash,
             Fallback = response.Fallback,
             CreatedAtUtc = DateTime.UtcNow
         };

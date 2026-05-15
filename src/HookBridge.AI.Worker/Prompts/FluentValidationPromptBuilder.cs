@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.PromptVersioning;
 using Microsoft.Extensions.Options;
 
 namespace HookBridge.AI.Worker.Prompts;
@@ -17,10 +18,12 @@ public sealed class FluentValidationPromptBuilder : IFluentValidationPromptBuild
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
     private readonly AiOptions _options;
+    private readonly IAiPromptVersionProvider? _promptVersionProvider;
 
-    public FluentValidationPromptBuilder(IOptions<AiOptions> options)
+    public FluentValidationPromptBuilder(IOptions<AiOptions> options, IAiPromptVersionProvider? promptVersionProvider = null)
     {
         _options = options.Value;
+        _promptVersionProvider = promptVersionProvider;
     }
 
     public string BuildPrompt(FluentValidationRuleGenerationRequestDto request)
@@ -127,4 +130,22 @@ Webhook DTO and payload context:
             ? Regex.Replace(line, "\"[^\"]*\"", $"\"{MaskedValue}\"")
             : line));
     }
+
+    public async Task<AiPromptBuildResult> BuildPromptWithMetadataAsync(FluentValidationRuleGenerationRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var content = BuildPrompt(request);
+        var metadata = new AiPromptVersionInfoDto
+        {
+            PromptName = AiPromptNames.FluentValidationRuleGeneration,
+            Version = AiPromptOptions.DefaultPromptVersion
+        };
+
+        if (_promptVersionProvider is not null)
+        {
+            metadata = (await _promptVersionProvider.GetPromptAsync(AiPromptNames.FluentValidationRuleGeneration, cancellationToken: cancellationToken)).Metadata;
+        }
+
+        return new AiPromptBuildResult { Content = content, Metadata = metadata };
+    }
+
 }

@@ -76,6 +76,16 @@ public sealed class AiAnalysisResult
     [BsonElement("provider")]
     public string Provider { get; set; } = string.Empty;
 
+
+    [BsonElement("promptName")]
+    public string PromptName { get; set; } = string.Empty;
+
+    [BsonElement("promptVersion")]
+    public string PromptVersion { get; set; } = string.Empty;
+
+    [BsonElement("promptHash")]
+    public string PromptHash { get; set; } = string.Empty;
+
     [BsonElement("createdAtUtc")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

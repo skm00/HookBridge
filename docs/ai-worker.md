@@ -1522,3 +1522,55 @@ docker exec -it kafka kafka-console-consumer \
   --from-beginning \
   --property print.key=true
 ```
+
+## AI Prompt Versioning
+
+HookBridge versions AI prompt templates so every AI-generated result can be traced back to the prompt revision that shaped it. This is useful for debugging output changes, auditing production decisions, comparing rollouts, and rolling back a prompt without changing application code.
+
+Prompt templates live under the AI worker project in a folder-per-prompt, file-per-version layout:
+
+```text
+src/HookBridge.AI.Worker/Prompts/
+  WebhookFailureAnalysis/v1.0.0.prompt.txt
+  AiLogSummary/v1.0.0.prompt.txt
+  PayloadSchemaDetection/v1.0.0.prompt.txt
+  JsonToDtoSuggestion/v1.0.0.prompt.txt
+  FluentValidationRuleGeneration/v1.0.0.prompt.txt
+  WebhookTransformationRecommendation/v1.0.0.prompt.txt
+  AiSecurityAnalysis/v1.0.0.prompt.txt
+  NaturalLanguageQuery/v1.0.0.prompt.txt
+```
+
+Versions must use semantic prompt format such as `v1.0.0`, `v1.1.0`, or `v2.0.0`. To add a new prompt version, create a new `.prompt.txt` file in the matching prompt folder, for example `Prompts/WebhookFailureAnalysis/v1.1.0.prompt.txt`, then update configuration to activate it.
+
+Active versions are selected with the `AIPrompts` configuration section:
+
+```json
+{
+  "AIPrompts": {
+    "DefaultVersion": "v1.0.0",
+    "Prompts": {
+      "WebhookFailureAnalysis": "v1.0.0",
+      "AiLogSummary": "v1.0.0",
+      "PayloadSchemaDetection": "v1.0.0",
+      "JsonToDtoSuggestion": "v1.0.0",
+      "FluentValidationRuleGeneration": "v1.0.0",
+      "WebhookTransformationRecommendation": "v1.0.0",
+      "AiSecurityAnalysis": "v1.0.0",
+      "NaturalLanguageQuery": "v1.0.0"
+    }
+  }
+}
+```
+
+Each generated AI response and MongoDB AI result stores `PromptName`, `PromptVersion`, and `PromptHash`. The hash is a `sha256:` digest of the prompt template content, allowing operators to verify exactly which prompt file was active even if a file with the same version label is changed accidentally.
+
+Prompt files are copied to the application output during build, which keeps integration tests and published deployments deterministic. The prompt version provider loads the configured prompt, validates known prompt names and semantic versions, calculates the SHA-256 hash, and logs prompt selection/hash metadata without logging full prompt content by default.
+
+Prompt metadata APIs are available from the API service:
+
+- `GET /api/ai-prompts` lists known prompt versions and active flags without prompt content.
+- `GET /api/ai-prompts/{promptName}/{version}` returns metadata for one prompt version.
+- `GET /api/ai-prompts/{promptName}/{version}?includeContent=true` includes the prompt file content only when explicitly requested.
+
+The metadata endpoints return `400` for invalid version formats and `404` when a prompt name or version does not exist.

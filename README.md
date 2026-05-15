@@ -1185,3 +1185,7 @@ Optional filters include `environment`, `customerId`, `customerIdType`, `subscri
 - Suggested actions are advisory and should be reviewed before retries, replay, dead-letter movement, or security response.
 - Prompts instruct the model not to expose secrets, headers, tokens, raw payloads, target credentials, or connection strings.
 - If AI is disabled or unavailable, HookBridge returns a deterministic fallback summary based on matching repository results.
+
+### AI Prompt Versioning
+
+HookBridge stores AI prompt templates under `src/HookBridge.AI.Worker/Prompts/{PromptName}/{Version}.prompt.txt` and tracks `PromptName`, `PromptVersion`, and `PromptHash` on AI responses and MongoDB result documents. Active prompt versions are configured through the `AIPrompts` section, using semantic versions such as `v1.0.0`, `v1.1.0`, and `v2.0.0`. The SHA-256 prompt hash helps operators audit which prompt content produced a result and detect accidental template drift. Prompt metadata is exposed through `GET /api/ai-prompts` and `GET /api/ai-prompts/{promptName}/{version}`; prompt content is omitted unless `includeContent=true` is explicitly supplied. See [AI Worker documentation](docs/ai-worker.md#ai-prompt-versioning) for the folder structure, rollout steps, and API details.

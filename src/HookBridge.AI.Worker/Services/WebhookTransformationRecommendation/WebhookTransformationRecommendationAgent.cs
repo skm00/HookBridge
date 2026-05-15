@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Prompts;
+using HookBridge.AI.Worker.PromptVersioning;
 using HookBridge.AI.Worker.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -52,7 +53,8 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
 
         try
         {
-            var llmResponse = await _llmClient.GenerateAsync(_promptBuilder.BuildPrompt(request), cancellationToken);
+            var promptResult = await _promptBuilder.BuildPromptWithMetadataAsync(request, cancellationToken);
+            var llmResponse = await _llmClient.GenerateAsync(promptResult.Content, cancellationToken);
             if (!llmResponse.IsSuccess)
                 return CreateFallback(request, llmResponse.FallbackReason, llmResponse.ErrorMessage);
 
@@ -62,6 +64,7 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
                 return CreateFallback(request, AiFallbackReason.InvalidJson, $"AI response could not be used: {failure}");
             }
 
+            response.ApplyPromptMetadata(promptResult.Metadata);
             return response;
         }
         catch (OperationCanceledException) { throw; }

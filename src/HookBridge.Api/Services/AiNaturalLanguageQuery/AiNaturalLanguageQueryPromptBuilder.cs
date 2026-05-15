@@ -1,10 +1,19 @@
 using System.Text.Json;
 using HookBridge.Application.DTOs.AiNaturalLanguageQuery;
+using HookBridge.AI.Worker.Prompts;
+using HookBridge.AI.Worker.PromptVersioning;
 
 namespace HookBridge.Api.Services.AiNaturalLanguageQuery;
 
 public sealed class AiNaturalLanguageQueryPromptBuilder : IAiNaturalLanguageQueryPromptBuilder
 {
+    private readonly IAiPromptVersionProvider? _promptVersionProvider;
+
+    public AiNaturalLanguageQueryPromptBuilder(IAiPromptVersionProvider? promptVersionProvider = null)
+    {
+        _promptVersionProvider = promptVersionProvider;
+    }
+
     public string BuildPrompt(AiNaturalLanguageQueryRequestDto request, AiNaturalLanguageQueryIntent intent, IReadOnlyList<AiNaturalLanguageQueryResultDto> results)
     {
         var payload = JsonSerializer.Serialize(new
@@ -43,4 +52,22 @@ Safe input data:
 {{payload}}
 """;
     }
+
+    public async Task<AiPromptBuildResult> BuildPromptWithMetadataAsync(AiNaturalLanguageQueryRequestDto request, AiNaturalLanguageQueryIntent intent, IReadOnlyList<AiNaturalLanguageQueryResultDto> results, CancellationToken cancellationToken = default)
+    {
+        var content = BuildPrompt(request, intent, results);
+        var metadata = new AiPromptVersionInfoDto
+        {
+            PromptName = AiPromptNames.NaturalLanguageQuery,
+            Version = AiPromptOptions.DefaultPromptVersion
+        };
+
+        if (_promptVersionProvider is not null)
+        {
+            metadata = (await _promptVersionProvider.GetPromptAsync(AiPromptNames.NaturalLanguageQuery, cancellationToken: cancellationToken)).Metadata;
+        }
+
+        return new AiPromptBuildResult { Content = content, Metadata = metadata };
+    }
+
 }

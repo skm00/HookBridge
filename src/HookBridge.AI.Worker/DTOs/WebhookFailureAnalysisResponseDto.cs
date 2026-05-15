@@ -30,4 +30,10 @@ public sealed class WebhookFailureAnalysisResponseDto
     public string Provider { get; set; } = string.Empty;
 
     public AiFallbackMetadataDto? Fallback { get; set; }
+
+    public string PromptName { get; set; } = string.Empty;
+
+    public string PromptVersion { get; set; } = string.Empty;
+
+    public string PromptHash { get; set; } = string.Empty;
 }

@@ -3,6 +3,7 @@ using System.Text.Json;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Mongo;
+using HookBridge.AI.Worker.PromptVersioning;
 using HookBridge.AI.Worker.Services;
 using HookBridge.Api.Configuration;
 using HookBridge.Application.DTOs.AiNaturalLanguageQuery;
@@ -66,7 +67,10 @@ public sealed class AiNaturalLanguageQueryService(
             GeneratedAtUtc = dateTimeProvider.UtcNow,
             Model = aiOptions.Value.Model,
             Provider = aiOptions.Value.Provider,
-            Fallback = answer.Fallback
+            Fallback = answer.Fallback,
+            PromptName = answer.PromptMetadata?.PromptName ?? string.Empty,
+            PromptVersion = answer.PromptMetadata?.Version ?? string.Empty,
+            PromptHash = answer.PromptMetadata?.Hash ?? string.Empty
         };
     }
 
@@ -219,8 +223,8 @@ public sealed class AiNaturalLanguageQueryService(
 
         try
         {
-            var prompt = promptBuilder.BuildPrompt(request, intent, results);
-            var llmResponse = await llmClient.GenerateAsync(prompt, cancellationToken);
+            var promptResult = await promptBuilder.BuildPromptWithMetadataAsync(request, intent, results, cancellationToken);
+            var llmResponse = await llmClient.GenerateAsync(promptResult.Content, cancellationToken);
             if (!llmResponse.IsSuccess || string.IsNullOrWhiteSpace(llmResponse.ResponseText))
             {
                 return BuildFallbackAnswer(intent, results, fallback: true);
@@ -236,7 +240,8 @@ public sealed class AiNaturalLanguageQueryService(
                 parsed.Answer.Trim(),
                 parsed.SuggestedActions?.Where(action => !string.IsNullOrWhiteSpace(action)).Select(action => action.Trim()).Take(5).ToList() ?? SafeDefaultActions(intent, results),
                 Math.Clamp(parsed.ConfidenceScore, 0, 1),
-                false);
+                false,
+                promptResult.Metadata);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -425,7 +430,7 @@ public sealed class AiNaturalLanguageQueryService(
         _ => 0
     };
 
-    private sealed record AnswerResult(string Answer, IReadOnlyList<string> SuggestedActions, double ConfidenceScore, bool Fallback);
+    private sealed record AnswerResult(string Answer, IReadOnlyList<string> SuggestedActions, double ConfidenceScore, bool Fallback, AiPromptVersionInfoDto? PromptMetadata = null);
     private sealed class AiAnswerJson
     {
         public string Answer { get; set; } = string.Empty;
