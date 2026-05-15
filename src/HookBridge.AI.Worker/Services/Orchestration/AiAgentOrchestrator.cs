@@ -386,7 +386,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 
     private AiOrchestrationRecommendedAction DetermineRecommendedAction(AiAgentOrchestrationRequestDto request, IReadOnlyList<AiAgentResultDto> results, AiRiskLevel overallRisk)
     {
-        if (results.Any(r => r.AgentName == AiAgentName.SecurityAnalysisAgent && r.IsSuccessful && r.RiskLevel == AiRiskLevel.Critical))
+        if (results.Any(r => (r.AgentName is AiAgentName.SecurityAgent or AiAgentName.SecurityAnalysisAgent) && r.IsSuccessful && r.RiskLevel == AiRiskLevel.Critical))
         {
             return AiOrchestrationRecommendedAction.Quarantine;
         }

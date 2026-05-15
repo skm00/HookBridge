@@ -1013,6 +1013,7 @@ The score starts at `0`, adds the following bounded signals, and is clamped to `
 | Secret-looking values | +15 | `SecretValueDetected` |
 | Payload size over threshold | +15 | `LargePayload` |
 | Suspicious User-Agent | +10 | `SuspiciousUserAgent` |
+| Suspicious payload combined with signature/auth failure | +5 | `SuspiciousPayload` |
 
 Risk levels are `0-20 = Low`, `21-50 = Medium`, `51-80 = High`, `81-100 = Critical`, and `Unknown` when data is insufficient. Low risk normally maps to `Allow` or `Monitor`, Medium to `Monitor`, High to `RequireManualReview` or `Quarantine`, and Critical to `Quarantine` or `Reject`. Replay detection forces quarantine/reject behavior, and authentication/signature failures never return `Allow`.
 

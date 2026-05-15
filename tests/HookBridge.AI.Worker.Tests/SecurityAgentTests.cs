@@ -112,6 +112,62 @@ public sealed class SecurityAgentTests
         response.RequiresApproval.Should().BeTrue();
     }
 
+
+    [Fact]
+    public async Task DisabledAgent_ReturnsFallbackMonitorWithoutApproval()
+    {
+        var response = await CreateAgent(new SecurityAgentOptions { Enabled = false }).AnalyzeAsync(CreateRequest());
+
+        response.Fallback.Should().BeTrue();
+        response.SecurityDecision.Should().Be(SecurityAgentDecision.Monitor);
+        response.RequiresApproval.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SuspiciousPayloadWithSignatureFailure_AddsCompoundReasonAndHighRisk()
+    {
+        var response = await CreateAgent().AnalyzeAsync(CreateRequest(payload: "<script>x</script>", signatureFailed: true));
+
+        response.SecurityRiskScore.Should().BeGreaterThanOrEqualTo(51);
+        response.RiskLevel.Should().Be(AiRiskLevel.High);
+        response.ReasonCodes.Should().Contain(SecurityAgentReasonCode.SuspiciousPayload);
+    }
+
+    [Fact]
+    public async Task CriticalCommandInjection_CanRejectWhenRiskIsCritical()
+    {
+        var response = await CreateAgent().AnalyzeAsync(CreateRequest(payload: "; rm -rf / <script> client_secret=x", signatureFailed: true, authFailed: true));
+
+        response.RiskLevel.Should().Be(AiRiskLevel.Critical);
+        response.SecurityDecision.Should().Be(SecurityAgentDecision.Reject);
+    }
+
+    [Fact]
+    public async Task HighRisk_DoesNotPublishAnomalyWhenDisabledByOptions()
+    {
+        var agent = CreateAgent(new SecurityAgentOptions { PublishAnomalyForHighRisk = false });
+        var response = await agent.AnalyzeAsync(CreateRequest(signatureFailed: true, authFailed: true));
+
+        response.RiskLevel.Should().Be(AiRiskLevel.High);
+        agent.ShouldPublishAnomaly(response).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ResponseValidation_RejectsOutOfRangeValuesAndNonUtcGeneratedAt()
+    {
+        var response = new SecurityAgentResponseDto
+        {
+            EventId = "evt-1",
+            SecurityRiskScore = 101,
+            ConfidenceScore = 1.1,
+            GeneratedAtUtc = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Local)
+        };
+
+        var results = new List<ValidationResult>();
+        Validator.TryValidateObject(response, new ValidationContext(response), results, true).Should().BeFalse();
+        results.Should().HaveCount(3);
+    }
+
     [Fact]
     public async Task GeneratedAtUtc_IsUtcAndConfidenceIsClamped()
     {

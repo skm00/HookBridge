@@ -61,11 +61,16 @@ public sealed class SecurityAgent : ISecurityAgent
         AddBooleanSignal(isReplay, SecurityAgentReasonCode.ReplayDetected, 40, "Critical", "Webhook replay was detected.", "isReplay=true", "Quarantine or reject replayed events until reviewed.", ref score, reasonCodes, signals);
         AddBooleanSignal(isDuplicate, SecurityAgentReasonCode.DuplicateDetected, 15, "Medium", "Duplicate webhook was detected.", "isDuplicate=true", "Monitor duplicate volume and review repeated events.", ref score, reasonCodes, signals);
 
+        var payloadPatternReasonCountBefore = reasonCodes.Count;
         AddPatternSignal(ScriptPattern, text, SecurityAgentReasonCode.ScriptContentDetected, 20, "High", "Script-like payload content was detected.", "payload contains script-like pattern", "Quarantine and review payload before forwarding.", ref score, reasonCodes, signals);
         AddPatternSignal(SqlPattern, text, SecurityAgentReasonCode.SqlInjectionPattern, 25, "High", "SQL injection-like payload content was detected.", "payload contains SQL injection-like pattern", "Quarantine and investigate the sender.", ref score, reasonCodes, signals);
         AddPatternSignal(CommandPattern, text, SecurityAgentReasonCode.CommandInjectionPattern, 30, "Critical", "Command injection-like payload content was detected.", "payload contains command injection-like pattern", "Quarantine or reject after manual confirmation.", ref score, reasonCodes, signals);
         AddPatternSignal(PathTraversalPattern, text, SecurityAgentReasonCode.PathTraversalPattern, 20, "High", "Path traversal-like payload content was detected.", "payload contains path traversal-like pattern", "Require manual review before processing.", ref score, reasonCodes, signals);
         AddPatternSignal(SecretPattern, text, SecurityAgentReasonCode.SecretValueDetected, 15, "Medium", "Secret-looking value was detected in the payload.", "payload contains secret-looking key or token", "Review and redact sensitive values.", ref score, reasonCodes, signals);
+        if (HasPayloadPattern(reasonCodes) && reasonCodes.Count > payloadPatternReasonCountBefore && (request.SignatureValidationFailed || request.AuthenticationFailed))
+        {
+            AddSignal(SecurityAgentReasonCode.SuspiciousPayload, 5, "High", "Suspicious payload content was detected together with an authentication or signature failure.", "payload signal with failed trust validation", "Require security review before forwarding.", ref score, reasonCodes, signals);
+        }
 
         if (request.PayloadSizeBytes > _options.LargePayloadThresholdBytes)
         {
@@ -230,6 +235,13 @@ public sealed class SecurityAgent : ISecurityAgent
             throw new ArgumentException(string.Join("; ", results.Select(result => result.ErrorMessage)));
         }
     }
+
+    private static bool HasPayloadPattern(ISet<SecurityAgentReasonCode> reasonCodes)
+        => reasonCodes.Contains(SecurityAgentReasonCode.ScriptContentDetected)
+           || reasonCodes.Contains(SecurityAgentReasonCode.SqlInjectionPattern)
+           || reasonCodes.Contains(SecurityAgentReasonCode.CommandInjectionPattern)
+           || reasonCodes.Contains(SecurityAgentReasonCode.PathTraversalPattern)
+           || reasonCodes.Contains(SecurityAgentReasonCode.SecretValueDetected);
 
     private static void AddBooleanSignal(bool condition, SecurityAgentReasonCode code, int points, string severity, string description, string evidence, string recommendation, ref int score, ISet<SecurityAgentReasonCode> reasonCodes, ICollection<AiSecuritySignalDto> signals)
     {
