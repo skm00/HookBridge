@@ -69,6 +69,11 @@ public sealed class AiSecurityAnalysisWorkerTests
 
         published.AnomalyId.Should().Be("sec_corr-1");
         published.AnomalyType.Should().Be(AiAnomalyType.SuspiciousPayloadSpike);
+        published.CustomerId.Should().Be(request.CustomerId);
+        published.EventId.Should().Be(request.EventId);
+        published.RiskLevel.Should().Be(response.RiskLevel);
+        published.Summary.Should().Be(response.Summary);
+        published.Recommendation.Should().Be(response.Recommendation);
         published.AnomalyScore.Should().Be(response.SecurityRiskScore);
     }
 

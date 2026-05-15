@@ -90,6 +90,12 @@ public sealed class AiSecurityAnalysisAgent : IAiSecurityAnalysisAgent
             return false;
         }
 
+        if (string.IsNullOrWhiteSpace(response.Summary) || string.IsNullOrWhiteSpace(response.Recommendation) || response.GeneratedAtUtc == default)
+        {
+            failure = "missing required response fields";
+            return false;
+        }
+
         response.EventId = string.IsNullOrWhiteSpace(response.EventId) ? request.EventId : response.EventId;
         response.CorrelationId ??= request.CorrelationId;
         response.DetectedSecuritySignals ??= Array.Empty<AiSecuritySignalDto>();
@@ -129,15 +135,15 @@ public sealed class AiSecurityAnalysisAgent : IAiSecurityAnalysisAgent
         var score = 0;
         if (request.SignatureValidationFailed) { score += 30; AddSignal(signals, "SignatureValidationFailed", "High", "The webhook signature validation failed.", "signatureValidationFailed=true", "Verify signing secret and timestamp tolerance."); }
         if (request.AuthenticationFailed) { score += 30; AddSignal(signals, "AuthenticationFailed", "High", "Webhook authentication failed.", "authenticationFailed=true", "Verify credentials and authentication header configuration."); }
-        if (request.PayloadSizeBytes > _options.LargePayloadThresholdBytes) { score += 15; AddSignal(signals, "LargePayload", "Medium", "Payload exceeds the configured large payload threshold.", $"payloadSizeBytes={request.PayloadSizeBytes}", "Require manual review before replaying unusually large payloads."); }
+        if (request.PayloadSizeBytes > _options.LargePayloadThresholdBytes) { score += 25; AddSignal(signals, "LargePayload", "Medium", "Payload exceeds the configured large payload threshold.", $"payloadSizeBytes={request.PayloadSizeBytes}", "Require manual review before replaying unusually large payloads."); }
 
         var text = BuildSearchText(request);
-        if (ContainsAny(text, XssPatterns)) { score += 20; AddSignal(signals, "ScriptContent", "High", "Payload or headers contain script-like content.", "matched script/javascript pattern", "Quarantine and review for XSS before forwarding."); }
-        if (ContainsAny(text, SqlPatterns)) { score += 25; AddSignal(signals, "SqlInjectionLikeContent", "High", "Payload or headers contain SQL injection-like strings.", "matched SQL injection-like pattern", "Review payload source and reject if malicious."); }
-        if (ContainsAny(text, CommandPatterns)) { score += 30; AddSignal(signals, "CommandInjectionLikeContent", "Critical", "Payload or headers contain command injection-like strings.", "matched command execution pattern", "Quarantine and perform manual security review."); }
+        if (ContainsAny(text, XssPatterns)) { score += 25; AddSignal(signals, "ScriptContent", "High", "Payload or headers contain script-like content.", "matched script/javascript pattern", "Quarantine and review for XSS before forwarding."); }
+        if (ContainsAny(text, SqlPatterns)) { score += 25; AddSignal(signals, "SqlInjectionPattern", "High", "Payload or headers contain SQL injection-like strings.", "matched SQL injection-like pattern", "Review payload source and reject if malicious."); }
+        if (ContainsAny(text, CommandPatterns)) { score += 30; AddSignal(signals, "CommandInjectionPattern", "Critical", "Payload or headers contain command injection-like strings.", "matched command execution pattern", "Quarantine and perform manual security review."); }
         if (ContainsAny(text, PathTraversalPatterns)) { score += 20; AddSignal(signals, "PathTraversalPattern", "High", "Payload or headers contain path traversal patterns.", "matched ../ or ..\\ pattern", "Review payload and reject malicious file path input."); }
         if (ContainsAny(text, Base64Patterns)) { AddSignal(signals, "Base64HeavyContent", "Medium", "Payload or headers contain base64 data URI-like content.", "matched base64, pattern", "Review binary or encoded content before forwarding."); }
-        if (ContainsAny(text, SecretPatterns)) { score += 15; AddSignal(signals, "SecretLookingValue", "Medium", "Payload or headers contain token or secret-looking fields.", "matched token/secret keyword", "Mask secrets and verify the sender did not leak credentials."); }
+        if (ContainsAny(text, SecretPatterns)) { score += 15; AddSignal(signals, "SecretDetected", "Medium", "Payload or headers contain token or secret-looking fields.", "matched token/secret keyword", "Mask secrets and verify the sender did not leak credentials."); }
         if (IsSuspiciousUserAgent(request.UserAgent)) { score += 10; AddSignal(signals, "SuspiciousUserAgent", "Low", "User-Agent is missing or unusual.", $"userAgent={request.UserAgent ?? "[not provided]"}", "Monitor sender identity and require review when combined with other signals."); }
 
         score = Math.Clamp(score, 0, 100);

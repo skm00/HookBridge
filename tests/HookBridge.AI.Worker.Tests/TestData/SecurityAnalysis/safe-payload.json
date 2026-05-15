@@ -1,0 +1,6 @@
+{
+  "orderId": "ORD-1001",
+  "status": "created",
+  "amount": 42.50,
+  "customer": { "id": "cust_safe", "tier": "standard" }
+}
