@@ -984,6 +984,113 @@ Signature validation or authentication failures never recommend `Allow`. Suggest
 
 - [Webhook duplicate/replay detection](docs/duplicate-replay-detection.md) documents deterministic fingerprinting, scoring, MongoDB collection, and Kafka topic details.
 
+
+## Security Agent
+
+HookBridge Security Agent is a deterministic, dedicated security-risk evaluator for webhook events. It combines request metadata, headers, authentication and signature validation status, duplicate/replay flags, payload pattern scanning, and the existing AI Security Analysis agent when available. The agent is designed for review and orchestration workflows; it does not directly block production traffic without an approval workflow.
+
+### Kafka, MongoDB, approvals, and anomalies
+
+- Kafka input topic: `hookbridge.ai.security-agent`
+- MongoDB collection: `security_agent_results`
+- High and Critical results can publish anomaly events to `hookbridge.ai.anomalies` when `SecurityAgent:PublishAnomalyForHighRisk` or `SecurityAgent:PublishAnomalyForCriticalRisk` is enabled.
+- Results with `RequiresApproval = true` create `SecurityRecommendation` approval records so humans can approve quarantine/reject/block decisions before irreversible production action.
+
+### Deterministic decision and scoring rules
+
+The score starts at `0`, adds the following bounded signals, and is clamped to `0..100`:
+
+| Signal | Score impact | Reason code |
+| --- | ---: | --- |
+| Signature validation failure | +30 | `SignatureValidationFailed` |
+| Authentication failure | +30 | `AuthenticationFailed` |
+| Replay detected | +40 | `ReplayDetected` |
+| Duplicate detected | +15 | `DuplicateDetected` |
+| Script/XSS-like content | +20 | `ScriptContentDetected` |
+| SQL injection-like content | +25 | `SqlInjectionPattern` |
+| Command injection-like content | +30 | `CommandInjectionPattern` |
+| Path traversal pattern | +20 | `PathTraversalPattern` |
+| Secret-looking values | +15 | `SecretValueDetected` |
+| Payload size over threshold | +15 | `LargePayload` |
+| Suspicious User-Agent | +10 | `SuspiciousUserAgent` |
+| Suspicious payload combined with signature/auth failure | +5 | `SuspiciousPayload` |
+
+Risk levels are `0-20 = Low`, `21-50 = Medium`, `51-80 = High`, `81-100 = Critical`, and `Unknown` when data is insufficient. Low risk normally maps to `Allow` or `Monitor`, Medium to `Monitor`, High to `RequireManualReview` or `Quarantine`, and Critical to `Quarantine` or `Reject`. Replay detection forces quarantine/reject behavior, and authentication/signature failures never return `Allow`.
+
+### Options
+
+```json
+{
+  "SecurityAgent": {
+    "Enabled": true,
+    "LargePayloadThresholdBytes": 1048576,
+    "RequireApprovalForHighRisk": true,
+    "RequireApprovalForCriticalRisk": true,
+    "RequireApprovalForReplay": true,
+    "PublishAnomalyForHighRisk": true,
+    "PublishAnomalyForCriticalRisk": true
+  }
+}
+```
+
+### Example request
+
+```json
+{
+  "eventId": "evt_sec_001",
+  "correlationId": "corr_sec_001",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "environment": "qa",
+  "eventType": "OrderCreated",
+  "source": "HookBridge.API",
+  "targetUrl": "https://customer.example.com/webhook",
+  "httpMethod": "POST",
+  "sourceIp": "10.10.10.10",
+  "userAgent": "unknown-client",
+  "signatureValidationFailed": true,
+  "authenticationFailed": false,
+  "isDuplicate": false,
+  "isReplay": false,
+  "payloadSizeBytes": 2048,
+  "payload": {
+    "orderId": "ORD-1001",
+    "comment": "<script>alert('x')</script>"
+  },
+  "receivedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_sec_001",
+  "correlationId": "corr_sec_001",
+  "isSuspicious": true,
+  "securityDecision": "Quarantine",
+  "securityRiskScore": 60,
+  "riskLevel": "High",
+  "requiresApproval": true,
+  "summary": "Webhook event security evaluation selected Quarantine due to SignatureValidationFailed, ScriptContentDetected, SuspiciousUserAgent.",
+  "recommendation": "Quarantine the event and perform manual security review before replaying or forwarding.",
+  "securitySignals": [
+    {
+      "signalName": "SignatureValidationFailed",
+      "severity": "High",
+      "description": "Webhook signature validation failed.",
+      "evidence": "signatureValidationFailed=true",
+      "recommendation": "Verify signing secret and timestamp tolerance."
+    }
+  ],
+  "reasonCodes": ["SignatureValidationFailed", "ScriptContentDetected", "SuspiciousUserAgent"],
+  "confidenceScore": 0.82,
+  "generatedAtUtc": "2026-05-14T10:31:00Z",
+  "fallback": false
+}
+```
+
 ## AI Dashboard Summary API
 
 HookBridge exposes an AI dashboard summary endpoint for operational UI cards and charts.

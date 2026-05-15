@@ -12,6 +12,7 @@ using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
+using HookBridge.AI.Worker.Services.SecurityAgent;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -54,6 +55,8 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
             .AddEndpointHealthScoringServices()
             .AddAiPromptServices()
             .AddAiSecurityAnalysisServices()
+            .AddSecurityAgentServices(configuration)
+            .AddWebhookDuplicateReplayDetectionServices()
             .AddAiKafkaServices()
             .AddAiMongoServices();
 
@@ -73,6 +76,8 @@ public sealed class AiWorkerServiceRegistrationIntegrationTests
         provider.GetRequiredService<IAiLogSummaryPromptBuilder>().Should().NotBeNull();
         provider.GetRequiredService<IAiSecurityAnalysisPromptBuilder>().Should().NotBeNull();
         provider.GetRequiredService<IAiSecurityAnalysisAgent>().Should().NotBeNull();
+        provider.GetRequiredService<ISecurityAgent>().Should().NotBeNull();
+        provider.GetRequiredService<ISecurityAgentResultRepository>().Should().NotBeNull();
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnalysisProducer));
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnalysisConsumer));
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAnomalyProducer));

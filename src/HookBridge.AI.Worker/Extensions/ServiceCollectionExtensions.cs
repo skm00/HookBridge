@@ -13,6 +13,7 @@ using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
+using HookBridge.AI.Worker.Services.SecurityAgent;
 using HookBridge.AI.Worker.Services.JsonToDtoSuggestion;
 using HookBridge.AI.Worker.Services.FluentValidationRuleGeneration;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
@@ -111,6 +112,9 @@ public static class ServiceCollectionExtensions
                 options => !string.IsNullOrWhiteSpace(options.RetryAgentResultsCollectionName),
                 "AiMongo:RetryAgentResultsCollectionName is required.")
             .Validate(
+                options => !string.IsNullOrWhiteSpace(options.SecurityAgentResultsCollectionName),
+                "AiMongo:SecurityAgentResultsCollectionName is required.")
+            .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiAgentOrchestrationResultsCollectionName),
                 "AiMongo:AiAgentOrchestrationResultsCollectionName is required.")
             .ValidateOnStart();
@@ -145,6 +149,20 @@ public static class ServiceCollectionExtensions
             .Validate(options => string.Equals(options.HashAlgorithm, "SHA256", StringComparison.OrdinalIgnoreCase), "DuplicateReplayDetection:HashAlgorithm must be SHA256.")
             .ValidateOnStart();
 
+        return services;
+    }
+
+    public static IServiceCollection AddSecurityAgentServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<SecurityAgentOptions>()
+            .Bind(configuration.GetSection(SecurityAgentOptions.SectionName))
+            .Validate(options => options.LargePayloadThresholdBytes > 0, "SecurityAgent:LargePayloadThresholdBytes must be greater than 0.")
+            .ValidateOnStart();
+
+        services.TryAddSingleton<ISecurityAgent, HookBridge.AI.Worker.Services.SecurityAgent.SecurityAgent>();
         return services;
     }
 
@@ -355,6 +373,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWebhookDuplicateReplayDetectionConsumer, WebhookDuplicateReplayDetectionConsumer>();
         services.AddSingleton<IAiAgentOrchestrationConsumer, AiAgentOrchestrationConsumer>();
         services.AddSingleton<IRetryAgentConsumer, RetryAgentConsumer>();
+        services.AddSingleton<ISecurityAgentConsumer, SecurityAgentConsumer>();
         return services;
     }
 
@@ -391,6 +410,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiAgentOrchestrationRepository, AiAgentOrchestrationRepository>();
         services.AddSingleton<IRetryAgentResultCollectionProvider, RetryAgentResultCollectionProvider>();
         services.AddSingleton<IRetryAgentResultRepository, RetryAgentResultRepository>();
+        services.AddSingleton<ISecurityAgentResultCollectionProvider, SecurityAgentResultCollectionProvider>();
+        services.AddSingleton<ISecurityAgentResultRepository, SecurityAgentResultRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

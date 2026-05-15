@@ -10,6 +10,7 @@ using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
+using HookBridge.AI.Worker.Services.SecurityAgent;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -30,7 +31,7 @@ public sealed class AiAgentOrchestratorTests
 
         response.EventId.Should().Be("evt-1");
         response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.RetryRecommendationAgent);
-        response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.SecurityAnalysisAgent);
+        response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.SecurityAgent);
         response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.DuplicateReplayDetectionAgent);
         response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.PayloadSchemaDetectionAgent);
         response.OverallRiskLevel.Should().Be(AiRiskLevel.Medium);
@@ -53,13 +54,13 @@ public sealed class AiAgentOrchestratorTests
     public async Task OneFailedAgent_DoesNotFailOrchestration()
     {
         var fixture = new Fixture();
-        fixture.Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<AiSecurityAnalysisRequestDto>(), It.IsAny<CancellationToken>()))
+        fixture.Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<SecurityAgentRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("boom"));
         var orchestrator = fixture.Create(new AiAgentOrchestrationOptions { EnableEndpointRiskAgent = false, EnableAnomalyAgent = false });
 
         var response = await orchestrator.OrchestrateAsync(CreateRequest());
 
-        response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.SecurityAnalysisAgent && !result.IsSuccessful && result.ErrorMessage == "boom");
+        response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.SecurityAgent && !result.IsSuccessful && result.ErrorMessage == "boom");
         response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.RetryRecommendationAgent && result.IsSuccessful);
     }
 
@@ -84,8 +85,8 @@ public sealed class AiAgentOrchestratorTests
     public async Task CriticalSecurityResult_SetsOverallRiskCriticalAndRequiresApproval()
     {
         var fixture = new Fixture();
-        fixture.Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<AiSecurityAnalysisRequestDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AiSecurityAnalysisResponseDto { EventId = "evt-1", RiskLevel = AiRiskLevel.Critical, Summary = "critical", SuggestedAction = AiSecuritySuggestedAction.Quarantine, ConfidenceScore = 0.9 });
+        fixture.Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<SecurityAgentRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SecurityAgentResponseDto { EventId = "evt-1", RiskLevel = AiRiskLevel.Critical, Summary = "critical", SecurityDecision = SecurityAgentDecision.Quarantine, ConfidenceScore = 0.9 });
         var orchestrator = fixture.Create(new AiAgentOrchestrationOptions { EnableRetryAgent = false, EnableDuplicateReplayAgent = false, EnablePayloadSchemaAgent = false, EnableEndpointRiskAgent = false, EnableAnomalyAgent = false });
 
         var response = await orchestrator.OrchestrateAsync(CreateRequest(statusCode: 200));
@@ -211,8 +212,8 @@ public sealed class AiAgentOrchestratorTests
     public async Task HighRiskWithoutStrongerAction_RequiresManualReview()
     {
         var fixture = new Fixture();
-        fixture.Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<AiSecurityAnalysisRequestDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AiSecurityAnalysisResponseDto { EventId = "evt-1", RiskLevel = AiRiskLevel.High, Summary = "high risk", SuggestedAction = AiSecuritySuggestedAction.RequireManualReview, ConfidenceScore = 0.8 });
+        fixture.Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<SecurityAgentRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SecurityAgentResponseDto { EventId = "evt-1", RiskLevel = AiRiskLevel.High, Summary = "high risk", SecurityDecision = SecurityAgentDecision.RequireManualReview, ConfidenceScore = 0.8 });
         var orchestrator = fixture.Create(new AiAgentOrchestrationOptions { EnableRetryAgent = false, EnableDuplicateReplayAgent = false, EnablePayloadSchemaAgent = false, EnableEndpointRiskAgent = false, EnableAnomalyAgent = false });
 
         var response = await orchestrator.OrchestrateAsync(CreateRequest(statusCode: 200));
@@ -299,7 +300,7 @@ public sealed class AiAgentOrchestratorTests
     {
         public Mock<IAiRetryRecommendationService> Retry { get; } = new();
         public Mock<IRetryAgent> RetryAgent { get; } = new();
-        public Mock<IAiSecurityAnalysisAgent> Security { get; } = new();
+        public Mock<ISecurityAgent> Security { get; } = new();
         public Mock<IWebhookDuplicateReplayDetectionService> DuplicateReplay { get; } = new();
         public Mock<IPayloadSchemaDetectionAgent> PayloadSchema { get; } = new();
         public Mock<ICustomerEndpointRiskScoringService> EndpointRisk { get; } = new();
@@ -313,8 +314,8 @@ public sealed class AiAgentOrchestratorTests
                 .ReturnsAsync(new WebhookFailureAnalysisResponseDto { EventId = "evt-1", AiSummary = "HTTP 429 indicates rate limiting.", RiskLevel = AiRiskLevel.Medium, SuggestedRetryAction = SuggestedRetryAction.RetryWithBackoff, ConfidenceScore = 0.8 });
             RetryAgent.Setup(agent => agent.AnalyzeAsync(It.IsAny<RetryAgentRequestDto>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new RetryAgentResponseDto { EventId = "evt-1", Summary = "HTTP 429 indicates rate limiting.", RiskLevel = AiRiskLevel.Medium.ToString(), RetryDecision = RetryAgentDecision.RetryWithExponentialBackoff, ConfidenceScore = 0.8 });
-            Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<AiSecurityAnalysisRequestDto>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new AiSecurityAnalysisResponseDto { EventId = "evt-1", Summary = "No suspicious payload pattern detected.", RiskLevel = AiRiskLevel.Low, SuggestedAction = AiSecuritySuggestedAction.Allow, ConfidenceScore = 0.7 });
+            Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<SecurityAgentRequestDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new SecurityAgentResponseDto { EventId = "evt-1", Summary = "No suspicious payload pattern detected.", RiskLevel = AiRiskLevel.Low, SecurityDecision = SecurityAgentDecision.Allow, ConfidenceScore = 0.7 });
             DuplicateReplay.Setup(service => service.DetectAsync(It.IsAny<WebhookDuplicateReplayDetectionRequestDto>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new WebhookDuplicateReplayDetectionResponseDto { EventId = "evt-1", Summary = "No duplicate or replay detected.", RiskLevel = AiRiskLevel.Low, SuggestedAction = WebhookDuplicateReplaySuggestedAction.Allow, DetectionScore = 75 });
             PayloadSchema.Setup(agent => agent.DetectAsync(It.IsAny<PayloadSchemaDetectionRequestDto>(), It.IsAny<CancellationToken>()))
