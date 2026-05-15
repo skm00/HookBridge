@@ -183,6 +183,122 @@ public sealed class AiRecommendationApprovalServiceTests
         provider.GetRequiredService<IOptions<AiRecommendationApprovalOptions>>().Value.ApprovalExpiryHours.Should().Be(72);
     }
 
+
+    [Fact]
+    public async Task GetByIdAsync_ReturnsNull_WhenApprovalDoesNotExist()
+    {
+        var service = CreateService(new InMemoryAiRecommendationApprovalRepository());
+
+        var response = await service.GetByIdAsync("missing");
+
+        response.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(501)]
+    public async Task GetPendingAsync_RejectsInvalidLimit(int limit)
+    {
+        var service = CreateService(new InMemoryAiRecommendationApprovalRepository());
+
+        Func<Task> act = async () => await service.GetPendingAsync(limit);
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
+
+    [Theory]
+    [InlineData(0, 50)]
+    [InlineData(1, 0)]
+    [InlineData(1, 501)]
+    public async Task SearchAsync_RejectsInvalidPaging(int pageNumber, int pageSize)
+    {
+        var service = CreateService(new InMemoryAiRecommendationApprovalRepository());
+        var request = new AiRecommendationApprovalSearchRequestDto { PageNumber = pageNumber, PageSize = pageSize };
+
+        Func<Task> act = async () => await service.SearchAsync(request);
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public async Task SearchAsync_RejectsNonUtcDateRange()
+    {
+        var service = CreateService(new InMemoryAiRecommendationApprovalRepository());
+        var request = new AiRecommendationApprovalSearchRequestDto
+        {
+            FromUtc = new DateTime(2026, 5, 15, 0, 0, 0, DateTimeKind.Local)
+        };
+
+        Func<Task> act = async () => await service.SearchAsync(request);
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*FromUtc must be UTC*");
+    }
+
+    [Theory]
+    [InlineData("", AiRecommendationType.RetryRecommendation, "High", "RecommendationId is required")]
+    [InlineData("rec_invalid", null, "High", "RecommendationType is required")]
+    [InlineData("rec_invalid", AiRecommendationType.RetryRecommendation, "", "RiskLevel is required")]
+    public async Task CreateAsync_RejectsInvalidRequiredFields(string recommendationId, AiRecommendationType? recommendationType, string riskLevel, string expectedMessage)
+    {
+        var service = CreateService(new InMemoryAiRecommendationApprovalRepository());
+        var request = CreateRequest(recommendationId: string.IsNullOrEmpty(recommendationId) ? "rec_placeholder" : recommendationId, riskLevel: string.IsNullOrEmpty(riskLevel) ? "High" : riskLevel);
+        request.RecommendationId = recommendationId;
+        request.RecommendationType = recommendationType;
+        request.RiskLevel = riskLevel;
+
+        Func<Task> act = async () => await service.CreateAsync(request);
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage($"*{expectedMessage}*");
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_ReturnsNull_WhenApprovalDoesNotExist()
+    {
+        var service = CreateService(new InMemoryAiRecommendationApprovalRepository());
+
+        var response = await service.UpdateStatusAsync("missing", new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved });
+
+        response.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_RejectsMissingApprovalStatus()
+    {
+        var service = CreateService(new InMemoryAiRecommendationApprovalRepository());
+
+        Func<Task> act = async () => await service.UpdateStatusAsync("approval_1", new AiRecommendationApprovalUpdateRequestDto());
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*ApprovalStatus is required*");
+    }
+
+    [Fact]
+    public void Mapper_ToEntity_AutoApprovesLowRiskRetryWhenConfigured()
+    {
+        var request = CreateRequest(riskLevel: "Low");
+        var options = new AiRecommendationApprovalOptions { AllowLowRiskAutoApproval = true };
+
+        var entity = AiRecommendationApprovalMapper.ToEntity(request, options, new DateTime(2026, 5, 15, 12, 0, 0, DateTimeKind.Utc));
+
+        entity.ApprovalStatus.Should().Be(AiRecommendationApprovalStatus.Approved);
+        entity.ExpiresAtUtc.Should().Be(new DateTime(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void Mapper_ToStatusUpdate_SetsAppliedTimestampOnlyForAppliedStatus()
+    {
+        var now = new DateTime(2026, 5, 15, 12, 0, 0, DateTimeKind.Utc);
+
+        var update = AiRecommendationApprovalMapper.ToStatusUpdate(
+            new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Applied, ReviewedBy = " admin ", ReviewComment = " applied " },
+            now);
+
+        update.ApprovalStatus.Should().Be(AiRecommendationApprovalStatus.Applied);
+        update.AppliedAtUtc.Should().Be(now);
+        update.ReviewedAtUtc.Should().BeNull();
+        update.ReviewedBy.Should().Be("admin");
+        update.ReviewComment.Should().Be("applied");
+    }
+
     private static AiRecommendationApprovalService CreateService(InMemoryAiRecommendationApprovalRepository repository, AiRecommendationApprovalOptions? options = null)
         => new(repository, Options.Create(options ?? new AiRecommendationApprovalOptions()), NullLogger<AiRecommendationApprovalService>.Instance);
 

@@ -59,6 +59,98 @@ public sealed class AiRecommendationApprovalsControllerTests
         Assert.IsType<ConflictObjectResult>(result.Result);
     }
 
+
+    [Fact]
+    public async Task SearchAsync_Returns200()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.SearchAsync(new AiRecommendationApprovalSearchRequestDto(), CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task SearchAsync_Returns400_ForInvalidRequest()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowArgument = true });
+
+        var result = await controller.SearchAsync(new AiRecommendationApprovalSearchRequestDto(), CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetPendingAsync_Returns400_ForInvalidLimit()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowArgument = true });
+
+        var result = await controller.GetPendingAsync(0, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_Returns200()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.GetByIdAsync("approval_1", CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_Returns400_ForBlankId()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.GetByIdAsync(" ", CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Returns200()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.UpdateStatusAsync("approval_1", new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Returns404_WhenMissing()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ReturnNull = true });
+
+        var result = await controller.UpdateStatusAsync("missing", new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Returns400_ForBlankId()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.UpdateStatusAsync(" ", new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Returns500_ForUnexpectedError()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowUnexpected = true });
+
+        var result = await controller.CreateAsync(CreateRequest(), CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
     private static AiRecommendationApprovalsController CreateController(IAiRecommendationApprovalService service)
     {
         var controller = new AiRecommendationApprovalsController(service, NullLogger<AiRecommendationApprovalsController>.Instance);
@@ -79,30 +171,50 @@ public sealed class AiRecommendationApprovalsControllerTests
     {
         public bool ThrowArgument { get; init; }
         public bool ThrowConflict { get; init; }
+        public bool ThrowUnexpected { get; init; }
         public bool ReturnNull { get; init; }
 
         public Task<AiRecommendationApprovalResponseDto> CreateAsync(AiRecommendationApprovalCreateRequestDto request, CancellationToken cancellationToken = default)
         {
-            if (ThrowArgument) throw new ArgumentException("Invalid request.");
+            ThrowIfConfigured();
             return Task.FromResult(CreateResponse());
         }
 
         public Task<AiRecommendationApprovalResponseDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
-            => Task.FromResult(ReturnNull ? null : CreateResponse());
+        {
+            ThrowIfConfigured();
+            return Task.FromResult(ReturnNull ? null : CreateResponse());
+        }
 
         public Task<AiRecommendationApprovalResponseDto?> GetByRecommendationIdAsync(string recommendationId, CancellationToken cancellationToken = default)
-            => Task.FromResult<AiRecommendationApprovalResponseDto?>(CreateResponse());
+        {
+            ThrowIfConfigured();
+            return Task.FromResult<AiRecommendationApprovalResponseDto?>(CreateResponse());
+        }
 
         public Task<IReadOnlyList<AiRecommendationApprovalResponseDto>> GetPendingAsync(int limit = 100, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<AiRecommendationApprovalResponseDto>>(new[] { CreateResponse() });
+        {
+            ThrowIfConfigured();
+            return Task.FromResult<IReadOnlyList<AiRecommendationApprovalResponseDto>>(new[] { CreateResponse() });
+        }
 
         public Task<IReadOnlyList<AiRecommendationApprovalResponseDto>> SearchAsync(AiRecommendationApprovalSearchRequestDto request, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<AiRecommendationApprovalResponseDto>>(new[] { CreateResponse() });
+        {
+            ThrowIfConfigured();
+            return Task.FromResult<IReadOnlyList<AiRecommendationApprovalResponseDto>>(new[] { CreateResponse() });
+        }
 
         public Task<AiRecommendationApprovalResponseDto?> UpdateStatusAsync(string id, AiRecommendationApprovalUpdateRequestDto request, CancellationToken cancellationToken = default)
         {
             if (ThrowConflict) throw new AiRecommendationApprovalConflictException("Invalid transition.");
+            ThrowIfConfigured();
             return Task.FromResult(ReturnNull ? null : CreateResponse(request.ApprovalStatus!.Value));
+        }
+
+        private void ThrowIfConfigured()
+        {
+            if (ThrowArgument) throw new ArgumentException("Invalid request.");
+            if (ThrowUnexpected) throw new InvalidOperationException("Unexpected failure.");
         }
 
         private static AiRecommendationApprovalResponseDto CreateResponse(AiRecommendationApprovalStatus status = AiRecommendationApprovalStatus.PendingReview) => new()
