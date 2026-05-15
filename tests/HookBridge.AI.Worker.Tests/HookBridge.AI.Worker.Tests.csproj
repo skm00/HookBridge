@@ -32,4 +32,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HookBridge.AI.Worker\HookBridge.AI.Worker.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="TestData/**/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

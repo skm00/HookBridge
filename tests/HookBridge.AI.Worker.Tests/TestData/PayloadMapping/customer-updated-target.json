@@ -1,0 +1,6 @@
+{
+  "customerId": "string",
+  "status": "string",
+  "email": "string",
+  "updatedAt": "datetime"
+}

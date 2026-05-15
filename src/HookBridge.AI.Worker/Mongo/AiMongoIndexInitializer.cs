@@ -13,12 +13,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly IAiSecurityAnalysisCollectionProvider? _securityAnalysisCollectionProvider;
     private readonly IWebhookEventFingerprintCollectionProvider? _fingerprintCollectionProvider;
     private readonly IAiRecommendationApprovalCollectionProvider? _approvalCollectionProvider;
+    private readonly IWebhookTransformationRecommendationCollectionProvider? _transformationRecommendationCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -26,7 +27,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, logger)
     {
     }
 
@@ -35,7 +36,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, logger)
     {
     }
 
@@ -47,6 +48,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiSecurityAnalysisCollectionProvider? securityAnalysisCollectionProvider,
         IWebhookEventFingerprintCollectionProvider? fingerprintCollectionProvider,
         IAiRecommendationApprovalCollectionProvider? approvalCollectionProvider,
+        IWebhookTransformationRecommendationCollectionProvider? transformationRecommendationCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -56,6 +58,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _securityAnalysisCollectionProvider = securityAnalysisCollectionProvider;
         _fingerprintCollectionProvider = fingerprintCollectionProvider;
         _approvalCollectionProvider = approvalCollectionProvider;
+        _transformationRecommendationCollectionProvider = transformationRecommendationCollectionProvider;
         _logger = logger;
     }
 
@@ -102,6 +105,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
             await approvalCollection.Indexes.CreateManyAsync(CreateAiRecommendationApprovalIndexModels(), cancellationToken);
         }
 
+        if (_transformationRecommendationCollectionProvider is not null)
+        {
+            var transformationCollection = _transformationRecommendationCollectionProvider.GetCollection();
+            await transformationCollection.Indexes.CreateManyAsync(CreateWebhookTransformationRecommendationIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -141,6 +150,19 @@ public sealed class AiMongoIndexInitializer : IHostedService
             new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.RiskLevel), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_risk_level" }),
             new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Descending(approval => approval.CreatedAtUtc), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_created_at_utc_desc" }),
             new CreateIndexModel<AiRecommendationApproval>(Builders<AiRecommendationApproval>.IndexKeys.Ascending(approval => approval.ExpiresAtUtc), new CreateIndexOptions { Name = "idx_ai_recommendation_approvals_expires_at_utc" })
+        };
+    }
+
+    public static IReadOnlyList<CreateIndexModel<WebhookTransformationRecommendationResult>> CreateWebhookTransformationRecommendationIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<WebhookTransformationRecommendationResult>(Builders<WebhookTransformationRecommendationResult>.IndexKeys.Ascending(x => x.EventId), new CreateIndexOptions { Name = "idx_webhook_transformation_recommendations_event_id" }),
+            new CreateIndexModel<WebhookTransformationRecommendationResult>(Builders<WebhookTransformationRecommendationResult>.IndexKeys.Ascending(x => x.CorrelationId), new CreateIndexOptions { Name = "idx_webhook_transformation_recommendations_correlation_id" }),
+            new CreateIndexModel<WebhookTransformationRecommendationResult>(Builders<WebhookTransformationRecommendationResult>.IndexKeys.Ascending(x => x.CustomerId), new CreateIndexOptions { Name = "idx_webhook_transformation_recommendations_customer_id" }),
+            new CreateIndexModel<WebhookTransformationRecommendationResult>(Builders<WebhookTransformationRecommendationResult>.IndexKeys.Ascending(x => x.EventType), new CreateIndexOptions { Name = "idx_webhook_transformation_recommendations_event_type" }),
+            new CreateIndexModel<WebhookTransformationRecommendationResult>(Builders<WebhookTransformationRecommendationResult>.IndexKeys.Ascending(x => x.RiskLevel), new CreateIndexOptions { Name = "idx_webhook_transformation_recommendations_risk_level" }),
+            new CreateIndexModel<WebhookTransformationRecommendationResult>(Builders<WebhookTransformationRecommendationResult>.IndexKeys.Descending(x => x.GeneratedAtUtc), new CreateIndexOptions { Name = "idx_webhook_transformation_recommendations_generated_at_desc" })
         };
     }
 

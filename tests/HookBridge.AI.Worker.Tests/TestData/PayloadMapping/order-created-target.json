@@ -1,0 +1,7 @@
+{
+  "orderId": "string",
+  "status": "string",
+  "customerId": "string",
+  "totalAmount": "decimal",
+  "createdAtUtc": "datetime"
+}

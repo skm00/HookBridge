@@ -15,6 +15,8 @@ public sealed class WebhookTransformationRecommendationResult
     public string? CorrelationId { get; set; }
     [BsonElement("source")]
     public string? Source { get; set; }
+    [BsonElement("eventType")]
+    public string? EventType { get; set; }
     [BsonElement("customerId")]
     public string? CustomerId { get; set; }
     [BsonElement("summary")]
@@ -73,6 +75,7 @@ public sealed class WebhookTransformationRecommendationResult
         EventId = response.EventId,
         CorrelationId = response.CorrelationId,
         Source = request.Source,
+        EventType = request.EventType,
         CustomerId = request.CustomerId,
         Summary = response.Summary,
         RecommendedMappings = response.RecommendedMappings.ToList(),
@@ -90,5 +93,37 @@ public sealed class WebhookTransformationRecommendationResult
         PromptHash = response.PromptHash,
         FallbackUsed = response.Fallback?.UsedFallback ?? false,
         CreatedAtUtc = DateTime.UtcNow
+    };
+
+    public static WebhookTransformationRecommendationResult FromRequest(WebhookTransformationRecommendationRequestDto request) => new()
+    {
+        EventId = request.EventId,
+        CorrelationId = request.CorrelationId,
+        Source = request.Source,
+        EventType = request.EventType,
+        CustomerId = request.CustomerId,
+        GeneratedAtUtc = DateTime.UtcNow,
+        CreatedAtUtc = DateTime.UtcNow
+    };
+
+    public WebhookTransformationRecommendationResponseDto ToResponseDto() => new()
+    {
+        EventId = EventId,
+        CorrelationId = CorrelationId,
+        Summary = Summary,
+        RecommendedMappings = RecommendedMappings,
+        MissingTargetFields = MissingTargetFields,
+        UnmappedSourceFields = UnmappedSourceFields,
+        TransformationNotes = TransformationNotes,
+        GeneratedTransformationCode = GeneratedTransformationCode,
+        ConfidenceScore = ConfidenceScore,
+        RiskLevel = RiskLevel,
+        GeneratedAtUtc = DateTime.SpecifyKind(GeneratedAtUtc, DateTimeKind.Utc),
+        Model = Model,
+        Provider = Provider,
+        PromptName = PromptName,
+        PromptVersion = PromptVersion,
+        PromptHash = PromptHash,
+        Fallback = new AiFallbackMetadataDto { UsedFallback = FallbackUsed, Provider = Provider, Model = Model, GeneratedAtUtc = DateTime.UtcNow }
     };
 }

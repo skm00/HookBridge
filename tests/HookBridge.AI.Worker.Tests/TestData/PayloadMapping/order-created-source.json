@@ -1,0 +1,7 @@
+{
+  "orderId": "ORD-1001",
+  "status": "Created",
+  "customerId": "CUST-42",
+  "amount": 129.95,
+  "createdAt": "2026-05-14T10:30:00Z"
+}
