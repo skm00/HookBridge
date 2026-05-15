@@ -13,12 +13,19 @@ public sealed class AiRecommendationApprovalRepository : IAiRecommendationApprov
         _collection = collectionProvider.GetCollection();
     }
 
-    public Task InsertAsync(AiRecommendationApproval approval, CancellationToken cancellationToken = default)
+    public async Task InsertAsync(AiRecommendationApproval approval, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(approval);
         ValidateApproval(approval);
         approval.CreatedAtUtc = DateTime.SpecifyKind(approval.CreatedAtUtc, DateTimeKind.Utc);
-        return _collection.InsertOneAsync(approval, cancellationToken: cancellationToken);
+        try
+        {
+            await _collection.InsertOneAsync(approval, cancellationToken: cancellationToken);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            throw new AiRecommendationApprovalConflictException($"AI recommendation approval already exists for recommendation '{approval.RecommendationId}'.", ex);
+        }
     }
 
     public Task<AiRecommendationApproval?> GetByIdAsync(string id, CancellationToken cancellationToken = default)

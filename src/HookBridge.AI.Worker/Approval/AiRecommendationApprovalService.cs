@@ -25,6 +25,17 @@ public sealed class AiRecommendationApprovalService : IAiRecommendationApprovalS
     public async Task<AiRecommendationApprovalResponseDto> CreateAsync(AiRecommendationApprovalCreateRequestDto request, CancellationToken cancellationToken = default)
     {
         ValidateCreateRequest(request);
+        var recommendationId = request.RecommendationId.Trim();
+        var existing = await _repository.GetByRecommendationIdAsync(recommendationId, cancellationToken);
+        if (existing is not null)
+        {
+            _logger.LogWarning(
+                "Duplicate AI recommendation approval create rejected. RecommendationId={RecommendationId} ExistingApprovalId={ApprovalId}",
+                recommendationId,
+                existing.Id);
+            throw new AiRecommendationApprovalConflictException($"AI recommendation approval already exists for recommendation '{recommendationId}'.");
+        }
+
         var nowUtc = DateTime.UtcNow;
         var approval = AiRecommendationApprovalMapper.ToEntity(request, _options, nowUtc);
 
@@ -84,18 +95,32 @@ public sealed class AiRecommendationApprovalService : IAiRecommendationApprovalS
             return null;
         }
 
-        if (!AiRecommendationApprovalRules.CanTransition(existing.ApprovalStatus, request.ApprovalStatus!.Value))
+        var nowUtc = DateTime.UtcNow;
+        var requestedStatus = request.ApprovalStatus!.Value;
+        if (IsActionableStatusExpired(existing, nowUtc) && requestedStatus != AiRecommendationApprovalStatus.Expired)
+        {
+            _logger.LogWarning(
+                "Expired AI recommendation approval transition rejected. ApprovalId={ApprovalId} RecommendationId={RecommendationId} ApprovalStatus={ApprovalStatus} RequestedStatus={RequestedStatus} ExpiresAtUtc={ExpiresAtUtc}",
+                existing.Id,
+                existing.RecommendationId,
+                existing.ApprovalStatus,
+                requestedStatus,
+                existing.ExpiresAtUtc);
+            throw new AiRecommendationApprovalConflictException("AI recommendation approval has expired and can only transition to Expired.");
+        }
+
+        if (!AiRecommendationApprovalRules.CanTransition(existing.ApprovalStatus, requestedStatus))
         {
             _logger.LogWarning(
                 "Invalid AI recommendation approval status transition. ApprovalId={ApprovalId} RecommendationId={RecommendationId} FromStatus={FromStatus} ToStatus={ToStatus}",
                 existing.Id,
                 existing.RecommendationId,
                 existing.ApprovalStatus,
-                request.ApprovalStatus!.Value);
-            throw new AiRecommendationApprovalConflictException($"Invalid approval status transition from {existing.ApprovalStatus} to {request.ApprovalStatus!.Value}.");
+                requestedStatus);
+            throw new AiRecommendationApprovalConflictException($"Invalid approval status transition from {existing.ApprovalStatus} to {requestedStatus}.");
         }
 
-        var update = AiRecommendationApprovalMapper.ToStatusUpdate(request, DateTime.UtcNow);
+        var update = AiRecommendationApprovalMapper.ToStatusUpdate(request, nowUtc);
         var updated = await _repository.UpdateStatusAsync(id, update, cancellationToken);
         if (updated is null)
         {
@@ -110,6 +135,11 @@ public sealed class AiRecommendationApprovalService : IAiRecommendationApprovalS
 
         return AiRecommendationApprovalMapper.ToResponseDto(updated);
     }
+
+    private static bool IsActionableStatusExpired(AiRecommendationApproval approval, DateTime nowUtc)
+        => approval.ExpiresAtUtc.HasValue
+           && approval.ExpiresAtUtc.Value <= nowUtc
+           && approval.ApprovalStatus is AiRecommendationApprovalStatus.PendingReview or AiRecommendationApprovalStatus.Approved;
 
     private static void ValidateCreateRequest(AiRecommendationApprovalCreateRequestDto request)
     {

@@ -184,6 +184,53 @@ public sealed class AiRecommendationApprovalServiceTests
     }
 
 
+
+    [Fact]
+    public async Task CreateAsync_RejectsDuplicateRecommendationId()
+    {
+        var repository = new InMemoryAiRecommendationApprovalRepository();
+        var service = CreateService(repository);
+        await service.CreateAsync(CreateRequest(recommendationId: "rec_duplicate"));
+
+        Func<Task> act = async () => await service.CreateAsync(CreateRequest(recommendationId: "rec_duplicate"));
+
+        await act.Should().ThrowAsync<AiRecommendationApprovalConflictException>()
+            .WithMessage("*already exists*");
+    }
+
+    [Theory]
+    [InlineData(AiRecommendationApprovalStatus.PendingReview, AiRecommendationApprovalStatus.Approved)]
+    [InlineData(AiRecommendationApprovalStatus.Approved, AiRecommendationApprovalStatus.Applied)]
+    public async Task UpdateStatusAsync_RejectsActionableTransitionWhenApprovalIsExpired(AiRecommendationApprovalStatus startStatus, AiRecommendationApprovalStatus targetStatus)
+    {
+        var repository = new InMemoryAiRecommendationApprovalRepository();
+        var service = CreateService(repository);
+        var created = await service.CreateAsync(CreateRequest());
+        var approval = repository.Items.Single();
+        approval.ApprovalStatus = startStatus;
+        approval.ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1);
+
+        Func<Task> act = async () => await service.UpdateStatusAsync(created.Id!, new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = targetStatus });
+
+        await act.Should().ThrowAsync<AiRecommendationApprovalConflictException>()
+            .WithMessage("*expired*");
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_AllowsExpiredStatusWhenApprovalIsPastExpiry()
+    {
+        var repository = new InMemoryAiRecommendationApprovalRepository();
+        var service = CreateService(repository);
+        var created = await service.CreateAsync(CreateRequest());
+        var approval = repository.Items.Single();
+        approval.ApprovalStatus = AiRecommendationApprovalStatus.PendingReview;
+        approval.ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1);
+
+        var updated = await service.UpdateStatusAsync(created.Id!, new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Expired });
+
+        updated!.ApprovalStatus.Should().Be(AiRecommendationApprovalStatus.Expired);
+    }
+
     [Fact]
     public async Task GetByIdAsync_ReturnsNull_WhenApprovalDoesNotExist()
     {

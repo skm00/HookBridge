@@ -1,17 +1,22 @@
 using HookBridge.AI.Worker.Approval;
+using HookBridge.Api.Authorization;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.Shared.Api;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 
 namespace HookBridge.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/ai-recommendations/approvals")]
 public sealed class AiRecommendationApprovalsController(
     IAiRecommendationApprovalService approvalService,
     ILogger<AiRecommendationApprovalsController> logger) : ApiControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.ViewerOrAbove)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<AiRecommendationApprovalResponseDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
@@ -36,6 +41,7 @@ public sealed class AiRecommendationApprovalsController(
     }
 
     [HttpGet("pending")]
+    [Authorize(Policy = AuthorizationPolicies.ViewerOrAbove)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<AiRecommendationApprovalResponseDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
@@ -60,6 +66,7 @@ public sealed class AiRecommendationApprovalsController(
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = AuthorizationPolicies.ViewerOrAbove)]
     [ProducesResponseType(typeof(ApiResponse<AiRecommendationApprovalResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -68,9 +75,9 @@ public sealed class AiRecommendationApprovalsController(
         string id,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        if (!IsValidApprovalId(id))
         {
-            return ErrorResponse<AiRecommendationApprovalResponseDto>(StatusCodes.Status400BadRequest, "Approval id is required.");
+            return ErrorResponse<AiRecommendationApprovalResponseDto>(StatusCodes.Status400BadRequest, "Approval id must be a valid ObjectId.");
         }
 
         try
@@ -92,8 +99,10 @@ public sealed class AiRecommendationApprovalsController(
     }
 
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(typeof(ApiResponse<AiRecommendationApprovalResponseDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<ApiResponse<AiRecommendationApprovalResponseDto>>> CreateAsync(
         [FromBody] AiRecommendationApprovalCreateRequestDto request,
@@ -109,6 +118,10 @@ public sealed class AiRecommendationApprovalsController(
             var approval = await approvalService.CreateAsync(request, cancellationToken);
             return Created($"/api/ai-recommendations/approvals/{approval.Id}", ApiResponseFactory.Success(approval, "AI recommendation approval created.", TraceId));
         }
+        catch (AiRecommendationApprovalConflictException ex)
+        {
+            return ErrorResponse<AiRecommendationApprovalResponseDto>(StatusCodes.Status409Conflict, ex.Message);
+        }
         catch (ArgumentException ex)
         {
             return ErrorResponse<AiRecommendationApprovalResponseDto>(StatusCodes.Status400BadRequest, ex.Message);
@@ -121,6 +134,7 @@ public sealed class AiRecommendationApprovalsController(
     }
 
     [HttpPut("{id}/status")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOrOwner)]
     [ProducesResponseType(typeof(ApiResponse<AiRecommendationApprovalResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -131,9 +145,9 @@ public sealed class AiRecommendationApprovalsController(
         [FromBody] AiRecommendationApprovalUpdateRequestDto request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(id) || request is null)
+        if (!IsValidApprovalId(id) || request is null)
         {
-            return ErrorResponse<AiRecommendationApprovalResponseDto>(StatusCodes.Status400BadRequest, "Approval id and request body are required.");
+            return ErrorResponse<AiRecommendationApprovalResponseDto>(StatusCodes.Status400BadRequest, "Approval id must be a valid ObjectId and request body is required.");
         }
 
         try
@@ -157,4 +171,7 @@ public sealed class AiRecommendationApprovalsController(
             return ErrorResponse<AiRecommendationApprovalResponseDto>(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the AI recommendation approval.");
         }
     }
+
+    private static bool IsValidApprovalId(string? id)
+        => !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
 }

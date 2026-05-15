@@ -19,6 +19,7 @@ public sealed class AuthorizationAttributesTests
     [InlineData(typeof(DashboardController))]
     [InlineData(typeof(NotificationsController))]
     [InlineData(typeof(BackupController))]
+    [InlineData(typeof(AiRecommendationApprovalsController))]
     public void AdminEndpoints_RequireAuthorization(Type controllerType)
     {
         var authorize = Attribute.GetCustomAttribute(controllerType, typeof(AuthorizeAttribute));
@@ -44,6 +45,11 @@ public sealed class AuthorizationAttributesTests
         AssertMethodPolicy<IncomingEventsController>(nameof(IncomingEventsController.SearchAsync), AuthorizationPolicies.DeveloperOrAbove);
         AssertMethodPolicy<BackupController>(nameof(BackupController.ExportAsync), AuthorizationPolicies.OwnerOnly);
         AssertMethodPolicy<BackupController>(nameof(BackupController.ImportAsync), AuthorizationPolicies.OwnerOnly);
+        AssertMethodPolicy<AiRecommendationApprovalsController>(nameof(AiRecommendationApprovalsController.SearchAsync), AuthorizationPolicies.ViewerOrAbove);
+        AssertMethodPolicy<AiRecommendationApprovalsController>(nameof(AiRecommendationApprovalsController.GetPendingAsync), AuthorizationPolicies.ViewerOrAbove);
+        AssertMethodPolicy<AiRecommendationApprovalsController>(nameof(AiRecommendationApprovalsController.GetByIdAsync), AuthorizationPolicies.ViewerOrAbove);
+        AssertMethodPolicy<AiRecommendationApprovalsController>(nameof(AiRecommendationApprovalsController.CreateAsync), AuthorizationPolicies.AdminOrOwner);
+        AssertMethodPolicy<AiRecommendationApprovalsController>(nameof(AiRecommendationApprovalsController.UpdateStatusAsync), AuthorizationPolicies.AdminOrOwner);
     }
 
     private static void AssertMethodPolicy<TController>(string methodName, string expectedPolicy)

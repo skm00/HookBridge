@@ -44,7 +44,7 @@ public sealed class AiRecommendationApprovalsControllerTests
     {
         var controller = CreateController(new FakeAiRecommendationApprovalService { ReturnNull = true });
 
-        var result = await controller.GetByIdAsync("missing", CancellationToken.None);
+        var result = await controller.GetByIdAsync(ValidApprovalId, CancellationToken.None);
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
@@ -54,7 +54,7 @@ public sealed class AiRecommendationApprovalsControllerTests
     {
         var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowConflict = true });
 
-        var result = await controller.UpdateStatusAsync("approval_1", new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Applied }, CancellationToken.None);
+        var result = await controller.UpdateStatusAsync(ValidApprovalId, new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Applied }, CancellationToken.None);
 
         Assert.IsType<ConflictObjectResult>(result.Result);
     }
@@ -95,7 +95,7 @@ public sealed class AiRecommendationApprovalsControllerTests
     {
         var controller = CreateController(new FakeAiRecommendationApprovalService());
 
-        var result = await controller.GetByIdAsync("approval_1", CancellationToken.None);
+        var result = await controller.GetByIdAsync(ValidApprovalId, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
     }
@@ -115,7 +115,7 @@ public sealed class AiRecommendationApprovalsControllerTests
     {
         var controller = CreateController(new FakeAiRecommendationApprovalService());
 
-        var result = await controller.UpdateStatusAsync("approval_1", new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
+        var result = await controller.UpdateStatusAsync(ValidApprovalId, new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
     }
@@ -125,7 +125,7 @@ public sealed class AiRecommendationApprovalsControllerTests
     {
         var controller = CreateController(new FakeAiRecommendationApprovalService { ReturnNull = true });
 
-        var result = await controller.UpdateStatusAsync("missing", new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
+        var result = await controller.UpdateStatusAsync(ValidApprovalId, new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
@@ -150,6 +150,39 @@ public sealed class AiRecommendationApprovalsControllerTests
         var objectResult = Assert.IsType<ObjectResult>(result.Result);
         Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
     }
+
+
+    [Fact]
+    public async Task CreateAsync_Returns409_ForDuplicateRecommendation()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService { ThrowConflict = true });
+
+        var result = await controller.CreateAsync(CreateRequest(), CancellationToken.None);
+
+        Assert.IsType<ConflictObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_Returns400_ForMalformedObjectId()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.GetByIdAsync("not-an-object-id", CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Returns400_ForMalformedObjectId()
+    {
+        var controller = CreateController(new FakeAiRecommendationApprovalService());
+
+        var result = await controller.UpdateStatusAsync("not-an-object-id", new AiRecommendationApprovalUpdateRequestDto { ApprovalStatus = AiRecommendationApprovalStatus.Approved }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    private const string ValidApprovalId = "507f1f77bcf86cd799439011";
 
     private static AiRecommendationApprovalsController CreateController(IAiRecommendationApprovalService service)
     {
@@ -176,6 +209,7 @@ public sealed class AiRecommendationApprovalsControllerTests
 
         public Task<AiRecommendationApprovalResponseDto> CreateAsync(AiRecommendationApprovalCreateRequestDto request, CancellationToken cancellationToken = default)
         {
+            if (ThrowConflict) throw new AiRecommendationApprovalConflictException("Duplicate recommendation.");
             ThrowIfConfigured();
             return Task.FromResult(CreateResponse());
         }
@@ -219,7 +253,7 @@ public sealed class AiRecommendationApprovalsControllerTests
 
         private static AiRecommendationApprovalResponseDto CreateResponse(AiRecommendationApprovalStatus status = AiRecommendationApprovalStatus.PendingReview) => new()
         {
-            Id = "approval_1",
+            Id = AiRecommendationApprovalsControllerTests.ValidApprovalId,
             RecommendationId = "rec_1",
             RecommendationType = AiRecommendationType.RetryRecommendation,
             ApprovalStatus = status,
