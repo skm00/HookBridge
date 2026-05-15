@@ -19,6 +19,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.6" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.6" />
+    <PackageReference Include="Testcontainers" Version="3.10.0" />
+    <PackageReference Include="Testcontainers.Kafka" Version="3.10.0" />
+    <PackageReference Include="Testcontainers.MongoDb" Version="3.10.0" />
     <PackageReference Include="coverlet.collector" Version="6.0.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -26,5 +29,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\HookBridge.AI.Worker\HookBridge.AI.Worker.csproj" />
+    <ProjectReference Include="..\..\src\HookBridge.Api\HookBridge.Api.csproj" />
+    <ProjectReference Include="..\..\src\HookBridge.Application\HookBridge.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="TestData\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

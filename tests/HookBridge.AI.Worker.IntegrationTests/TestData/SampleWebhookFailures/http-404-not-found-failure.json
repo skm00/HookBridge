@@ -1,0 +1,13 @@
+{
+  "eventId": "evt_404_001",
+  "correlationId": "corr_404_001",
+  "source": "HookBridge.Worker",
+  "eventType": "WebhookDeliveryFailed",
+  "failureReason": "Not Found",
+  "statusCode": 404,
+  "retryCount": 1,
+  "maxRetryCount": 5,
+  "targetUrl": "https://customer.example.com/deleted-webhook",
+  "payload": { "resourceId": "RES-404", "status": "Deleted" },
+  "createdAtUtc": "2026-05-14T10:45:00Z"
+}

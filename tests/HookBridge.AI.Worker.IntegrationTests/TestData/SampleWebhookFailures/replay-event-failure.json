@@ -1,0 +1,15 @@
+{
+  "eventId": "evt_replay_001",
+  "correlationId": "corr_replay_001",
+  "customerId": "cust-replay",
+  "subscriptionId": "sub-replay",
+  "endpointId": "endpoint-replay",
+  "environment": "test",
+  "eventType": "WebhookDeliveryFailed",
+  "source": "HookBridge.Worker",
+  "targetUrl": "https://customer.example.com/webhook",
+  "payload": { "orderId": "ORD-REPLAY", "status": "Created" },
+  "signature": "sha256=replay",
+  "eventTimestampUtc": "2026-05-14T10:00:00Z",
+  "receivedAtUtc": "2026-05-14T11:30:00Z"
+}

@@ -386,10 +386,13 @@ dotnet test tests/HookBridge.AI.Worker.IntegrationTests/HookBridge.AI.Worker.Int
   --settings coverlet.runsettings \
   --results-directory ./TestResults/Integration
 
-# Generate an HTML, Cobertura XML, and Markdown coverage report.
+# Generate the gated HTML, Cobertura XML, and Markdown coverage report from
+# deterministic AI Worker unit coverage. Integration coverage remains available
+# under TestResults/Integration for diagnostics, but it is not merged into the
+# threshold gate because it intentionally boots a broad end-to-end host.
 dotnet tool install --global dotnet-reportgenerator-globaltool
 reportgenerator \
-  -reports:"TestResults/**/coverage.cobertura.xml" \
+  -reports:"TestResults/Unit/**/coverage.cobertura.xml" \
   -targetdir:"CoverageReport" \
   -reporttypes:"Html;Cobertura;MarkdownSummaryGithub;TextSummary"
 ```
@@ -402,7 +405,7 @@ The pipeline provides:
 
 - **Build validation:** restores NuGet packages once, builds `HookBridge.sln` in `Release` mode, and fails fast when compilation fails.
 - **Automated testing:** runs the existing API, application, worker, AI Worker unit, and AI Worker integration xUnit test projects with `dotnet test --no-build`, emits TRX logs, and surfaces failing test names in the GitHub Actions log output. The AI Worker integration test stage runs by default; repository maintainers can set `SKIP_INTEGRATION_TESTS=true` as a GitHub Actions variable when an emergency skip is needed.
-- **Code coverage:** collects Coverlet `XPlat Code Coverage` for the AI Worker unit and integration test stages, generates HTML, Cobertura XML, Markdown, and text summaries with ReportGenerator, enforces at least 80% line coverage and 70% branch coverage, and publishes `CoverageReport/` as the `hookbridge-coverage-report` workflow artifact.
+- **Code coverage:** collects Coverlet `XPlat Code Coverage` for the AI Worker unit and integration test stages. The gated ReportGenerator summary is produced from deterministic AI Worker unit coverage, enforces at least 80% line coverage and 70% branch coverage, and publishes `CoverageReport/` as the `hookbridge-coverage-report` workflow artifact. Integration coverage remains available in the uploaded `TestResults/Integration` artifact for diagnostics without diluting the unit coverage gate with broad end-to-end host startup paths.
 - **Coverage visibility:** appends the ReportGenerator Markdown summary to the GitHub Actions job summary, including line and branch coverage totals. Open the completed workflow run, download `hookbridge-coverage-report`, and view `index.html` locally for the readable HTML report or `Cobertura.xml` for tooling integrations.
 - **Pull request checks:** uploads `TestResults/` on every run and is designed to be required as a status check before merging.
 - **Fast execution:** caches NuGet packages and uses `--no-restore`/`--no-build` to avoid duplicate work after the initial restore and build steps.

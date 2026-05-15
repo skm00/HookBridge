@@ -1,0 +1,13 @@
+{
+  "eventId": "evt_429_001",
+  "correlationId": "corr_429_001",
+  "source": "HookBridge.Worker",
+  "eventType": "WebhookDeliveryFailed",
+  "failureReason": "Too Many Requests",
+  "statusCode": 429,
+  "retryCount": 2,
+  "maxRetryCount": 5,
+  "targetUrl": "https://customer.example.com/webhook",
+  "payload": { "orderId": "ORD-1001", "status": "Created" },
+  "createdAtUtc": "2026-05-14T10:30:00Z"
+}

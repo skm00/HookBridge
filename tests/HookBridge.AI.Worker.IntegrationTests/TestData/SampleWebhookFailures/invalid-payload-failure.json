@@ -1,0 +1,13 @@
+{
+  "eventId": "evt_invalid_payload_001",
+  "correlationId": "corr_invalid_payload_001",
+  "source": "HookBridge.Worker",
+  "eventType": "WebhookDeliveryFailed",
+  "failureReason": "Invalid payload",
+  "statusCode": 400,
+  "retryCount": 0,
+  "maxRetryCount": 3,
+  "targetUrl": "https://customer.example.com/webhook",
+  "payloadRaw": "{ \"orderId\": \"ORD-BAD\", ",
+  "createdAtUtc": "2026-05-14T11:00:00Z"
+}

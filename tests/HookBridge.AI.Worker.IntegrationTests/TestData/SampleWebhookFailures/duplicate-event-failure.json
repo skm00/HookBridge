@@ -1,0 +1,15 @@
+{
+  "eventId": "evt_duplicate_001",
+  "correlationId": "corr_duplicate_001",
+  "customerId": "cust-duplicate",
+  "subscriptionId": "sub-duplicate",
+  "endpointId": "endpoint-duplicate",
+  "environment": "test",
+  "eventType": "WebhookDeliveryFailed",
+  "source": "HookBridge.Worker",
+  "targetUrl": "https://customer.example.com/webhook",
+  "payload": { "orderId": "ORD-DUP", "status": "Created" },
+  "signature": "sha256=duplicate",
+  "eventTimestampUtc": "2026-05-14T11:10:00Z",
+  "receivedAtUtc": "2026-05-14T11:10:10Z"
+}

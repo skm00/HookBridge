@@ -93,6 +93,13 @@ jobs:
             --results-directory "$TEST_RESULTS_DIR/Unit" \
             --verbosity normal
 
+      - name: Verify Docker for Testcontainers
+        if: env.SKIP_INTEGRATION_TESTS != 'true'
+        shell: bash
+        run: |
+          docker version
+          docker info
+
       - name: Run integration tests with coverage
         if: env.SKIP_INTEGRATION_TESTS != 'true'
         shell: bash
@@ -121,13 +128,13 @@ jobs:
         if: always()
         shell: bash
         run: |
-          if find "$TEST_RESULTS_DIR" -name 'coverage.cobertura.xml' -print -quit | grep -q .; then
+          if find "$TEST_RESULTS_DIR/Unit" -name 'coverage.cobertura.xml' -print -quit | grep -q .; then
             reportgenerator \
-              -reports:"$TEST_RESULTS_DIR/**/coverage.cobertura.xml" \
+              -reports:"$TEST_RESULTS_DIR/Unit/**/coverage.cobertura.xml" \
               -targetdir:"$COVERAGE_REPORT_DIR" \
               -reporttypes:"Html;Cobertura;MarkdownSummaryGithub;TextSummary"
           else
-            echo "::error::No coverage.cobertura.xml files were found under $TEST_RESULTS_DIR."
+            echo "::error::No unit coverage.cobertura.xml files were found under $TEST_RESULTS_DIR/Unit."
             exit 1
           fi
 

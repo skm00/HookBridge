@@ -45,6 +45,7 @@ public static class WebhookFailureAnalysisMapper
             IsRetryRecommended = response.IsRetryRecommended,
             Model = response.Model,
             Provider = response.Provider,
+            Fallback = response.Fallback,
             PromptName = response.PromptName,
             PromptVersion = response.PromptVersion,
             PromptHash = response.PromptHash,

@@ -77,6 +77,10 @@ public sealed class AiAnalysisResult
     [BsonElement("provider")]
     public string Provider { get; set; } = string.Empty;
 
+    [BsonElement("fallback")]
+    [BsonIgnoreIfNull]
+    public AiFallbackMetadataDto? Fallback { get; set; }
+
 
     [BsonElement("promptName")]
     public string PromptName { get; set; } = string.Empty;

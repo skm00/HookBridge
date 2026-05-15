@@ -325,7 +325,10 @@ public sealed class AiAnomalyRecordTests
     }
 
     private static string Render(FilterDefinition<AiAnomalyRecord> filter)
-        => filter.Render(BsonSerializer.LookupSerializer<AiAnomalyRecord>(), BsonSerializer.SerializerRegistry).ToJson();
+    {
+        var serializer = BsonSerializer.SerializerRegistry.GetSerializer<AiAnomalyRecord>();
+        return filter.Render(new RenderArgs<AiAnomalyRecord>(serializer, BsonSerializer.SerializerRegistry)).ToJson();
+    }
 
     private static AiAnomalyEventDto CreateEvent(DateTime createdAt) => new()
     {

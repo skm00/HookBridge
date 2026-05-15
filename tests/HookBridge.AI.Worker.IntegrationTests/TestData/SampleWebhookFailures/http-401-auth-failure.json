@@ -1,0 +1,13 @@
+{
+  "eventId": "evt_401_001",
+  "correlationId": "corr_401_001",
+  "source": "HookBridge.Worker",
+  "eventType": "WebhookDeliveryFailed",
+  "failureReason": "Unauthorized",
+  "statusCode": 401,
+  "retryCount": 1,
+  "maxRetryCount": 5,
+  "targetUrl": "https://secure.example.com/webhook",
+  "payload": { "customerId": "cust-auth", "operation": "sync" },
+  "createdAtUtc": "2026-05-14T10:40:00Z"
+}

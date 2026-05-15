@@ -65,7 +65,8 @@ public sealed class WebhookDuplicateReplayDetectionServiceTests
         var response = await CreateService().DetectAsync(CreateRequest(eventTimestampUtc: ReceivedAt.AddMinutes(-16)));
         response.IsReplay.Should().BeTrue();
         response.ReplayReason.Should().Be(WebhookDuplicateReplayReason.EventTimestampTooOld);
-        response.DetectionScore.Should().Be(35);
+        response.DetectionScore.Should().Be(55);
+        response.RiskLevel.Should().Be(AiRiskLevel.High);
     }
 
     [Fact]
