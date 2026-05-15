@@ -3,6 +3,7 @@ using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Mongo;
 using MongoDB.Driver;
+using Xunit;
 
 namespace HookBridge.AI.Worker.IntegrationTests;
 
