@@ -9,6 +9,7 @@ using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
+using HookBridge.AI.Worker.Services.SecurityAgent;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using Microsoft.Extensions.Logging;
@@ -20,7 +21,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 {
     private readonly IAiRetryRecommendationService _retryService;
     private readonly IRetryAgent _retryAgent;
-    private readonly IAiSecurityAnalysisAgent _securityAgent;
+    private readonly ISecurityAgent _securityAgent;
     private readonly IWebhookDuplicateReplayDetectionService _duplicateReplayService;
     private readonly IPayloadSchemaDetectionAgent _payloadSchemaAgent;
     private readonly ICustomerEndpointRiskScoringService _endpointRiskService;
@@ -33,7 +34,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
     public AiAgentOrchestrator(
         IAiRetryRecommendationService retryService,
         IRetryAgent retryAgent,
-        IAiSecurityAnalysisAgent securityAgent,
+        ISecurityAgent securityAgent,
         IWebhookDuplicateReplayDetectionService duplicateReplayService,
         IPayloadSchemaDetectionAgent payloadSchemaAgent,
         ICustomerEndpointRiskScoringService endpointRiskService,
@@ -152,7 +153,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         }
         if (_options.EnableSecurityAgent)
         {
-            agents.Add((AiAgentName.SecurityAnalysisAgent, ct => RunSecurityAgentAsync(request, ct)));
+            agents.Add((AiAgentName.SecurityAgent, ct => RunSecurityAgentAsync(request, ct)));
         }
         if (_options.EnableDuplicateReplayAgent)
         {
@@ -218,7 +219,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 
     private async Task<AiAgentResultDto> RunSecurityAgentAsync(AiAgentOrchestrationRequestDto request, CancellationToken cancellationToken)
     {
-        var response = await _securityAgent.AnalyzeAsync(new AiSecurityAnalysisRequestDto
+        var response = await _securityAgent.AnalyzeAsync(new SecurityAgentRequestDto
         {
             EventId = request.EventId,
             CorrelationId = request.CorrelationId,
@@ -236,7 +237,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
             ReceivedAtUtc = request.ReceivedAtUtc
         }, cancellationToken);
 
-        return Success(AiAgentName.SecurityAnalysisAgent, response.Summary, response.RiskLevel, response.SuggestedAction.ToString(), response.ConfidenceScore, response.Fallback?.UsedFallback ?? false);
+        return Success(AiAgentName.SecurityAgent, response.Summary, response.RiskLevel, response.SecurityDecision.ToString(), response.ConfidenceScore, response.Fallback);
     }
 
     private async Task<AiAgentResultDto> RunDuplicateReplayAgentAsync(AiAgentOrchestrationRequestDto request, CancellationToken cancellationToken)

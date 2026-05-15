@@ -7,6 +7,7 @@ public enum AiAgentName
 {
     RetryRecommendationAgent,
     SecurityAnalysisAgent,
+    SecurityAgent,
     DuplicateReplayDetectionAgent,
     PayloadSchemaDetectionAgent,
     EndpointRiskScoringAgent,

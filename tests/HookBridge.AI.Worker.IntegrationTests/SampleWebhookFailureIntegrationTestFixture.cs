@@ -74,6 +74,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
         builder.Services.AddAiPromptServices();
         builder.Services.AddAiRetryRecommendationServices();
         builder.Services.AddRetryAgentServices(builder.Configuration);
+        builder.Services.AddSecurityAgentServices(builder.Configuration);
         builder.Services.AddAiLogSummarizationServices();
         builder.Services.AddEndpointHealthScoringServices();
         builder.Services.AddWebhookFailureAnomalyDetectionServices();
@@ -88,6 +89,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
         builder.Services.AddHostedService<AiProcessingWorker>();
         builder.Services.AddHostedService<AiSecurityAnalysisWorker>();
         builder.Services.AddHostedService<RetryAgentWorker>();
+        builder.Services.AddHostedService<SecurityAgentWorker>();
         builder.Services.AddHostedService<WebhookDuplicateReplayDetectionWorker>();
         builder.Services.AddHostedService<AiAnomalyRecordPersistenceWorker>();
 
@@ -137,7 +139,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
                      AiMongoOptions.DefaultWebhookTransformationRecommendationResultsCollectionName,
                      AiMongoOptions.DefaultCustomerEndpointRiskScoreResultsCollectionName,
                      AiMongoOptions.DefaultWebhookFailureAnomalyDetectionResultsCollectionName,
-                     AiMongoOptions.DefaultRetryAgentResultsCollectionName
+                     AiMongoOptions.DefaultRetryAgentResultsCollectionName,
+                     AiMongoOptions.DefaultSecurityAgentResultsCollectionName
                  })
         {
             await _database.GetCollection<object>(collectionName).DeleteManyAsync(FilterDefinition<object>.Empty, cancellationToken);
@@ -210,6 +213,15 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
         return request.EventId;
     }
 
+    public async Task<string> PublishSecurityAgentEventAsync(SecurityAgentRequestDto request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.EventId)) request.EventId = $"security_{Guid.NewGuid():N}";
+        request.CorrelationId ??= $"corr_{request.EventId}";
+        request.ReceivedAtUtc = DateTime.SpecifyKind(request.ReceivedAtUtc == default ? DateTime.UtcNow : request.ReceivedAtUtc, DateTimeKind.Utc);
+        await PublishJsonAsync(AiKafkaTopics.SecurityAgent, request.EventId, request, cancellationToken);
+        return request.EventId;
+    }
+
     public async Task<AiAnalysisResult?> WaitForMongoResultAsync(string eventId, CancellationToken cancellationToken)
         => await WaitForAsync(async ct => await GetCollection<AiAnalysisResult>(AiMongoOptions.DefaultAiAnalysisResultsCollectionName)
             .Find(result => result.EventId == eventId)
@@ -225,8 +237,18 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
             .Find(result => result.EventId == eventId)
             .FirstOrDefaultAsync(ct), cancellationToken);
 
+    public async Task<AiRecommendationApproval?> WaitForApprovalAsync(string eventId, CancellationToken cancellationToken)
+        => await WaitForAsync(async ct => await GetCollection<AiRecommendationApproval>(AiMongoOptions.DefaultAiRecommendationApprovalsCollectionName)
+            .Find(result => result.EventId == eventId)
+            .FirstOrDefaultAsync(ct), cancellationToken);
+
     public async Task<RetryAgentResult?> WaitForRetryAgentResultAsync(string eventId, CancellationToken cancellationToken)
         => await WaitForAsync(async ct => await GetCollection<RetryAgentResult>(AiMongoOptions.DefaultRetryAgentResultsCollectionName)
+            .Find(result => result.EventId == eventId)
+            .FirstOrDefaultAsync(ct), cancellationToken);
+
+    public async Task<SecurityAgentResult?> WaitForSecurityAgentResultAsync(string eventId, CancellationToken cancellationToken)
+        => await WaitForAsync(async ct => await GetCollection<SecurityAgentResult>(AiMongoOptions.DefaultSecurityAgentResultsCollectionName)
             .Find(result => result.EventId == eventId)
             .FirstOrDefaultAsync(ct), cancellationToken);
 
@@ -268,6 +290,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
                 ["AiMongo:WebhookEventFingerprintsCollectionName"] = AiMongoOptions.DefaultWebhookEventFingerprintsCollectionName,
                 ["AiMongo:AiRecommendationApprovalsCollectionName"] = AiMongoOptions.DefaultAiRecommendationApprovalsCollectionName,
                 ["AiMongo:RetryAgentResultsCollectionName"] = AiMongoOptions.DefaultRetryAgentResultsCollectionName,
+                ["AiMongo:SecurityAgentResultsCollectionName"] = AiMongoOptions.DefaultSecurityAgentResultsCollectionName,
                 ["AiKafka:BootstrapServers"] = KafkaContainer.GetBootstrapAddress(),
                 ["AiKafka:SecurityProtocol"] = "Plaintext",
                 ["AiKafka:AiAnalysisTopic"] = AiKafkaTopics.Analysis,
@@ -280,6 +303,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
                 ["AiKafka:SecurityAnalysisTopic"] = AiKafkaTopics.SecurityAnalysis,
                 ["AiKafka:DuplicateReplayDetectionTopic"] = AiKafkaTopics.DuplicateReplayDetection,
                 ["AiKafka:RetryAgentTopic"] = AiKafkaTopics.RetryAgent,
+                ["AiKafka:SecurityAgentTopic"] = AiKafkaTopics.SecurityAgent,
                 ["AiKafka:ConsumerGroupId"] = $"hookbridge-ai-integration-{Guid.NewGuid():N}",
                 ["AiKafka:EnableAutoCommit"] = "false",
                 ["DuplicateReplayDetection:Enabled"] = "true",
@@ -310,7 +334,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
             AiKafkaTopics.Anomalies,
             AiKafkaTopics.SecurityAnalysis,
             AiKafkaTopics.DuplicateReplayDetection,
-            AiKafkaTopics.RetryAgent
+            AiKafkaTopics.RetryAgent,
+            AiKafkaTopics.SecurityAgent
         };
 
         try
