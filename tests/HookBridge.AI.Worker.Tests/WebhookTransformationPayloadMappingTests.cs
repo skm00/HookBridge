@@ -125,7 +125,7 @@ public sealed class WebhookTransformationPayloadMappingTests
             WebhookTransformationType.Custom
         });
         response.ConfidenceScore.Should().Be(1);
-        response.RecommendedMappings.Should().OnlyContain(m => m.ConfidenceScore is >= 0 and <= 1);
+        response.RecommendedMappings.Should().OnlyContain(m => m.ConfidenceScore >= 0 && m.ConfidenceScore <= 1);
     }
 
     [Theory]
