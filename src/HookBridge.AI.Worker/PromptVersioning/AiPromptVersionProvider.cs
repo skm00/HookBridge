@@ -150,14 +150,13 @@ public sealed class AiPromptVersionProvider : IAiPromptVersionProvider
 
     private IEnumerable<string> CandidatePromptRoots()
     {
-        yield return Path.Combine(AppContext.BaseDirectory, "Prompts");
-
         if (!string.IsNullOrWhiteSpace(_environment?.ContentRootPath))
         {
             yield return Path.Combine(_environment.ContentRootPath, "Prompts");
             yield return Path.Combine(_environment.ContentRootPath, "..", "HookBridge.AI.Worker", "Prompts");
         }
 
+        yield return Path.Combine(AppContext.BaseDirectory, "Prompts");
         yield return Path.Combine(Directory.GetCurrentDirectory(), "Prompts");
         yield return Path.Combine(Directory.GetCurrentDirectory(), "src", "HookBridge.AI.Worker", "Prompts");
     }

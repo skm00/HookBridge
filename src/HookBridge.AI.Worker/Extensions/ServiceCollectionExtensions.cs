@@ -286,6 +286,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAiPromptServices(this IServiceCollection services)
     {
+        services.AddLogging();
         services.TryAddSingleton<IAiPromptVersionProvider, AiPromptVersionProvider>();
         services.AddSingleton<IWebhookFailurePromptBuilder, WebhookFailurePromptBuilder>();
         services.AddSingleton<IAiLogSummaryPromptBuilder, AiLogSummaryPromptBuilder>();

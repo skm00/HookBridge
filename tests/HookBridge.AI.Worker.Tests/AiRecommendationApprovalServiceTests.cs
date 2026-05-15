@@ -112,6 +112,32 @@ public sealed class AiRecommendationApprovalServiceTests
         AiRecommendationApprovalRules.RequiresApproval(type, riskLevel, new AiRecommendationApprovalOptions()).Should().BeTrue();
     }
 
+
+    [Theory]
+    [InlineData(AiRecommendationApprovalStatus.NeedsMoreInfo, AiRecommendationApprovalStatus.Approved, true)]
+    [InlineData(AiRecommendationApprovalStatus.NeedsMoreInfo, AiRecommendationApprovalStatus.Rejected, true)]
+    [InlineData(AiRecommendationApprovalStatus.PendingReview, AiRecommendationApprovalStatus.Expired, true)]
+    [InlineData(AiRecommendationApprovalStatus.Approved, AiRecommendationApprovalStatus.Expired, true)]
+    [InlineData(AiRecommendationApprovalStatus.Rejected, AiRecommendationApprovalStatus.Approved, false)]
+    [InlineData(AiRecommendationApprovalStatus.Expired, AiRecommendationApprovalStatus.Approved, false)]
+    public void CanTransition_ReturnsExpectedResult(AiRecommendationApprovalStatus from, AiRecommendationApprovalStatus to, bool expected)
+    {
+        AiRecommendationApprovalRules.CanTransition(from, to).Should().Be(expected);
+    }
+
+    [Fact]
+    public void RequiresApproval_AllowsLowRiskRetryAutoApprovalWhenConfigured()
+    {
+        var options = new AiRecommendationApprovalOptions { AllowLowRiskAutoApproval = true };
+
+        var requiresApproval = AiRecommendationApprovalRules.RequiresApproval(
+            AiRecommendationType.RetryRecommendation,
+            "Low",
+            options);
+
+        requiresApproval.Should().BeFalse();
+    }
+
     [Fact]
     public void Mapper_ToResponseDto_MapsFields()
     {
