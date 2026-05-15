@@ -29,6 +29,9 @@ public static class AiAnalysisResultMapper
             IsRetryRecommended = result.IsRetryRecommended,
             Model = result.Model,
             Provider = result.Provider,
+            PromptName = result.PromptName,
+            PromptVersion = result.PromptVersion,
+            PromptHash = result.PromptHash,
             CreatedAtUtc = DateTime.SpecifyKind(result.CreatedAtUtc, DateTimeKind.Utc),
         };
     }

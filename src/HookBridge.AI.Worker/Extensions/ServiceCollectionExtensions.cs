@@ -3,6 +3,7 @@ using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.AI.Worker.Prompts;
+using HookBridge.AI.Worker.PromptVersioning;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using HookBridge.AI.Worker.Services.Fallback;
@@ -30,6 +31,15 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services
+            .AddOptions<AiPromptOptions>()
+            .Bind(configuration.GetSection(AiPromptOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.DefaultVersion), "AIPrompts:DefaultVersion is required.")
+            .Validate(options => AiPromptOptions.IsValidVersion(options.DefaultVersion), "AIPrompts:DefaultVersion must follow semantic format like v1.0.0.")
+            .Validate(options => options.Prompts.Keys.All(AiPromptNames.IsKnown), "AIPrompts:Prompts may only contain known prompt names.")
+            .Validate(options => options.Prompts.Values.All(AiPromptOptions.IsValidVersion), "AIPrompts prompt versions must follow semantic format like v1.0.0.")
+            .ValidateOnStart();
+
         services
             .AddOptions<AiOptions>()
             .Bind(configuration.GetSection(AiOptions.SectionName))
@@ -256,6 +266,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAiPromptServices(this IServiceCollection services)
     {
+        services.TryAddSingleton<IAiPromptVersionProvider, AiPromptVersionProvider>();
         services.AddSingleton<IWebhookFailurePromptBuilder, WebhookFailurePromptBuilder>();
         services.AddSingleton<IAiLogSummaryPromptBuilder, AiLogSummaryPromptBuilder>();
         services.AddSingleton<IPayloadSchemaDetectionPromptBuilder, PayloadSchemaDetectionPromptBuilder>();

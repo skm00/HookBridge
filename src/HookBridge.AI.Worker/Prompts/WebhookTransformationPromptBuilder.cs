@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.PromptVersioning;
 using Microsoft.Extensions.Options;
 
 namespace HookBridge.AI.Worker.Prompts;
@@ -16,8 +17,13 @@ public sealed partial class WebhookTransformationPromptBuilder : IWebhookTransfo
     ];
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
     private readonly AiOptions _options;
+    private readonly IAiPromptVersionProvider? _promptVersionProvider;
 
-    public WebhookTransformationPromptBuilder(IOptions<AiOptions> options) => _options = options.Value;
+    public WebhookTransformationPromptBuilder(IOptions<AiOptions> options, IAiPromptVersionProvider? promptVersionProvider = null)
+    {
+        _options = options.Value;
+        _promptVersionProvider = promptVersionProvider;
+    }
 
     public string BuildPrompt(WebhookTransformationRecommendationRequestDto request)
     {
@@ -108,4 +114,22 @@ Webhook transformation context:
     }
 
     private static bool IsSensitive(string key) => SensitiveTerms.Any(term => key.Contains(term, StringComparison.OrdinalIgnoreCase));
+
+    public async Task<AiPromptBuildResult> BuildPromptWithMetadataAsync(WebhookTransformationRecommendationRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var content = BuildPrompt(request);
+        var metadata = new AiPromptVersionInfoDto
+        {
+            PromptName = AiPromptNames.WebhookTransformationRecommendation,
+            Version = AiPromptOptions.DefaultPromptVersion
+        };
+
+        if (_promptVersionProvider is not null)
+        {
+            metadata = (await _promptVersionProvider.GetPromptAsync(AiPromptNames.WebhookTransformationRecommendation, cancellationToken: cancellationToken)).Metadata;
+        }
+
+        return new AiPromptBuildResult { Content = content, Metadata = metadata };
+    }
+
 }

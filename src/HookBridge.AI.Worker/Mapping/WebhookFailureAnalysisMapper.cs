@@ -45,6 +45,9 @@ public static class WebhookFailureAnalysisMapper
             IsRetryRecommended = response.IsRetryRecommended,
             Model = response.Model,
             Provider = response.Provider,
+            PromptName = response.PromptName,
+            PromptVersion = response.PromptVersion,
+            PromptHash = response.PromptHash,
             CreatedAtUtc = EnsureUtc(response.GeneratedAtUtc)
         };
     }

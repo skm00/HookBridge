@@ -62,6 +62,16 @@ public sealed class PayloadSchemaDetectionResult
     [BsonElement("fallbackUsed")]
     public bool FallbackUsed { get; set; }
 
+
+    [BsonElement("promptName")]
+    public string PromptName { get; set; } = string.Empty;
+
+    [BsonElement("promptVersion")]
+    public string PromptVersion { get; set; } = string.Empty;
+
+    [BsonElement("promptHash")]
+    public string PromptHash { get; set; } = string.Empty;
+
     [BsonElement("createdAtUtc")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
@@ -87,6 +97,9 @@ public sealed class PayloadSchemaDetectionResult
             GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc, DateTimeKind.Utc),
             Model = response.Model,
             Provider = response.Provider,
+            PromptName = response.PromptName,
+            PromptVersion = response.PromptVersion,
+            PromptHash = response.PromptHash,
             FallbackUsed = response.Fallback?.UsedFallback ?? false,
             CreatedAtUtc = DateTime.UtcNow
         };

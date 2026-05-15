@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.PromptVersioning;
 using Microsoft.Extensions.Options;
 
 namespace HookBridge.AI.Worker.Prompts;
@@ -24,11 +25,13 @@ public sealed class PayloadSchemaDetectionPromptBuilder : IPayloadSchemaDetectio
     };
 
     private readonly AiOptions _options;
+    private readonly IAiPromptVersionProvider? _promptVersionProvider;
 
-    public PayloadSchemaDetectionPromptBuilder(IOptions<AiOptions> options)
+    public PayloadSchemaDetectionPromptBuilder(IOptions<AiOptions> options, IAiPromptVersionProvider? promptVersionProvider = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
+        _promptVersionProvider = promptVersionProvider;
     }
 
     public string BuildPrompt(PayloadSchemaDetectionRequestDto request)
@@ -185,4 +188,22 @@ Webhook payload context:
             $@"(?<key>\b{Regex.Escape(term)}\b)(?<separator>\s*(?:=|:|=>)\s*""?)[^\r\n,}}\]"" ]+",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
             TimeSpan.FromMilliseconds(100));
+
+    public async Task<AiPromptBuildResult> BuildPromptWithMetadataAsync(PayloadSchemaDetectionRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var content = BuildPrompt(request);
+        var metadata = new AiPromptVersionInfoDto
+        {
+            PromptName = AiPromptNames.PayloadSchemaDetection,
+            Version = AiPromptOptions.DefaultPromptVersion
+        };
+
+        if (_promptVersionProvider is not null)
+        {
+            metadata = (await _promptVersionProvider.GetPromptAsync(AiPromptNames.PayloadSchemaDetection, cancellationToken: cancellationToken)).Metadata;
+        }
+
+        return new AiPromptBuildResult { Content = content, Metadata = metadata };
+    }
+
 }

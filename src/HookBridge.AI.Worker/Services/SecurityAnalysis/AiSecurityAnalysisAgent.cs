@@ -2,6 +2,7 @@ using System.Text.Json;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Prompts;
+using HookBridge.AI.Worker.PromptVersioning;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -47,7 +48,8 @@ public sealed class AiSecurityAnalysisAgent : IAiSecurityAnalysisAgent
 
         try
         {
-            var prompt = _promptBuilder.BuildPrompt(request);
+            var promptResult = await _promptBuilder.BuildPromptWithMetadataAsync(request, cancellationToken);
+            var prompt = promptResult.Content;
             var llmResponse = await _llmClient.GenerateAsync(prompt, cancellationToken);
             if (!llmResponse.IsSuccess)
             {
@@ -60,6 +62,7 @@ public sealed class AiSecurityAnalysisAgent : IAiSecurityAnalysisAgent
                 return CreateFallback(request, AiFallbackReason.InvalidJson, $"AI response could not be used: {failure}");
             }
 
+            response.ApplyPromptMetadata(promptResult.Metadata);
             return response;
         }
         catch (OperationCanceledException)

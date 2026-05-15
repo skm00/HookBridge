@@ -4,6 +4,7 @@ using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Logging;
 using HookBridge.AI.Worker.Prompts;
+using HookBridge.AI.Worker.PromptVersioning;
 using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.Fallback;
 using Microsoft.Extensions.Logging;
@@ -77,7 +78,8 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
                 request.Source,
                 _options.Provider,
                 _options.Model);
-            var prompt = _promptBuilder.BuildPrompt(request);
+            var promptResult = await _promptBuilder.BuildPromptWithMetadataAsync(request, cancellationToken);
+            var prompt = promptResult.Content;
             promptStopwatch.Stop();
             _logger.LogInformation(
                 AiWorkerLogMessages.PromptGenerationCompleted,
@@ -117,6 +119,7 @@ public sealed class AiRetryRecommendationService : IAiRetryRecommendationService
             }
 
             var normalized = NormalizeAndApplySafetyRules(parsed, request);
+            normalized.ApplyPromptMetadata(promptResult.Metadata);
             analysisStopwatch.Stop();
             _logger.LogInformation(
                 "AI retry recommendation succeeded. EventId: {EventId}, CorrelationId: {CorrelationId}, EventType: {EventType}, Source: {Source}, Provider: {Provider}, Model: {Model}, FallbackUsed: {FallbackUsed}, RiskLevel: {RiskLevel}, SuggestedRetryAction: {SuggestedRetryAction}, ConfidenceScore: {ConfidenceScore}, DurationMs: {DurationMs}",

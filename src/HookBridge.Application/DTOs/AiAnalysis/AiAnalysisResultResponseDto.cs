@@ -35,5 +35,11 @@ public sealed class AiAnalysisResultResponseDto
 
     public string Provider { get; set; } = string.Empty;
 
+    public string PromptName { get; set; } = string.Empty;
+
+    public string PromptVersion { get; set; } = string.Empty;
+
+    public string PromptHash { get; set; } = string.Empty;
+
     public DateTime CreatedAtUtc { get; set; }
 }

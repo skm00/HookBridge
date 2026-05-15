@@ -148,6 +148,7 @@ builder.Services.AddScoped<IClientIpResolver, ClientIpResolver>();
 builder.Services.AddScoped<IIpAllowlistService, IpAllowlistService>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
 builder.Services.AddAiOptions(builder.Configuration);
+builder.Services.AddAiPromptServices();
 builder.Services.AddAiKernelServices();
 builder.Services.AddOptions<AiNaturalLanguageQueryOptions>()
     .Bind(builder.Configuration.GetSection(AiNaturalLanguageQueryOptions.SectionName))
