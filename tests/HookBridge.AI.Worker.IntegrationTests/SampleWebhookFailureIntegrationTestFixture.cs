@@ -28,13 +28,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
         WriteIndented = false
     };
 
-    private readonly KafkaContainer _kafkaContainer = new KafkaBuilder()
-        .WithImage("confluentinc/cp-kafka:7.6.1")
-        .Build();
-
-    private readonly MongoDbContainer _mongoContainer = new MongoDbBuilder()
-        .WithImage("mongo:7.0")
-        .Build();
+    private KafkaContainer? _kafkaContainer;
+    private MongoDbContainer? _mongoContainer;
 
     private IHost? _host;
     private IMongoDatabase? _database;
@@ -51,6 +46,13 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
         {
             return;
         }
+
+        _kafkaContainer = new KafkaBuilder()
+            .WithImage("confluentinc/cp-kafka:7.6.1")
+            .Build();
+        _mongoContainer = new MongoDbBuilder()
+            .WithImage("mongo:7.0")
+            .Build();
 
         await _kafkaContainer.StartAsync();
         await _mongoContainer.StartAsync();
@@ -98,9 +100,13 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
             _host.Dispose();
         }
 
-        if (!IsSkipped)
+        if (_mongoContainer is not null)
         {
             await _mongoContainer.DisposeAsync();
+        }
+
+        if (_kafkaContainer is not null)
+        {
             await _kafkaContainer.DisposeAsync();
         }
     }
@@ -209,6 +215,13 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
     public T GetRequiredService<T>() where T : notnull
         => (_host ?? throw new InvalidOperationException("Host has not been initialized.")).Services.GetRequiredService<T>();
 
+
+    private KafkaContainer KafkaContainer
+        => _kafkaContainer ?? throw new InvalidOperationException("Kafka container has not been initialized.");
+
+    private MongoDbContainer MongoContainer
+        => _mongoContainer ?? throw new InvalidOperationException("MongoDB container has not been initialized.");
+
     private IConfiguration BuildConfiguration()
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -220,7 +233,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
                 ["AI:EnableFallback"] = "true",
                 ["AI:EnableSecurityAnalysisFallback"] = "true",
                 ["AIPrompts:DefaultVersion"] = "v1.0.0",
-                ["AiMongo:ConnectionString"] = _mongoContainer.GetConnectionString(),
+                ["AiMongo:ConnectionString"] = MongoContainer.GetConnectionString(),
                 ["AiMongo:DatabaseName"] = DatabaseName,
                 ["AiMongo:AiAnalysisResultsCollectionName"] = AiMongoOptions.DefaultAiAnalysisResultsCollectionName,
                 ["AiMongo:PayloadSchemaDetectionResultsCollectionName"] = AiMongoOptions.DefaultPayloadSchemaDetectionResultsCollectionName,
@@ -233,7 +246,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
                 ["AiMongo:AiSecurityAnalysisResultsCollectionName"] = AiMongoOptions.DefaultAiSecurityAnalysisResultsCollectionName,
                 ["AiMongo:WebhookEventFingerprintsCollectionName"] = AiMongoOptions.DefaultWebhookEventFingerprintsCollectionName,
                 ["AiMongo:AiRecommendationApprovalsCollectionName"] = AiMongoOptions.DefaultAiRecommendationApprovalsCollectionName,
-                ["AiKafka:BootstrapServers"] = _kafkaContainer.GetBootstrapAddress(),
+                ["AiKafka:BootstrapServers"] = KafkaContainer.GetBootstrapAddress(),
                 ["AiKafka:SecurityProtocol"] = "Plaintext",
                 ["AiKafka:AiAnalysisTopic"] = AiKafkaTopics.Analysis,
                 ["AiKafka:PayloadSchemaDetectionTopic"] = AiKafkaTopics.SchemaDetection,
@@ -265,7 +278,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
     {
         using var adminClient = new AdminClientBuilder(new AdminClientConfig
         {
-            BootstrapServers = _kafkaContainer.GetBootstrapAddress()
+            BootstrapServers = KafkaContainer.GetBootstrapAddress()
         }).Build();
 
         var topics = new[]
@@ -294,7 +307,7 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
     {
         using var producer = new ProducerBuilder<string, string>(new ProducerConfig
         {
-            BootstrapServers = _kafkaContainer.GetBootstrapAddress(),
+            BootstrapServers = KafkaContainer.GetBootstrapAddress(),
             SecurityProtocol = SecurityProtocol.Plaintext
         }).Build();
 
