@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
@@ -146,6 +147,128 @@ public sealed class AiAgentOrchestratorTests
         var response = await orchestrator.OrchestrateAsync(CreateRequest(statusCode: 200));
 
         response.RecommendedAction.Should().Be(AiOrchestrationRecommendedAction.Quarantine);
+    }
+
+
+
+    [Fact]
+    public async Task DisabledOrchestration_ReturnsUnknownWithNoAgentResults()
+    {
+        var fixture = new Fixture();
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions { Enabled = false });
+
+        var response = await orchestrator.OrchestrateAsync(CreateRequest(statusCode: 200));
+
+        response.AgentResults.Should().BeEmpty();
+        response.OverallRiskLevel.Should().Be(AiRiskLevel.Unknown);
+        response.RecommendedAction.Should().Be(AiOrchestrationRecommendedAction.None);
+        response.ConfidenceScore.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task EndpointRiskAndAnomalyAgents_RunWhenCustomerDataIsAvailable()
+    {
+        var fixture = new Fixture();
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions { EnableRetryAgent = false, EnableSecurityAgent = false, EnableDuplicateReplayAgent = false, EnablePayloadSchemaAgent = false });
+
+        var response = await orchestrator.OrchestrateAsync(CreateRequest(statusCode: 500));
+
+        response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.EndpointRiskScoringAgent && result.IsSuccessful);
+        response.AgentResults.Should().Contain(result => result.AgentName == AiAgentName.AnomalyDetectionAgent && result.IsSuccessful);
+    }
+
+    [Fact]
+    public async Task UnknownRisk_WhenAllAgentsFailOrReturnUnknown()
+    {
+        var fixture = new Fixture();
+        fixture.Retry.Setup(service => service.AnalyzeAsync(It.IsAny<WebhookFailureAnalysisRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WebhookFailureAnalysisResponseDto { EventId = "evt-1", RiskLevel = AiRiskLevel.Unknown, ConfidenceScore = 0.5 });
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions { EnableSecurityAgent = false, EnableDuplicateReplayAgent = false, EnablePayloadSchemaAgent = false, EnableEndpointRiskAgent = false, EnableAnomalyAgent = false });
+
+        var response = await orchestrator.OrchestrateAsync(CreateRequest(statusCode: 200));
+
+        response.OverallRiskLevel.Should().Be(AiRiskLevel.Unknown);
+        response.RecommendedAction.Should().Be(AiOrchestrationRecommendedAction.None);
+    }
+
+    [Fact]
+    public async Task DuplicateIgnoreAction_MapsToMoveToDeadLetter()
+    {
+        var fixture = new Fixture();
+        fixture.DuplicateReplay.Setup(service => service.DetectAsync(It.IsAny<WebhookDuplicateReplayDetectionRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WebhookDuplicateReplayDetectionResponseDto { EventId = "evt-1", IsDuplicate = true, RiskLevel = AiRiskLevel.Medium, SuggestedAction = WebhookDuplicateReplaySuggestedAction.IgnoreDuplicate, Summary = "Duplicate event id detected", DetectionScore = 70 });
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions { EnableRetryAgent = false, EnableSecurityAgent = false, EnablePayloadSchemaAgent = false, EnableEndpointRiskAgent = false, EnableAnomalyAgent = false });
+
+        var response = await orchestrator.OrchestrateAsync(CreateRequest(statusCode: 200));
+
+        response.RecommendedAction.Should().Be(AiOrchestrationRecommendedAction.MoveToDeadLetter);
+    }
+
+    [Fact]
+    public async Task HighRiskWithoutStrongerAction_RequiresManualReview()
+    {
+        var fixture = new Fixture();
+        fixture.Security.Setup(agent => agent.AnalyzeAsync(It.IsAny<AiSecurityAnalysisRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AiSecurityAnalysisResponseDto { EventId = "evt-1", RiskLevel = AiRiskLevel.High, Summary = "high risk", SuggestedAction = AiSecuritySuggestedAction.RequireManualReview, ConfidenceScore = 0.8 });
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions { EnableRetryAgent = false, EnableDuplicateReplayAgent = false, EnablePayloadSchemaAgent = false, EnableEndpointRiskAgent = false, EnableAnomalyAgent = false });
+
+        var response = await orchestrator.OrchestrateAsync(CreateRequest(statusCode: 200));
+
+        response.OverallRiskLevel.Should().Be(AiRiskLevel.High);
+        response.RequiresApproval.Should().BeTrue();
+        response.RecommendedAction.Should().Be(AiOrchestrationRecommendedAction.RequireManualReview);
+    }
+
+    [Fact]
+    public async Task EmptyEventId_ThrowsValidationException()
+    {
+        var fixture = new Fixture();
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions());
+        var request = CreateRequest();
+        request.EventId = string.Empty;
+
+        var act = async () => await orchestrator.OrchestrateAsync(request);
+
+        await act.Should().ThrowAsync<ValidationException>();
+    }
+
+    [Fact]
+    public async Task InvalidTargetUrl_ThrowsValidationException()
+    {
+        var fixture = new Fixture();
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions());
+        var request = CreateRequest();
+        request.TargetUrl = "not-a-url";
+
+        var act = async () => await orchestrator.OrchestrateAsync(request);
+
+        await act.Should().ThrowAsync<ValidationException>();
+    }
+
+    [Fact]
+    public async Task NonUtcReceivedAt_ThrowsValidationException()
+    {
+        var fixture = new Fixture();
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions());
+        var request = CreateRequest();
+        request.ReceivedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Local);
+
+        var act = async () => await orchestrator.OrchestrateAsync(request);
+
+        await act.Should().ThrowAsync<ValidationException>();
+    }
+
+    [Fact]
+    public void ConfidenceCalculation_ReturnsZeroWhenNoSuccessfulAgents()
+    {
+        var results = new[]
+        {
+            new AiAgentResultDto { IsSuccessful = false, ConfidenceScore = 0 }
+        };
+
+        var confidence = AiAgentOrchestrator.CalculateConfidence(results);
+
+        confidence.Should().Be(0);
     }
 
     private static AiAgentOrchestrationRequestDto CreateRequest(int statusCode = 429, int retryCount = 1, int maxRetryCount = 3) => new()

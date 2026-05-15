@@ -47,6 +47,19 @@ public sealed class AiAgentOrchestrationControllerTests
         Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
     }
 
+
+
+    [Fact]
+    public async Task GetByEventIdAsync_ReturnsInternalServerError_WhenRepositoryThrows()
+    {
+        var controller = CreateController(new FakeRepository(null, throwOnLookup: true));
+
+        var result = await controller.GetByEventIdAsync("evt_error", CancellationToken.None);
+
+        var error = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, error.StatusCode);
+    }
+
     private static AiAgentOrchestrationController CreateController(IAiAgentOrchestrationRepository repository)
     {
         var controller = new AiAgentOrchestrationController(repository, NullLogger<AiAgentOrchestrationController>.Instance);
@@ -78,10 +91,18 @@ public sealed class AiAgentOrchestrationControllerTests
         ]
     };
 
-    private sealed class FakeRepository(AiAgentOrchestrationResult? result) : IAiAgentOrchestrationRepository
+    private sealed class FakeRepository(AiAgentOrchestrationResult? result, bool throwOnLookup = false) : IAiAgentOrchestrationRepository
     {
         public Task InsertAsync(AiAgentOrchestrationResult result, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<AiAgentOrchestrationResult?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default) => Task.FromResult(result);
+        public Task<AiAgentOrchestrationResult?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
+        {
+            if (throwOnLookup)
+            {
+                throw new InvalidOperationException("Repository failed.");
+            }
+
+            return Task.FromResult(result);
+        }
         public Task<IReadOnlyList<AiAgentOrchestrationResult>> GetByCorrelationIdAsync(string correlationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAgentOrchestrationResult>>(Array.Empty<AiAgentOrchestrationResult>());
         public Task<IReadOnlyList<AiAgentOrchestrationResult>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAgentOrchestrationResult>>(Array.Empty<AiAgentOrchestrationResult>());
         public Task<IReadOnlyList<AiAgentOrchestrationResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiAgentOrchestrationResult>>(Array.Empty<AiAgentOrchestrationResult>());

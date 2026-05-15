@@ -9,7 +9,8 @@ public sealed class ClientIpResolver : IClientIpResolver
         if (context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
         {
             var firstValid = forwardedFor
-                .SelectMany(value => value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .SelectMany(value => value!.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                 .FirstOrDefault(value => IPAddress.TryParse(value, out _));
 
             if (!string.IsNullOrWhiteSpace(firstValid))
