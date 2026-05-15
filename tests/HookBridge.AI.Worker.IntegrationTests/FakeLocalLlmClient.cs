@@ -64,7 +64,7 @@ public sealed class FakeLocalLlmClient : ILocalLlmClient
         }
 
         var statusCode = ExtractStatusCode(prompt);
-        var reachedMaxRetry = prompt.Contains("RetryCount: 5", StringComparison.OrdinalIgnoreCase) && prompt.Contains("MaxRetryCount: 5", StringComparison.OrdinalIgnoreCase);
+        var reachedMaxRetry = ContainsIntegerField(prompt, "retryCount", 5) && ContainsIntegerField(prompt, "maxRetryCount", 5);
         var action = reachedMaxRetry || statusCode == 404
             ? "MoveToDeadLetter"
             : statusCode is 401 or 403
@@ -105,6 +105,17 @@ public sealed class FakeLocalLlmClient : ILocalLlmClient
             provider = "fake"
         }, JsonOptions);
     }
+
+    private static bool ContainsIntegerField(string prompt, string camelCaseFieldName, int expectedValue)
+    {
+        var pascalCaseFieldName = char.ToUpperInvariant(camelCaseFieldName[0]) + camelCaseFieldName[1..];
+        return ContainsFieldValue(prompt, $"\"{camelCaseFieldName}\"", expectedValue) ||
+               ContainsFieldValue(prompt, pascalCaseFieldName, expectedValue);
+    }
+
+    private static bool ContainsFieldValue(string prompt, string fieldName, int expectedValue)
+        => prompt.Contains($"{fieldName}: {expectedValue}", StringComparison.OrdinalIgnoreCase) ||
+           prompt.Contains($"{fieldName}:{expectedValue}", StringComparison.OrdinalIgnoreCase);
 
     private static int? ExtractStatusCode(string prompt)
     {
