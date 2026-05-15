@@ -167,7 +167,7 @@ public sealed class SampleWebhookFailureIntegrationTests
         var anomaly = await _fixture.WaitForAnomalyRecordAsync(eventId, cts.Token);
 
         anomaly.Should().NotBeNull();
-        anomaly!.Summary.Should().Contain("duplicate", StringComparison.OrdinalIgnoreCase);
+        anomaly!.Summary.Contains("duplicate", StringComparison.OrdinalIgnoreCase).Should().BeTrue();
         (anomaly.Recommendation.Contains("Ignore", StringComparison.OrdinalIgnoreCase) || anomaly.Recommendation.Contains("manual review", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
     }
 
@@ -183,7 +183,7 @@ public sealed class SampleWebhookFailureIntegrationTests
         var anomaly = await _fixture.WaitForAnomalyRecordAsync(eventId, cts.Token);
 
         anomaly.Should().NotBeNull();
-        anomaly!.Summary.Should().Contain("replay", StringComparison.OrdinalIgnoreCase);
+        anomaly!.Summary.Contains("replay", StringComparison.OrdinalIgnoreCase).Should().BeTrue();
         anomaly.RiskLevel.Should().BeOneOf(AiRiskLevel.High.ToString(), AiRiskLevel.Critical.ToString());
         (anomaly.Recommendation.Contains("Quarantine", StringComparison.OrdinalIgnoreCase) || anomaly.Recommendation.Contains("Reject", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
     }
