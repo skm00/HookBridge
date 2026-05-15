@@ -1621,3 +1621,95 @@ Prompt metadata APIs are available from the API service:
 - `GET /api/ai-prompts/{promptName}/{version}?includeContent=true` includes the prompt file content only when explicitly requested.
 
 The metadata endpoints return `400` for invalid version formats and `404` when a prompt name or version does not exist.
+
+## Retry Agent
+
+The Retry Agent is a deterministic safety agent for failed webhook deliveries. It evaluates failed delivery metadata, endpoint risk context, retry counters, and HTTP status codes to recommend the safest next retry action without executing production retries directly.
+
+### Decision rules
+
+| Signal | Decision | Notes |
+| --- | --- | --- |
+| HTTP `429` | `RetryWithExponentialBackoff` | Never recommends `RetryImmediately` for rate limits. |
+| HTTP `408` or `504` | `RetryWithExponentialBackoff` | Treats timeout responses as transient. |
+| HTTP `500`, `502`, or `503` | `RetryWithExponentialBackoff` | Treats common receiver/server failures as transient. |
+| HTTP `400` | `RequireManualReview` | Prevents unsafe replay of malformed requests. |
+| HTTP `401` or `403` | `RequireManualReview` | Authentication and authorization failures are never auto-retried. |
+| HTTP `404` | `MoveToDeadLetter` | Prevents repeated delivery to missing endpoints. |
+| `RetryCount >= MaxRetryCount` | `MoveToDeadLetter` | Enforces retry budget safety. |
+| Endpoint risk `High` | Decision is preserved, `RequiresApproval = true` | Approval is required by default. |
+| Endpoint risk `Critical` | `PauseEndpoint`, `RequiresApproval = true` | Critical endpoints are never auto-retried. |
+| Unknown status | `RequireManualReview` | Unknown outcomes fail closed. |
+
+Replay or duplicate-related failure text also forces approval, and large payloads are marked with the `LargePayload` reason code.
+
+### Backoff formula
+
+For `RetryWithExponentialBackoff`, the Retry Agent calculates delay as:
+
+```text
+delaySeconds = min(BaseDelaySeconds * 2^RetryCount, MaxDelaySeconds)
+```
+
+Defaults are:
+
+- `BaseDelaySeconds = 30`
+- `MaxDelaySeconds = 3600`
+- `FixedDelaySeconds = 60`
+- `EnableJitter = false`
+- `JitterPercentage = 10`
+
+When jitter is enabled, the deterministic configured jitter percentage is applied to the calculated delay.
+
+### Approval behavior
+
+The Retry Agent creates approval records when `RequiresApproval = true`, including high-risk endpoints, critical-risk endpoints, manual review decisions, authentication/authorization failures, duplicate signals, and replay signals. Approval records use the existing AI recommendation approval workflow with recommendation type `RetryRecommendation`.
+
+### Kafka and MongoDB
+
+- Kafka topic: `hookbridge.ai.retry-agent`
+- MongoDB collection: `retry_agent_results`
+
+The worker consumes retry-agent events from Kafka, runs the deterministic retry agent, stores the result in MongoDB, creates approval records when required, and publishes anomaly events when the endpoint should be paused or the resulting risk level is `High`/`Critical`.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_429_001",
+  "correlationId": "corr_429_001",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "environment": "qa",
+  "eventType": "WebhookDeliveryFailed",
+  "targetUrl": "https://customer.example.com/webhook",
+  "httpMethod": "POST",
+  "statusCode": 429,
+  "failureReason": "Too Many Requests",
+  "retryCount": 2,
+  "maxRetryCount": 5,
+  "endpointRiskLevel": "Medium",
+  "failedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_429_001",
+  "correlationId": "corr_429_001",
+  "retryDecision": "RetryWithExponentialBackoff",
+  "retryDelaySeconds": 120,
+  "maxAllowedRetries": 5,
+  "riskLevel": "Medium",
+  "requiresApproval": false,
+  "summary": "The receiver returned HTTP 429, indicating rate limiting.",
+  "recommendation": "Retry with exponential backoff and reduce delivery concurrency when rate limited.",
+  "reasonCodes": ["RateLimited"],
+  "confidenceScore": 0.85,
+  "generatedAtUtc": "2026-05-14T10:31:00Z",
+  "fallback": false
+}
+```

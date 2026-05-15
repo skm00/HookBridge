@@ -9,6 +9,7 @@ using HookBridge.AI.Worker.Services;
 using HookBridge.AI.Worker.Services.EndpointHealthScoring;
 using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
+using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
@@ -106,6 +107,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiRecommendationApprovalsCollectionName),
                 "AiMongo:AiRecommendationApprovalsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.RetryAgentResultsCollectionName),
+                "AiMongo:RetryAgentResultsCollectionName is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiAgentOrchestrationResultsCollectionName),
                 "AiMongo:AiAgentOrchestrationResultsCollectionName is required.")
@@ -214,6 +218,9 @@ public static class ServiceCollectionExtensions
                 options => !string.IsNullOrWhiteSpace(options.OrchestrationTopic),
                 "AiKafka:OrchestrationTopic is required.")
             .Validate(
+                options => !string.IsNullOrWhiteSpace(options.RetryAgentTopic),
+                "AiKafka:RetryAgentTopic is required.")
+            .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
             .ValidateOnStart();
@@ -232,6 +239,19 @@ public static class ServiceCollectionExtensions
     {
         services.AddAiFallbackServices();
         services.TryAddSingleton<IAiRetryRecommendationService, AiRetryRecommendationService>();
+        return services;
+    }
+
+    public static IServiceCollection AddRetryAgentServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<RetryAgentOptions>()
+            .Bind(configuration.GetSection(RetryAgentOptions.SectionName))
+            .Validate(options => options.BaseDelaySeconds >= 0, "RetryAgent:BaseDelaySeconds must be greater than or equal to 0.")
+            .Validate(options => options.MaxDelaySeconds >= 0, "RetryAgent:MaxDelaySeconds must be greater than or equal to 0.")
+            .Validate(options => options.FixedDelaySeconds >= 0, "RetryAgent:FixedDelaySeconds must be greater than or equal to 0.")
+            .Validate(options => options.JitterPercentage is >= 0 and <= 100, "RetryAgent:JitterPercentage must be between 0 and 100.")
+            .ValidateOnStart();
+        services.TryAddSingleton<IRetryAgent, RetryAgent>();
         return services;
     }
 
@@ -334,6 +354,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiSecurityAnalysisConsumer, AiSecurityAnalysisConsumer>();
         services.AddSingleton<IWebhookDuplicateReplayDetectionConsumer, WebhookDuplicateReplayDetectionConsumer>();
         services.AddSingleton<IAiAgentOrchestrationConsumer, AiAgentOrchestrationConsumer>();
+        services.AddSingleton<IRetryAgentConsumer, RetryAgentConsumer>();
         return services;
     }
 
@@ -368,6 +389,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiRecommendationApprovalRepository, AiRecommendationApprovalRepository>();
         services.AddSingleton<IAiAgentOrchestrationCollectionProvider, AiAgentOrchestrationCollectionProvider>();
         services.AddSingleton<IAiAgentOrchestrationRepository, AiAgentOrchestrationRepository>();
+        services.AddSingleton<IRetryAgentResultCollectionProvider, RetryAgentResultCollectionProvider>();
+        services.AddSingleton<IRetryAgentResultRepository, RetryAgentResultRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;
