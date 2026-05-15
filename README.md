@@ -808,6 +808,13 @@ Primary thresholds are: failure rate, retry count, timeout count, rate-limit cou
 
 Results are stored in MongoDB collection `webhook_failure_anomaly_detection_results`, compact anomaly records are stored in `ai_anomaly_records`, and the worker consumes requests from Kafka topic `hookbridge.ai.failure-anomalies`. When a detected result has `isAnomalyDetected: true`, HookBridge publishes a compact anomaly notification to Kafka topic `hookbridge.ai.anomalies` for downstream alerting and incident workflows.
 
+Anomaly detection tests live in `tests/HookBridge.AI.Worker.Tests`, with reusable JSON metric fixtures in `tests/HookBridge.AI.Worker.Tests/TestData/AnomalyDetection`. Run them with:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --filter "FullyQualifiedName~Anomaly"
+```
+
+The repository coverage workflow continues to enforce at least 80% line coverage and 70% branch coverage for unit coverage runs. Integration tests that require MongoDB or Kafka Testcontainers should remain isolated from unit tests and must not be required for deterministic anomaly service, mapper, producer, consumer, or repository unit coverage.
 
 Detected anomaly notifications are also persisted as compact documents in MongoDB collection `ai_anomaly_records`. The collection supports querying by `customerId`, `customerIdType`, `subscriptionId`, `endpointId`, `environment`, `eventType`, `anomalyType`, `riskLevel`, anomaly score range, and `createdAtUtc` time range. Results are sorted by newest first and paginated. The worker creates indexes for those fields plus compound indexes for `customerId + createdAtUtc`, `endpointId + createdAtUtc`, and `riskLevel + createdAtUtc`. `anomalyId` is unique; duplicate anomaly events return a duplicate repository result and are logged as warnings rather than inserted twice.
 

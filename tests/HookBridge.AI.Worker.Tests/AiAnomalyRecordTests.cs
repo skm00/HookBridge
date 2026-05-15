@@ -159,6 +159,44 @@ public sealed class AiAnomalyRecordTests
         results.Should().ContainSingle();
     }
 
+
+    [Fact]
+    public async Task GetByEventIdAsync_ReturnsMatchingRecords()
+    {
+        var collection = CreateCollectionReturning(new[] { CreateRecord() }, out _);
+        var repository = CreateRepository(collection.Object);
+
+        var results = await repository.GetByEventIdAsync("evt-1");
+
+        results.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetBySubscriptionIdAsync_ReturnsMatchingRecords()
+    {
+        var collection = CreateCollectionReturning(new[] { CreateRecord() }, out _);
+        var repository = CreateRepository(collection.Object);
+
+        var results = await repository.GetBySubscriptionIdAsync("sub-1");
+
+        results.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetRecentAsync_ReturnsNewestRecordsWithLimit()
+    {
+        var collection = CreateCollectionReturning(new[] { CreateRecord() }, out _);
+        var repository = CreateRepository(collection.Object);
+
+        var results = await repository.GetRecentAsync(10);
+
+        results.Should().ContainSingle();
+        collection.Verify(mongoCollection => mongoCollection.FindAsync(
+            It.IsAny<FilterDefinition<AiAnomalyRecord>>(),
+            It.Is<FindOptions<AiAnomalyRecord, AiAnomalyRecord>>(options => options.Limit == 10 && options.Sort != null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task SearchAsync_WithCustomerIdFilter_PaginatesAndSortsByCreatedAtDescending()
     {
