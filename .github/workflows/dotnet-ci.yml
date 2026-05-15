@@ -93,6 +93,13 @@ jobs:
             --results-directory "$TEST_RESULTS_DIR/Unit" \
             --verbosity normal
 
+      - name: Verify Docker for Testcontainers
+        if: env.SKIP_INTEGRATION_TESTS != 'true'
+        shell: bash
+        run: |
+          docker version
+          docker info
+
       - name: Run integration tests with coverage
         if: env.SKIP_INTEGRATION_TESTS != 'true'
         shell: bash

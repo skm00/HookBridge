@@ -1,0 +1,13 @@
+{
+  "eventId": "evt_500_001",
+  "correlationId": "corr_500_001",
+  "source": "HookBridge.Worker",
+  "eventType": "WebhookDeliveryFailed",
+  "failureReason": "Internal Server Error",
+  "statusCode": 500,
+  "retryCount": 1,
+  "maxRetryCount": 5,
+  "targetUrl": "https://receiver.example.com/webhook",
+  "payload": { "invoiceId": "INV-2001", "status": "Paid" },
+  "createdAtUtc": "2026-05-14T10:35:00Z"
+}

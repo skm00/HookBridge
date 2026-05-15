@@ -1,0 +1,13 @@
+{
+  "eventId": "evt_max_retry_001",
+  "correlationId": "corr_max_retry_001",
+  "source": "HookBridge.Worker",
+  "eventType": "WebhookDeliveryFailed",
+  "failureReason": "Maximum retry attempts reached",
+  "statusCode": 503,
+  "retryCount": 5,
+  "maxRetryCount": 5,
+  "targetUrl": "https://unstable.example.com/webhook",
+  "payload": { "paymentId": "PAY-4001", "status": "Captured" },
+  "createdAtUtc": "2026-05-14T10:55:00Z"
+}

@@ -1,0 +1,14 @@
+{
+  "eventId": "evt_timeout_001",
+  "correlationId": "corr_timeout_001",
+  "source": "HookBridge.Worker",
+  "eventType": "WebhookDeliveryFailed",
+  "failureReason": "Request Timeout",
+  "statusCode": 504,
+  "retryCount": 2,
+  "maxRetryCount": 5,
+  "targetUrl": "https://slow.example.com/webhook",
+  "errorMessage": "Receiver timed out after 30 seconds",
+  "payload": { "shipmentId": "SHIP-3001", "status": "Dispatched" },
+  "createdAtUtc": "2026-05-14T10:50:00Z"
+}
