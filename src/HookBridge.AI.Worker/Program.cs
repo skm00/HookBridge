@@ -8,6 +8,7 @@ builder.Services.AddAiOptions(builder.Configuration);
 builder.Services.AddAiRecommendationApprovalServices(builder.Configuration);
 builder.Services.AddAiKafkaOptions(builder.Configuration);
 builder.Services.AddDuplicateReplayDetectionOptions(builder.Configuration);
+builder.Services.AddAiAgentOrchestrationServices(builder.Configuration);
 builder.Services.AddAiMongoOptions(builder.Configuration);
 builder.Services.AddSingleton<AiWorkerHealthStatus>();
 builder.Services.AddAiKernelServices();
@@ -35,6 +36,7 @@ builder.Services.AddHostedService<WebhookFailureAnomalyDetectionWorker>();
 builder.Services.AddHostedService<AiAnomalyRecordPersistenceWorker>();
 builder.Services.AddHostedService<AiSecurityAnalysisWorker>();
 builder.Services.AddHostedService<WebhookDuplicateReplayDetectionWorker>();
+builder.Services.AddHostedService<AiAgentOrchestrationWorker>();
 
 var host = builder.Build();
 host.Run();

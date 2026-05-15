@@ -39,6 +39,8 @@ public sealed class AiKafkaOptions
 
     public string DuplicateReplayDetectionTopic { get; set; } = AiKafkaTopics.DuplicateReplayDetection;
 
+    public string OrchestrationTopic { get; set; } = AiKafkaTopics.Orchestration;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

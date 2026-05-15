@@ -17,6 +17,7 @@ public sealed class AiMongoOptions
     public const string DefaultAiSecurityAnalysisResultsCollectionName = "ai_security_analysis_results";
     public const string DefaultWebhookEventFingerprintsCollectionName = "webhook_event_fingerprints";
     public const string DefaultAiRecommendationApprovalsCollectionName = "ai_recommendation_approvals";
+    public const string DefaultAiAgentOrchestrationResultsCollectionName = "ai_agent_orchestration_results";
 
     public string ConnectionString { get; set; } = string.Empty;
 
@@ -43,4 +44,6 @@ public sealed class AiMongoOptions
     public string WebhookEventFingerprintsCollectionName { get; set; } = DefaultWebhookEventFingerprintsCollectionName;
 
     public string AiRecommendationApprovalsCollectionName { get; set; } = DefaultAiRecommendationApprovalsCollectionName;
+
+    public string AiAgentOrchestrationResultsCollectionName { get; set; } = DefaultAiAgentOrchestrationResultsCollectionName;
 }

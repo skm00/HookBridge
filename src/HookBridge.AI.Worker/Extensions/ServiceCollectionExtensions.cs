@@ -18,6 +18,7 @@ using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
+using HookBridge.AI.Worker.Services.Orchestration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -105,6 +106,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiRecommendationApprovalsCollectionName),
                 "AiMongo:AiRecommendationApprovalsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AiAgentOrchestrationResultsCollectionName),
+                "AiMongo:AiAgentOrchestrationResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -137,6 +141,20 @@ public static class ServiceCollectionExtensions
             .Validate(options => string.Equals(options.HashAlgorithm, "SHA256", StringComparison.OrdinalIgnoreCase), "DuplicateReplayDetection:HashAlgorithm must be SHA256.")
             .ValidateOnStart();
 
+        return services;
+    }
+
+    public static IServiceCollection AddAiAgentOrchestrationServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<AiAgentOrchestrationOptions>()
+            .Bind(configuration.GetSection(AiAgentOrchestrationOptions.SectionName))
+            .Validate(options => options.AgentTimeoutSeconds > 0, "AiAgentOrchestration:AgentTimeoutSeconds must be greater than 0.")
+            .ValidateOnStart();
+
+        services.TryAddSingleton<IAiAgentOrchestrator, AiAgentOrchestrator>();
         return services;
     }
 
@@ -192,6 +210,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.DuplicateReplayDetectionTopic),
                 "AiKafka:DuplicateReplayDetectionTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.OrchestrationTopic),
+                "AiKafka:OrchestrationTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -312,6 +333,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWebhookFailureAnomalyDetectionConsumer, WebhookFailureAnomalyDetectionConsumer>();
         services.AddSingleton<IAiSecurityAnalysisConsumer, AiSecurityAnalysisConsumer>();
         services.AddSingleton<IWebhookDuplicateReplayDetectionConsumer, WebhookDuplicateReplayDetectionConsumer>();
+        services.AddSingleton<IAiAgentOrchestrationConsumer, AiAgentOrchestrationConsumer>();
         return services;
     }
 
@@ -344,6 +366,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWebhookEventFingerprintRepository, WebhookEventFingerprintRepository>();
         services.AddSingleton<IAiRecommendationApprovalCollectionProvider, AiRecommendationApprovalCollectionProvider>();
         services.AddSingleton<IAiRecommendationApprovalRepository, AiRecommendationApprovalRepository>();
+        services.AddSingleton<IAiAgentOrchestrationCollectionProvider, AiAgentOrchestrationCollectionProvider>();
+        services.AddSingleton<IAiAgentOrchestrationRepository, AiAgentOrchestrationRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

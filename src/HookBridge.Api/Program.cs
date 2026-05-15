@@ -192,6 +192,11 @@ builder.Services.AddOptions<AiMongoOptions>()
         {
             options.AiRecommendationApprovalsCollectionName = AiMongoOptions.DefaultAiRecommendationApprovalsCollectionName;
         }
+
+        if (string.IsNullOrWhiteSpace(options.AiAgentOrchestrationResultsCollectionName))
+        {
+            options.AiAgentOrchestrationResultsCollectionName = AiMongoOptions.DefaultAiAgentOrchestrationResultsCollectionName;
+        }
     });
 builder.Services.AddSingleton<IAiAnalysisResultCollectionProvider, AiAnalysisResultCollectionProvider>();
 builder.Services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
@@ -205,6 +210,8 @@ builder.Services.AddSingleton<IWebhookFailureAnomalyDetectionCollectionProvider,
 builder.Services.AddSingleton<IWebhookFailureAnomalyDetectionRepository, WebhookFailureAnomalyDetectionRepository>();
 builder.Services.AddSingleton<IAiRecommendationApprovalCollectionProvider, AiRecommendationApprovalCollectionProvider>();
 builder.Services.AddSingleton<IAiRecommendationApprovalRepository, AiRecommendationApprovalRepository>();
+builder.Services.AddSingleton<IAiAgentOrchestrationCollectionProvider, AiAgentOrchestrationCollectionProvider>();
+builder.Services.AddSingleton<IAiAgentOrchestrationRepository, AiAgentOrchestrationRepository>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();

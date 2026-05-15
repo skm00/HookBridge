@@ -11,6 +11,11 @@ using HookBridge.AI.Worker.Services.Fallback;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
+using HookBridge.AI.Worker.Services.Orchestration;
+using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
+using HookBridge.AI.Worker.Services.SecurityAnalysis;
+using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
+using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +36,13 @@ public sealed class AiDependencyInjectionTests
         services.AddAiKernelServices();
         services.AddAiRetryRecommendationServices();
         services.AddAiLogSummarizationServices();
+        services.AddPayloadSchemaDetectionServices();
+        services.AddWebhookTransformationRecommendationServices();
+        services.AddCustomerEndpointRiskScoringServices();
+        services.AddWebhookFailureAnomalyDetectionServices();
+        services.AddAiSecurityAnalysisServices();
+        services.AddWebhookDuplicateReplayDetectionServices();
+        services.AddAiAgentOrchestrationServices(BuildOrchestrationConfiguration());
         services.AddEndpointHealthScoringServices();
         services.AddCustomerEndpointRiskScoringServices();
         services.AddWebhookFailureAnomalyDetectionServices();
@@ -43,6 +55,7 @@ public sealed class AiDependencyInjectionTests
         provider.GetRequiredService<ILocalLlmClient>().Should().BeOfType<SemanticKernelLocalLlmClient>();
         provider.GetRequiredService<IAiRetryRecommendationService>().Should().BeOfType<AiRetryRecommendationService>();
         provider.GetRequiredService<IAiLogSummarizationService>().Should().BeOfType<AiLogSummarizationService>();
+        services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAgentOrchestrator) && descriptor.ImplementationType == typeof(AiAgentOrchestrator));
         provider.GetRequiredService<IEndpointHealthScoringService>().Should().BeOfType<EndpointHealthScoringService>();
         provider.GetRequiredService<ICustomerEndpointRiskScoringService>().Should().BeOfType<CustomerEndpointRiskScoringService>();
         provider.GetRequiredService<IWebhookFailureAnomalyDetectionService>().Should().BeOfType<WebhookFailureAnomalyDetectionService>();
@@ -81,6 +94,13 @@ public sealed class AiDependencyInjectionTests
         services.TryAddSingleton<ILocalLlmClient, DisabledModeLocalLlmClient>();
         services.AddAiRetryRecommendationServices();
         services.AddAiLogSummarizationServices();
+        services.AddPayloadSchemaDetectionServices();
+        services.AddWebhookTransformationRecommendationServices();
+        services.AddCustomerEndpointRiskScoringServices();
+        services.AddWebhookFailureAnomalyDetectionServices();
+        services.AddAiSecurityAnalysisServices();
+        services.AddWebhookDuplicateReplayDetectionServices();
+        services.AddAiAgentOrchestrationServices(BuildOrchestrationConfiguration());
 
         using var provider = services.BuildServiceProvider(validateScopes: true);
 
@@ -113,6 +133,10 @@ public sealed class AiDependencyInjectionTests
             descriptor.ImplementationType == typeof(AiAnomalyProducer) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
         services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAiAgentOrchestrationConsumer) &&
+            descriptor.ImplementationType == typeof(AiAgentOrchestrationConsumer) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IAiAnomalyConsumer) &&
             descriptor.ImplementationType == typeof(AiAnomalyConsumer) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
@@ -133,6 +157,10 @@ public sealed class AiDependencyInjectionTests
         services.AddAiMongoServices();
 
         services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAiAgentOrchestrationRepository) &&
+            descriptor.ImplementationType == typeof(AiAgentOrchestrationRepository) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IAiAnomalyRecordRepository) &&
             descriptor.ImplementationType == typeof(AiAnomalyRecordRepository) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
@@ -141,6 +169,15 @@ public sealed class AiDependencyInjectionTests
             descriptor.ImplementationType == typeof(AiAnomalyRecordCollectionProvider) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
     }
+
+    private static IConfiguration BuildOrchestrationConfiguration()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{AiAgentOrchestrationOptions.SectionName}:Enabled"] = "true",
+                [$"{AiAgentOrchestrationOptions.SectionName}:AgentTimeoutSeconds"] = "30"
+            })
+            .Build();
 
     private static IConfiguration BuildConfiguration(bool enabled)
         => new ConfigurationBuilder()
