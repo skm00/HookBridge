@@ -13,7 +13,7 @@ public sealed partial class WebhookTransformationPromptBuilder : IWebhookTransfo
     private static readonly string[] SensitiveTerms =
     [
         "Authorization", "Cookie", "Set-Cookie", "Token", "Secret", "Password", "Api-Key",
-        "X-API-Key", "ClientSecret", "AccessToken", "ConnectionString"
+        "X-API-Key", "ClientSecret", "client_secret", "AccessToken", "access_token", "ConnectionString"
     ];
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
     private readonly AiOptions _options;
@@ -40,6 +40,7 @@ public sealed partial class WebhookTransformationPromptBuilder : IWebhookTransfo
             targetSchema = Truncate(MaskIfEnabled(Serialize(request.TargetSchema)), max),
             targetSamplePayload = Truncate(MaskIfEnabled(Serialize(request.TargetSamplePayload)), max),
             existingMappingRules = Truncate(MaskIfEnabled(Serialize(request.ExistingMappingRules)), max),
+            targetUrl = request.TargetUrl,
             headers = MaskHeaders(request.Headers ?? new Dictionary<string, string>()),
             receivedAtUtc = request.ReceivedAtUtc
         };

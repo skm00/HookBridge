@@ -11,6 +11,7 @@ public sealed class WebhookTransformationRecommendationRequestDto
     public object? TargetSchema { get; set; }
     public object? TargetSamplePayload { get; set; }
     public object? ExistingMappingRules { get; set; }
+    public string? TargetUrl { get; set; }
     public IDictionary<string, string> Headers { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     public DateTime ReceivedAtUtc { get; set; }
 }

@@ -21,7 +21,8 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
         ["orderId"] = ["order_id", "orderid"], ["order_id"] = ["orderId", "orderid"],
         ["customerId"] = ["customer_id", "customerid"], ["customer_id"] = ["customerId", "customerid"],
         ["createdAt"] = ["created_at", "createdAtUtc", "created_at_utc"], ["created_at"] = ["createdAt", "createdAtUtc"],
-        ["status"] = ["state", "order_status"], ["state"] = ["status"]
+        ["status"] = ["state", "order_status"], ["state"] = ["status"],
+        ["totalAmount"] = ["amount", "total", "total_amount"], ["amount"] = ["totalAmount", "total_amount"]
     };
 
     private readonly AiOptions _options;
@@ -81,6 +82,8 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
         try { response = JsonSerializer.Deserialize<WebhookTransformationRecommendationResponseDto>(responseText, JsonOptions) ?? new(); }
         catch (JsonException ex) { failure = $"invalid JSON: {ex.Message}"; return false; }
 
+        if (!HasRequiredResponseFields(responseText, out failure)) return false;
+
         response.EventId = ValueOrDefault(response.EventId, request.EventId);
         response.CorrelationId = string.IsNullOrWhiteSpace(response.CorrelationId) ? request.CorrelationId : response.CorrelationId;
         response.Summary = ValueOrDefault(response.Summary, "Webhook transformation recommendation completed by AI.");
@@ -97,6 +100,26 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
         response.Fallback = new AiFallbackMetadataDto { UsedFallback = false, FallbackReason = AiFallbackReason.None, Provider = _options.Provider, Model = _options.Model, GeneratedAtUtc = DateTime.UtcNow };
         ValidateResponse(response);
         return true;
+    }
+
+
+    private static bool HasRequiredResponseFields(string responseText, out string failure)
+    {
+        failure = string.Empty;
+        using var document = JsonDocument.Parse(responseText);
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            failure = "AI response root must be an object.";
+            return false;
+        }
+
+        var required = new[] { "summary", "recommendedMappings", "confidenceScore", "riskLevel", "generatedAtUtc" };
+        var missing = required.Where(name => !root.TryGetProperty(name, out _)).ToArray();
+        if (missing.Length == 0) return true;
+
+        failure = $"AI response is missing required field(s): {string.Join(", ", missing)}.";
+        return false;
     }
 
     private WebhookTransformationRecommendationResponseDto CreateFallback(WebhookTransformationRecommendationRequestDto request, AiFallbackReason reason, string? message)
@@ -125,6 +148,7 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
 
                 usedSource.Add(source.Path);
                 var exact = source.Name == target.Name;
+                var caseInsensitive = !exact && string.Equals(source.Name, target.Name, StringComparison.OrdinalIgnoreCase);
                 mappings.Add(new WebhookFieldMappingRecommendationDto
                 {
                     SourceJsonPath = source.Path,
@@ -134,12 +158,17 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
                     TransformationType = exact ? WebhookTransformationType.DirectMap : WebhookTransformationType.Rename,
                     TransformationExpression = $"{target.Name} = {source.Name}",
                     IsRequired = true,
-                    ConfidenceScore = exact ? 0.72 : 0.62,
-                    Notes = exact ? "Exact field-name fallback match." : "Fallback field-name variant match."
+                    ConfidenceScore = exact ? 0.92 : caseInsensitive ? 0.86 : 0.64,
+                    Notes = exact ? "Exact field-name fallback match." : caseInsensitive ? "Case-insensitive fallback field-name match." : "Fallback field-name variant match."
                 });
             }
             unmappedSources.AddRange(sourceFields.Where(s => !usedSource.Contains(s.Path)).Select(s => s.Path));
-            confidence = mappings.Count > 0 ? 0.48 : 0.2;
+            if (missingTargets.Count > 0)
+            {
+                notes.Add("Manual mapping required for missing target fields: " + string.Join(", ", missingTargets));
+            }
+
+            confidence = mappings.Count > 0 ? CalculateFallbackConfidence(mappings, missingTargets, unmappedSources) : 0.2;
         }
         else if (!TryParseNode(request.SourcePayload, out _, out _))
         {
@@ -161,7 +190,7 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
             TransformationNotes = notes,
             GeneratedTransformationCode = GenerateTransformationCode(mappings),
             ConfidenceScore = confidence,
-            RiskLevel = mappings.Count == 0 || missingTargets.Count > 0 ? "Medium" : "Low",
+            RiskLevel = CalculateFallbackRiskLevel(mappings, missingTargets, unmappedSources),
             GeneratedAtUtc = DateTime.UtcNow,
             Model = _options.Model,
             Provider = _options.Provider,
@@ -182,8 +211,33 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
     {
         return sourceFields.FirstOrDefault(s => !used.Contains(s.Path) && s.Name == target.Name)
             ?? sourceFields.FirstOrDefault(s => !used.Contains(s.Path) && string.Equals(s.Name, target.Name, StringComparison.OrdinalIgnoreCase))
-            ?? sourceFields.FirstOrDefault(s => !used.Contains(s.Path) && AreVariants(s.Name, target.Name));
+            ?? sourceFields.FirstOrDefault(s => !used.Contains(s.Path) && AreVariants(s.Name, target.Name))
+            ?? sourceFields.FirstOrDefault(s => !used.Contains(s.Path) && NormalizeName(PathSegmentsName(s.Path)) == NormalizeName(target.Name));
     }
+
+
+    private static double CalculateFallbackConfidence(
+        IReadOnlyCollection<WebhookFieldMappingRecommendationDto> mappings,
+        IReadOnlyCollection<string> missingTargets,
+        IReadOnlyCollection<string> unmappedSources)
+    {
+        var averageMappingConfidence = mappings.Count == 0 ? 0.2 : mappings.Average(mapping => mapping.ConfidenceScore);
+        var penalty = missingTargets.Count * 0.15 + unmappedSources.Count(ContainsImportantFieldName) * 0.1;
+        return Clamp(Math.Round(averageMappingConfidence - penalty, 2));
+    }
+
+    private static string CalculateFallbackRiskLevel(
+        IReadOnlyCollection<WebhookFieldMappingRecommendationDto> mappings,
+        IReadOnlyCollection<string> missingTargets,
+        IReadOnlyCollection<string> unmappedSources)
+    {
+        if (mappings.Count == 0 || missingTargets.Count > 0 || unmappedSources.Any(ContainsImportantFieldName)) return "Medium";
+        return "Low";
+    }
+
+    private static bool ContainsImportantFieldName(string path)
+        => new[] { "id", "amount", "total", "price", "status", "state", "email", "customer", "order" }
+            .Any(term => path.Contains(term, StringComparison.OrdinalIgnoreCase));
 
     private static bool AreVariants(string source, string target)
     {
@@ -191,6 +245,17 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
         if (ns == nt) return true;
         return (Variants.TryGetValue(source, out var sourceVariants) && sourceVariants.Any(v => string.Equals(NormalizeName(v), nt, StringComparison.OrdinalIgnoreCase)))
             || (Variants.TryGetValue(target, out var targetVariants) && targetVariants.Any(v => string.Equals(NormalizeName(v), ns, StringComparison.OrdinalIgnoreCase)));
+    }
+
+
+    private static string PathSegmentsName(string path)
+    {
+        var segments = path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Skip(1)
+            .Select(segment => segment.Replace("[]", string.Empty, StringComparison.Ordinal).Replace("[0]", string.Empty, StringComparison.Ordinal))
+            .ToArray();
+        if (segments.Length == 0) return string.Empty;
+        return string.Concat(segments.Select((segment, index) => index == 0 ? segment : char.ToUpperInvariant(segment[0]) + segment[1..]));
     }
 
     private static string NormalizeName(string value) => Regex.Replace(value, "[^A-Za-z0-9]", string.Empty).ToLowerInvariant();
@@ -209,7 +274,7 @@ public sealed partial class WebhookTransformationRecommendationAgent : IWebhookT
         }
         else if (node is JsonArray arr && arr.Count > 0 && arr[0] is not null)
         {
-            foreach (var nested in Flatten(arr[0]!, $"{path}[0]", name)) yield return nested;
+            foreach (var nested in Flatten(arr[0]!, $"{path}[]", name)) yield return nested;
         }
     }
 

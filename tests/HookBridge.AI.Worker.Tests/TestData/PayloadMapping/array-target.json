@@ -1,0 +1,5 @@
+{
+  "lineItems": [
+    { "sku": "string", "quantity": "integer" }
+  ]
+}

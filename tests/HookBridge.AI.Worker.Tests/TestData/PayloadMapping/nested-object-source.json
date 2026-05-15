@@ -1,0 +1,4 @@
+{
+  "customer": { "id": "CUST-42", "name": "Ada Lovelace" },
+  "address": { "city": "London" }
+}

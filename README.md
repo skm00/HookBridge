@@ -1291,3 +1291,21 @@ By default, HookBridge requires approval for high-risk recommendations, critical
   "reviewComment": "Approved for controlled retry with backoff."
 }
 ```
+
+## Payload mapping recommendation tests
+
+Payload mapping and webhook transformation recommendation coverage lives in `tests/HookBridge.AI.Worker.Tests` with deterministic JSON fixtures under `tests/HookBridge.AI.Worker.Tests/TestData/PayloadMapping/`.
+
+Run the payload mapping focused tests with:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --filter "FullyQualifiedName~WebhookTransformation"
+```
+
+Run the full AI worker unit suite with coverage using the same collector used by CI:
+
+```bash
+dotnet test tests/HookBridge.AI.Worker.Tests/HookBridge.AI.Worker.Tests.csproj --collect:"XPlat Code Coverage"
+```
+
+The GitHub Actions coverage gate remains 80% line coverage and 70% branch coverage. Payload mapping tests use fake LLM responses and mocked Mongo collections, so they do not require Ollama, Kafka, or a real MongoDB instance.
