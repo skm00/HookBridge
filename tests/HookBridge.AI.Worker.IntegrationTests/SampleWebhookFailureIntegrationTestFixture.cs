@@ -38,6 +38,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
 
     public bool IsSkipped => string.Equals(Environment.GetEnvironmentVariable("SKIP_INTEGRATION_TESTS"), "true", StringComparison.OrdinalIgnoreCase);
 
+    public string SkipReason => "Integration tests are disabled because SKIP_INTEGRATION_TESTS=true.";
+
     public string DatabaseName { get; } = $"hookbridge_ai_integration_{Guid.NewGuid():N}";
 
     public async Task InitializeAsync()
@@ -112,6 +114,8 @@ public sealed class SampleWebhookFailureIntegrationTestFixture : IAsyncLifetime
             await _kafkaContainer.DisposeAsync();
         }
     }
+
+    public Task ResetAsync(CancellationToken cancellationToken = default) => CleanMongoAsync(cancellationToken);
 
     public async Task CleanMongoAsync(CancellationToken cancellationToken)
     {
