@@ -53,6 +53,18 @@ public sealed class WebhookFailureAnomalyDetectionResult
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CalculatedAtUtc { get; set; }
 
+
+    [BsonElement("approvalStatus")]
+    [BsonRepresentation(BsonType.String)]
+    public AiRecommendationApprovalStatus ApprovalStatus { get; set; } = AiRecommendationApprovalStatus.PendingReview;
+
+    [BsonElement("approvalId")]
+    [BsonIgnoreIfNull]
+    public string? ApprovalId { get; set; }
+
+    [BsonElement("requiresApproval")]
+    public bool RequiresApproval { get; set; } = true;
+
     [BsonElement("createdAtUtc")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

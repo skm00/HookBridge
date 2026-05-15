@@ -1189,3 +1189,105 @@ Optional filters include `environment`, `customerId`, `customerIdType`, `subscri
 ### AI Prompt Versioning
 
 HookBridge stores AI prompt templates under `src/HookBridge.AI.Worker/Prompts/{PromptName}/{Version}.prompt.txt` and tracks `PromptName`, `PromptVersion`, and `PromptHash` on AI responses and MongoDB result documents. Active prompt versions are configured through the `AIPrompts` section, using semantic versions such as `v1.0.0`, `v1.1.0`, and `v2.0.0`. The SHA-256 prompt hash helps operators audit which prompt content produced a result and detect accidental template drift. Prompt metadata is exposed through `GET /api/ai-prompts` and `GET /api/ai-prompts/{promptName}/{version}`; prompt content is omitted unless `includeContent=true` is explicitly supplied. See [AI Worker documentation](docs/ai-worker.md#ai-prompt-versioning) for the folder structure, rollout steps, and API details.
+
+## AI Recommendation Approval Workflow
+
+HookBridge stores AI-generated recommendations as advisory records. AI output can help operators understand retry strategies, security risks, transformations, validation rules, DTO suggestions, anomalies, log summaries, and natural-language query findings, but **AI recommendations are advisory until a human approves them**. HookBridge AI components must never execute production actions directly.
+
+Approval records are persisted in MongoDB collection `ai_recommendation_approvals` and include the recommendation id, event/correlation/customer/subscription/endpoint metadata, recommendation type, risk level, suggested action, summary, recommendation text, requester/reviewer metadata, UTC timestamps, and expiry metadata.
+
+### Approval statuses
+
+* `PendingReview` — recommendation is waiting for human review.
+* `Approved` — reviewer approved the recommendation for a later controlled production action.
+* `Rejected` — reviewer rejected the recommendation; it cannot be applied.
+* `NeedsMoreInfo` — reviewer requested more analysis before approval or rejection.
+* `Applied` — an approved recommendation was applied by an explicit non-AI production workflow.
+* `Expired` — recommendation is no longer actionable.
+
+### Valid status transitions
+
+* `PendingReview` → `Approved`
+* `PendingReview` → `Rejected`
+* `PendingReview` → `NeedsMoreInfo`
+* `NeedsMoreInfo` → `Approved`
+* `NeedsMoreInfo` → `Rejected`
+* `Approved` → `Applied`
+* `PendingReview` → `Expired`
+* `Approved` → `Expired`
+
+Invalid transitions return `409 Conflict`. Rejected recommendations cannot become applied, applied recommendations cannot be changed, expired recommendations cannot be changed, and rejected recommendations cannot be changed unless a future configuration explicitly allows that behavior.
+
+### Approval requirement rules
+
+By default, HookBridge requires approval for high-risk recommendations, critical-risk recommendations, security recommendations, transformation recommendations, and low-risk retry recommendations. Low-risk retry recommendations can only be auto-approved when `AiRecommendationApproval:AllowLowRiskAutoApproval` is enabled. The default approval expiry is 72 hours.
+
+### API endpoints
+
+* `GET /api/ai-recommendations/approvals` — search approval records by customer, subscription, endpoint, recommendation type, approval status, risk level, and UTC date range.
+* `GET /api/ai-recommendations/approvals/{id}` — get one approval record by id.
+* `GET /api/ai-recommendations/approvals/pending` — list pending approvals.
+* `POST /api/ai-recommendations/approvals` — create an advisory approval record.
+* `PUT /api/ai-recommendations/approvals/{id}/status` — update approval status using a valid transition.
+
+### Example create request
+
+```json
+{
+  "recommendationId": "rec_1001",
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "recommendationType": "RetryRecommendation",
+  "riskLevel": "High",
+  "suggestedAction": "RetryWithBackoff",
+  "summary": "Endpoint is failing due to HTTP 429 rate limiting.",
+  "recommendation": "Retry with exponential backoff and reduce concurrency.",
+  "requestedBy": "HookBridge.AI.Worker"
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "message": "AI recommendation approval created.",
+  "data": {
+    "id": "665000000000000000000001",
+    "recommendationId": "rec_1001",
+    "eventId": "evt_12345",
+    "correlationId": "corr_789",
+    "customerId": "cust_123",
+    "subscriptionId": "sub_456",
+    "endpointId": "endpoint_789",
+    "recommendationType": "RetryRecommendation",
+    "approvalStatus": "PendingReview",
+    "riskLevel": "High",
+    "suggestedAction": "RetryWithBackoff",
+    "summary": "Endpoint is failing due to HTTP 429 rate limiting.",
+    "recommendation": "Retry with exponential backoff and reduce concurrency.",
+    "requestedBy": "HookBridge.AI.Worker",
+    "reviewedBy": null,
+    "reviewComment": null,
+    "requiresApproval": true,
+    "createdAtUtc": "2026-05-15T00:00:00Z",
+    "reviewedAtUtc": null,
+    "appliedAtUtc": null,
+    "expiresAtUtc": "2026-05-18T00:00:00Z"
+  },
+  "traceId": "..."
+}
+```
+
+### Example update status request
+
+```json
+{
+  "approvalStatus": "Approved",
+  "reviewedBy": "admin@hookbridge.local",
+  "reviewComment": "Approved for controlled retry with backoff."
+}
+```

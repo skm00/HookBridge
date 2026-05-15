@@ -1,3 +1,4 @@
+using HookBridge.AI.Worker.DTOs;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -67,6 +68,18 @@ public sealed class AiAnomalyRecord
 
     [BsonElement("source")]
     public string Source { get; set; } = string.Empty;
+
+
+    [BsonElement("approvalStatus")]
+    [BsonRepresentation(BsonType.String)]
+    public AiRecommendationApprovalStatus ApprovalStatus { get; set; } = AiRecommendationApprovalStatus.PendingReview;
+
+    [BsonElement("approvalId")]
+    [BsonIgnoreIfNull]
+    public string? ApprovalId { get; set; }
+
+    [BsonElement("requiresApproval")]
+    public bool RequiresApproval { get; set; } = true;
 
     [BsonElement("createdAtUtc")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
