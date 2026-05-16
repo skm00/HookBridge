@@ -16,6 +16,8 @@ public sealed class SecurityAgentResponseDto : IValidatableObject
     public IReadOnlyList<AiSecuritySignalDto> SecuritySignals { get; set; } = Array.Empty<AiSecuritySignalDto>();
     public IReadOnlyList<SecurityAgentReasonCode> ReasonCodes { get; set; } = Array.Empty<SecurityAgentReasonCode>();
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
     public bool Fallback { get; set; }
 

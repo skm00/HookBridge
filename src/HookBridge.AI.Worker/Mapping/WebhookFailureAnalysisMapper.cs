@@ -41,6 +41,8 @@ public static class WebhookFailureAnalysisMapper
             AiRecommendation = response.AiRecommendation,
             RiskLevel = response.RiskLevel.ToString(),
             ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
             SuggestedRetryAction = response.SuggestedRetryAction.ToString(),
             IsRetryRecommended = response.IsRetryRecommended,
             Model = response.Model,

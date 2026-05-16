@@ -15,6 +15,9 @@ public sealed class HumanApprovalWorkflowCreateRequestDto
     public string? SuggestedAction { get; set; }
     public string Summary { get; set; } = string.Empty;
     public string Recommendation { get; set; } = string.Empty;
+    public double? ConfidenceScore { get; set; }
+    public string? ConfidenceLevel { get; set; }
+    public string? ConfidenceExplanation { get; set; }
     public string RequestedBy { get; set; } = string.Empty;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }

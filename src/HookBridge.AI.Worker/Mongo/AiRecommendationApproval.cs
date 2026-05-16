@@ -62,6 +62,18 @@ public sealed class AiRecommendationApproval
     [BsonElement("recommendation")]
     public string Recommendation { get; set; } = string.Empty;
 
+    [BsonElement("confidenceScore")]
+    [BsonIgnoreIfNull]
+    public double? ConfidenceScore { get; set; }
+
+    [BsonElement("confidenceLevel")]
+    [BsonIgnoreIfNull]
+    public string? ConfidenceLevel { get; set; }
+
+    [BsonElement("confidenceExplanation")]
+    [BsonIgnoreIfNull]
+    public string? ConfidenceExplanation { get; set; }
+
     [BsonElement("requiresApproval")]
     public bool RequiresApproval { get; set; } = true;
 

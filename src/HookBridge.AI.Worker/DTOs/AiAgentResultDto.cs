@@ -10,6 +10,8 @@ public sealed class AiAgentResultDto : IValidatableObject
     public AiRiskLevel RiskLevel { get; set; } = AiRiskLevel.Unknown;
     public string SuggestedAction { get; set; } = string.Empty;
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public bool UsedFallback { get; set; }
     public string? ErrorMessage { get; set; }
     public long DurationMs { get; set; }

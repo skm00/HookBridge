@@ -231,6 +231,9 @@ public sealed class EndpointHealthScoringService : IEndpointHealthScoringService
             HealthScore = healthScore,
             HealthStatus = healthStatus,
             RiskLevel = MapRiskLevel(healthStatus),
+            ConfidenceScore = request.TotalDeliveries == 0 ? 0.55 : 0.80,
+            ConfidenceLevel = request.TotalDeliveries == 0 ? AiConfidenceLevel.Medium : AiConfidenceLevel.High,
+            ConfidenceExplanation = request.TotalDeliveries == 0 ? "Endpoint health score had missing delivery evidence." : "Endpoint health score used deterministic delivery evidence.",
             Summary = summary,
             Recommendation = recommendation,
             CalculatedAtUtc = calculatedAtUtc

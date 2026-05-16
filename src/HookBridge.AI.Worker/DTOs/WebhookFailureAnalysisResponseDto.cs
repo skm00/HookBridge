@@ -18,6 +18,8 @@ public sealed class WebhookFailureAnalysisResponseDto
     public AiRiskLevel RiskLevel { get; set; } = AiRiskLevel.Unknown;
 
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
 
     public SuggestedRetryAction SuggestedRetryAction { get; set; } = SuggestedRetryAction.None;
 

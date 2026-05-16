@@ -74,6 +74,8 @@ public sealed class AiFallbackService : IAiFallbackService
             AiRecommendation = BuildFallbackRecommendation(request, action, message),
             RiskLevel = riskLevel,
             ConfidenceScore = GetFallbackConfidence(request, reason),
+            ConfidenceLevel = MapConfidenceLevel(GetFallbackConfidence(request, reason)),
+            ConfidenceExplanation = "Deterministic fallback confidence uses rule evidence, missing data, and fallback penalties.",
             SuggestedRetryAction = action,
             IsRetryRecommended = isRetryRecommended,
             GeneratedAtUtc = generatedAtUtc,
@@ -128,7 +130,9 @@ public sealed class AiFallbackService : IAiFallbackService
                 : "No confirmed delivery failure was identified from the provided logs.",
             Recommendation = Truncate($"{message} Review sanitized logs, delivery attempts, target endpoint health, and retry history before taking manual action.", _options.MaxFallbackSummaryLength),
             RiskLevel = DetermineFallbackRisk(errorCount, warningCount),
-            ConfidenceScore = logs.Count == 0 ? 0.1 : 0.35,
+            ConfidenceScore = logs.Count == 0 ? 0.55 : 0.35,
+            ConfidenceLevel = logs.Count == 0 ? AiConfidenceLevel.Medium : AiConfidenceLevel.Medium,
+            ConfidenceExplanation = logs.Count == 0 ? "Fallback log summary had missing log data, so confidence stayed below 0.60." : "Rule-based fallback log summary used available log evidence.",
             GeneratedAtUtc = generatedAtUtc,
             Model = _options.Model,
             Provider = _options.Provider,
@@ -150,6 +154,9 @@ public sealed class AiFallbackService : IAiFallbackService
         var generatedAtUtc = DateTime.UtcNow;
         var response = _endpointHealthScoringService.CalculateHealthScore(request, generatedAtUtc);
         response.Fallback = CreateMetadata(reason, NormalizeFallbackMessage(reason, fallbackMessage), generatedAtUtc);
+        response.ConfidenceScore = request.TotalDeliveries == 0 ? 0.55 : 0.70;
+        response.ConfidenceLevel = AiConfidenceLevel.Medium;
+        response.ConfidenceExplanation = request.TotalDeliveries == 0 ? "Endpoint fallback had missing delivery data, so confidence stayed below 0.60." : "Rule-based endpoint health fallback used delivery metrics.";
         return Task.FromResult(response);
     }
 
@@ -162,6 +169,16 @@ public sealed class AiFallbackService : IAiFallbackService
             Provider = _options.Provider,
             Model = _options.Model,
             GeneratedAtUtc = DateTime.SpecifyKind(generatedAtUtc, DateTimeKind.Utc)
+        };
+
+    private static AiConfidenceLevel MapConfidenceLevel(double score)
+        => score switch
+        {
+            < 0.40 => AiConfidenceLevel.Low,
+            < 0.70 => AiConfidenceLevel.Medium,
+            < 0.90 => AiConfidenceLevel.High,
+            <= 1 => AiConfidenceLevel.VeryHigh,
+            _ => AiConfidenceLevel.Unknown
         };
 
     private static SuggestedRetryAction GetFallbackAction(WebhookFailureAnalysisRequestDto request)
@@ -233,7 +250,7 @@ public sealed class AiFallbackService : IAiFallbackService
     {
         if (HasReachedMaxRetryCount(request))
         {
-            return 0.9;
+            return 0.75;
         }
 
         if (request.StatusCode is null)
@@ -241,7 +258,7 @@ public sealed class AiFallbackService : IAiFallbackService
             return 0.35;
         }
 
-        return reason == AiFallbackReason.AiDisabled ? 0.7 : 0.65;
+        return reason == AiFallbackReason.AiDisabled ? 0.70 : 0.65;
     }
 
     private static string BuildLogSummary(int logCount, int errorCount, int warningCount)

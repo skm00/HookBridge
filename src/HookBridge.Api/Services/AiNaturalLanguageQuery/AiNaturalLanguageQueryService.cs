@@ -64,6 +64,8 @@ public sealed class AiNaturalLanguageQueryService(
             Results = results,
             SuggestedActions = answer.SuggestedActions,
             ConfidenceScore = answer.ConfidenceScore,
+            ConfidenceLevel = answer.ConfidenceLevel,
+            ConfidenceExplanation = answer.ConfidenceExplanation,
             GeneratedAtUtc = dateTimeProvider.UtcNow,
             Model = aiOptions.Value.Model,
             Provider = aiOptions.Value.Provider,
@@ -240,6 +242,8 @@ public sealed class AiNaturalLanguageQueryService(
                 parsed.Answer.Trim(),
                 parsed.SuggestedActions?.Where(action => !string.IsNullOrWhiteSpace(action)).Select(action => action.Trim()).Take(5).ToList() ?? SafeDefaultActions(intent, results),
                 Math.Clamp(parsed.ConfidenceScore, 0, 1),
+                MapConfidenceLevel(Math.Clamp(parsed.ConfidenceScore, 0, 1)),
+                "AI answer confidence came from validated LLM response JSON and was clamped to the normalized range.",
                 false,
                 promptResult.Metadata);
         }
@@ -254,12 +258,12 @@ public sealed class AiNaturalLanguageQueryService(
     {
         if (results.Count == 0)
         {
-            return new AnswerResult("No matching AI analysis, anomaly, endpoint risk, or security finding data was found for the requested filters.", SafeDefaultActions(intent, results), 0.45, fallback);
+            return new AnswerResult("No matching AI analysis, anomaly, endpoint risk, or security finding data was found for the requested filters.", SafeDefaultActions(intent, results), 0.45, "Medium", "Fallback answer had no matching evidence, so confidence stayed below 0.60.", fallback);
         }
 
         var highestRisk = results.OrderByDescending(RiskRank).First();
         var answer = $"Found {results.Count} matching result(s) for {intent}. Highest observed risk is {NormalizeDisplay(highestRisk.RiskLevel)}: {highestRisk.Title}. {highestRisk.Summary}";
-        return new AnswerResult(answer, SafeDefaultActions(intent, results), Math.Min(0.75, 0.5 + results.Count * 0.02), fallback);
+        return new AnswerResult(answer, SafeDefaultActions(intent, results), Math.Min(0.75, 0.5 + results.Count * 0.02), MapConfidenceLevel(Math.Min(0.75, 0.5 + results.Count * 0.02)), "Rule-based fallback answer used matching stored AI results as evidence.", fallback);
     }
 
     private static IReadOnlyList<string> SafeDefaultActions(AiNaturalLanguageQueryIntent intent, IReadOnlyList<AiNaturalLanguageQueryResultDto> results)
@@ -430,7 +434,17 @@ public sealed class AiNaturalLanguageQueryService(
         _ => 0
     };
 
-    private sealed record AnswerResult(string Answer, IReadOnlyList<string> SuggestedActions, double ConfidenceScore, bool Fallback, AiPromptVersionInfoDto? PromptMetadata = null);
+    private static string MapConfidenceLevel(double score)
+        => score switch
+        {
+            < 0.40 => "Low",
+            < 0.70 => "Medium",
+            < 0.90 => "High",
+            <= 1 => "VeryHigh",
+            _ => "Unknown"
+        };
+
+    private sealed record AnswerResult(string Answer, IReadOnlyList<string> SuggestedActions, double ConfidenceScore, string ConfidenceLevel, string ConfidenceExplanation, bool Fallback, AiPromptVersionInfoDto? PromptMetadata = null);
     private sealed class AiAnswerJson
     {
         public string Answer { get; set; } = string.Empty;

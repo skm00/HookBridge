@@ -49,6 +49,15 @@ public sealed class WebhookFailureAnomalyDetectionResult
     [BsonElement("detectedAnomalies")]
     public List<WebhookFailureAnomalyDto> DetectedAnomalies { get; set; } = [];
 
+    [BsonElement("confidenceScore")]
+    public double ConfidenceScore { get; set; }
+
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
+
     [BsonElement("calculatedAtUtc")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CalculatedAtUtc { get; set; }
@@ -85,6 +94,9 @@ public sealed class WebhookFailureAnomalyDetectionResult
             Summary = response.Summary,
             Recommendation = response.Recommendation,
             DetectedAnomalies = response.DetectedAnomalies.ToList(),
+            ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
             CalculatedAtUtc = DateTime.SpecifyKind(response.CalculatedAtUtc, DateTimeKind.Utc),
             CreatedAtUtc = DateTime.UtcNow
         };

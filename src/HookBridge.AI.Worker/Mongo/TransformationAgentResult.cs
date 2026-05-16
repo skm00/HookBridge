@@ -32,6 +32,10 @@ public sealed class TransformationAgentResult
     [BsonRepresentation(BsonType.String)]
     public List<TransformationAgentReasonCode> ReasonCodes { get; set; } = [];
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public bool Fallback { get; set; }
     public string PromptName { get; set; } = string.Empty;
     public string PromptVersion { get; set; } = string.Empty;
@@ -63,6 +67,8 @@ public sealed class TransformationAgentResult
         GeneratedTransformationCode = response.GeneratedTransformationCode,
         ReasonCodes = response.ReasonCodes,
         ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
         Fallback = response.Fallback,
         PromptName = response.PromptName,
         PromptVersion = response.PromptVersion,

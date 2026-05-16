@@ -35,7 +35,12 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
             throw new AiRecommendationApprovalConflictException($"Human approval workflow already exists for recommendation '{recommendationId}'.");
         }
 
-        var requiresApproval = HumanApprovalWorkflowRules.RequiresApproval(request.RecommendationType!.Value, request.RiskLevel, request.SuggestedAction, _options);
+        var requiresApproval = HumanApprovalWorkflowRules.RequiresApproval(request.RecommendationType!.Value, request.RiskLevel, request.SuggestedAction, _options)
+            || (request.ConfidenceScore.HasValue && request.ConfidenceScore.Value < 0.60);
+        if (request.ConfidenceScore.HasValue && request.ConfidenceScore.Value < 0.60)
+        {
+            _logger.LogWarning("Manual review required due to low confidence. RecommendationId={RecommendationId} ConfidenceScore={ConfidenceScore} RiskLevel={RiskLevel}", recommendationId, request.ConfidenceScore.Value, request.RiskLevel);
+        }
         var approval = new AiRecommendationApproval
         {
             RecommendationId = recommendationId,
@@ -51,6 +56,9 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
             SuggestedAction = TrimToNull(request.SuggestedAction),
             Summary = request.Summary?.Trim() ?? string.Empty,
             Recommendation = request.Recommendation?.Trim() ?? string.Empty,
+            ConfidenceScore = request.ConfidenceScore,
+            ConfidenceLevel = TrimToNull(request.ConfidenceLevel),
+            ConfidenceExplanation = TrimToNull(request.ConfidenceExplanation),
             RequestedBy = request.RequestedBy.Trim(),
             RequiresApproval = requiresApproval,
             ApprovalStatus = requiresApproval ? AiRecommendationApprovalStatus.PendingReview : AiRecommendationApprovalStatus.Approved,
@@ -204,6 +212,9 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
             CanApply = HumanApprovalWorkflowRules.CanApply(approval.ApprovalStatus),
             Summary = approval.Summary,
             Recommendation = approval.Recommendation,
+            ConfidenceScore = approval.ConfidenceScore,
+            ConfidenceLevel = approval.ConfidenceLevel,
+            ConfidenceExplanation = approval.ConfidenceExplanation,
             RequestedBy = approval.RequestedBy,
             ReviewedBy = approval.ReviewedBy,
             ReviewComment = approval.ReviewComment,
@@ -222,6 +233,7 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
         if (!request.RecommendationType.HasValue || !Enum.IsDefined(request.RecommendationType.Value)) throw new ArgumentException("RecommendationType is required.", nameof(request));
         if (string.IsNullOrWhiteSpace(request.RiskLevel)) throw new ArgumentException("RiskLevel is required.", nameof(request));
         if (string.IsNullOrWhiteSpace(request.RequestedBy)) throw new ArgumentException("RequestedBy is required.", nameof(request));
+        if (request.ConfidenceScore is < 0 or > 1) throw new ArgumentOutOfRangeException(nameof(request), "ConfidenceScore must be between 0 and 1.");
         ValidateUtc(request.CreatedAtUtc, nameof(request.CreatedAtUtc));
     }
 

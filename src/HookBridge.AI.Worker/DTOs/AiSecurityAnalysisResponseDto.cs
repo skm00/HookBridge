@@ -12,6 +12,8 @@ public sealed class AiSecurityAnalysisResponseDto
     public IReadOnlyList<AiSecuritySignalDto> DetectedSecuritySignals { get; set; } = Array.Empty<AiSecuritySignalDto>();
     public AiSecuritySuggestedAction SuggestedAction { get; set; } = AiSecuritySuggestedAction.None;
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
     public string Model { get; set; } = string.Empty;
     public string Provider { get; set; } = string.Empty;

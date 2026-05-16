@@ -15,6 +15,8 @@ public sealed class RetryAgentResponseDto : IValidatableObject
     public string Recommendation { get; set; } = string.Empty;
     public List<RetryAgentReasonCode> ReasonCodes { get; set; } = [];
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
     public bool Fallback { get; set; }
 

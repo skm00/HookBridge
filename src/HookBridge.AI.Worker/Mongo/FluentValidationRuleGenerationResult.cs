@@ -31,6 +31,10 @@ public sealed class FluentValidationRuleGenerationResult
     public List<string> ValidationNotes { get; set; } = [];
     [BsonElement("confidenceScore")]
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     [BsonElement("riskLevel")]
     public string RiskLevel { get; set; } = "Unknown";
     [BsonElement("generatedAtUtc")]
@@ -81,6 +85,8 @@ public sealed class FluentValidationRuleGenerationResult
         Summary = response.Summary,
         ValidationNotes = response.ValidationNotes.ToList(),
         ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
         RiskLevel = response.RiskLevel,
         GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc, DateTimeKind.Utc),
         Model = response.Model,

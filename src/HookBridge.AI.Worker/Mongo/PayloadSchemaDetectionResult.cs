@@ -45,6 +45,10 @@ public sealed class PayloadSchemaDetectionResult
 
     [BsonElement("confidenceScore")]
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
 
     [BsonElement("riskLevel")]
     public string RiskLevel { get; set; } = "Unknown";
@@ -105,6 +109,8 @@ public sealed class PayloadSchemaDetectionResult
             ValidationIssues = response.ValidationIssues.ToList(),
             SuggestedDtoName = response.SuggestedDtoName,
             ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
             RiskLevel = response.RiskLevel,
             GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc, DateTimeKind.Utc),
             Model = response.Model,

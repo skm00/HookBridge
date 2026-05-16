@@ -12,6 +12,8 @@ public sealed class PayloadSchemaDetectionResponseDto
     public IReadOnlyList<string> ValidationIssues { get; set; } = Array.Empty<string>();
     public string SuggestedDtoName { get; set; } = string.Empty;
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public string RiskLevel { get; set; } = "Unknown";
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
     public string Model { get; set; } = string.Empty;

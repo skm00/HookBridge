@@ -33,6 +33,10 @@ public sealed class WebhookTransformationRecommendationResult
     public string GeneratedTransformationCode { get; set; } = string.Empty;
     [BsonElement("confidenceScore")]
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     [BsonElement("riskLevel")]
     public string RiskLevel { get; set; } = "Unknown";
     [BsonElement("generatedAtUtc")]
@@ -84,6 +88,8 @@ public sealed class WebhookTransformationRecommendationResult
         TransformationNotes = response.TransformationNotes.ToList(),
         GeneratedTransformationCode = response.GeneratedTransformationCode,
         ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
         RiskLevel = response.RiskLevel,
         GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc, DateTimeKind.Utc),
         Model = response.Model,
@@ -117,6 +123,8 @@ public sealed class WebhookTransformationRecommendationResult
         TransformationNotes = TransformationNotes,
         GeneratedTransformationCode = GeneratedTransformationCode,
         ConfidenceScore = ConfidenceScore,
+        ConfidenceLevel = Enum.TryParse<AiConfidenceLevel>(ConfidenceLevel, out var confidenceLevel) ? confidenceLevel : AiConfidenceLevel.Unknown,
+        ConfidenceExplanation = ConfidenceExplanation,
         RiskLevel = RiskLevel,
         GeneratedAtUtc = DateTime.SpecifyKind(GeneratedAtUtc, DateTimeKind.Utc),
         Model = Model,
