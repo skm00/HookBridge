@@ -34,6 +34,7 @@ public static class AiRecommendationApprovalMapper
             Summary = request.Summary?.Trim() ?? string.Empty,
             Recommendation = request.Recommendation?.Trim() ?? string.Empty,
             RequestedBy = TrimToNull(request.RequestedBy),
+            RequiresApproval = requiresApproval,
             CreatedAtUtc = DateTime.SpecifyKind(createdAtUtc, DateTimeKind.Utc),
             ExpiresAtUtc = DateTime.SpecifyKind(createdAtUtc.AddHours(options.ApprovalExpiryHours), DateTimeKind.Utc)
         };
@@ -61,7 +62,7 @@ public static class AiRecommendationApprovalMapper
             RequestedBy = approval.RequestedBy,
             ReviewedBy = approval.ReviewedBy,
             ReviewComment = approval.ReviewComment,
-            RequiresApproval = approval.ApprovalStatus == AiRecommendationApprovalStatus.PendingReview || approval.ApprovalStatus == AiRecommendationApprovalStatus.NeedsMoreInfo,
+            RequiresApproval = approval.RequiresApproval,
             CreatedAtUtc = DateTime.SpecifyKind(approval.CreatedAtUtc, DateTimeKind.Utc),
             ReviewedAtUtc = SpecifyUtc(approval.ReviewedAtUtc),
             AppliedAtUtc = SpecifyUtc(approval.AppliedAtUtc),

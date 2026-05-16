@@ -70,6 +70,8 @@ public sealed class AiRecommendationApprovalRepository : IAiRecommendationApprov
             .Set(approval => approval.ApprovalStatus, update.ApprovalStatus)
             .Set(approval => approval.ReviewedBy, update.ReviewedBy)
             .Set(approval => approval.ReviewComment, update.ReviewComment)
+            .Set(approval => approval.AppliedBy, update.AppliedBy)
+            .Set(approval => approval.ApplyComment, update.ApplyComment)
             .Set(approval => approval.ReviewedAtUtc, update.ReviewedAtUtc)
             .Set(approval => approval.AppliedAtUtc, update.AppliedAtUtc);
 

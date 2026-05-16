@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
+using HookBridge.AI.Worker.Approval;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
@@ -309,6 +310,7 @@ public sealed class AiAgentOrchestratorTests
         public Mock<IAiLogSummarizationService> LogSummary { get; } = new();
         public Mock<ITransformationAgent> Transformation { get; } = new();
         public Mock<IObservabilityAgent> Observability { get; } = new();
+        public Mock<IHumanApprovalWorkflowService> ApprovalWorkflow { get; } = new();
 
         public Fixture()
         {
@@ -330,6 +332,8 @@ public sealed class AiAgentOrchestratorTests
                 .ReturnsAsync(new TransformationAgentResponseDto { EventId = "evt-1", Summary = "Transformation mapping is ready.", RiskLevel = "Low", TransformationDecision = TransformationAgentDecision.MappingReady, ConfidenceScore = 0.9 });
             Observability.Setup(agent => agent.AnalyzeAsync(It.IsAny<ObservabilityAgentRequestDto>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new ObservabilityAgentResponseDto { EventId = "evt-1", Summary = "Operational telemetry is healthy.", RiskLevel = AiRiskLevel.Low, ObservabilityStatus = ObservabilityStatus.Healthy, SuggestedActions = [ObservabilitySuggestedAction.Monitor], ConfidenceScore = 0.85 });
+            ApprovalWorkflow.Setup(service => service.CreateAsync(It.IsAny<HumanApprovalWorkflowCreateRequestDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new HumanApprovalWorkflowResponseDto { ApprovalId = "approval_1", ApprovalStatus = AiRecommendationApprovalStatus.PendingReview, RequiresApproval = true });
         }
 
         public AiAgentOrchestrator Create(AiAgentOrchestrationOptions options) => new(
@@ -343,6 +347,7 @@ public sealed class AiAgentOrchestratorTests
             LogSummary.Object,
             Transformation.Object,
             Observability.Object,
+            ApprovalWorkflow.Object,
             Options.Create(options),
             NullLogger<AiAgentOrchestrator>.Instance);
     }

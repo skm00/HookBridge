@@ -1566,3 +1566,7 @@ Example response:
   "promptHash": "..."
 }
 ```
+
+### Human approval workflow for AI recommendations
+
+HookBridge AI recommendations are advisory by default. The human approval workflow (`/api/ai-approval-workflow`) records recommendations in the existing AI recommendation approval store, requires human review for high/critical risk, security, transformation, and generated-code actions, and only allows approved records to be marked applied. AI agents and orchestration must not apply production actions directly; they create approval workflow records for human review. See `docs/ai-worker.md` for statuses, valid transitions, endpoint details, and example create/review/apply requests.
