@@ -12,7 +12,7 @@ using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using HookBridge.AI.Worker.Services.SecurityAgent;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
-using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
+using HookBridge.AI.Worker.Services.TransformationAgent;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -306,7 +306,7 @@ public sealed class AiAgentOrchestratorTests
         public Mock<ICustomerEndpointRiskScoringService> EndpointRisk { get; } = new();
         public Mock<IWebhookFailureAnomalyDetectionService> Anomaly { get; } = new();
         public Mock<IAiLogSummarizationService> LogSummary { get; } = new();
-        public Mock<IWebhookTransformationRecommendationAgent> Transformation { get; } = new();
+        public Mock<ITransformationAgent> Transformation { get; } = new();
 
         public Fixture()
         {
@@ -324,6 +324,8 @@ public sealed class AiAgentOrchestratorTests
                 .Returns(new CustomerEndpointRiskScoreResponseDto { CustomerId = "cust-1", RiskLevel = AiRiskLevel.Low, Summary = "Endpoint risk is low.", Recommendation = "Monitor", RiskScore = 40 });
             Anomaly.Setup(service => service.DetectAnomalies(It.IsAny<WebhookFailureAnomalyDetectionRequestDto>(), It.IsAny<DateTime>()))
                 .Returns(new WebhookFailureAnomalyDetectionResponseDto { CustomerId = "cust-1", RiskLevel = AiRiskLevel.Low, Summary = "No anomaly detected.", Recommendation = "Monitor", AnomalyScore = 30 });
+            Transformation.Setup(agent => agent.AnalyzeAsync(It.IsAny<TransformationAgentRequestDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new TransformationAgentResponseDto { EventId = "evt-1", Summary = "Transformation mapping is ready.", RiskLevel = "Low", TransformationDecision = TransformationAgentDecision.MappingReady, ConfidenceScore = 0.9 });
         }
 
         public AiAgentOrchestrator Create(AiAgentOrchestrationOptions options) => new(

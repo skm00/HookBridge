@@ -11,7 +11,7 @@ using HookBridge.AI.Worker.Services.RetryAgent;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using HookBridge.AI.Worker.Services.SecurityAgent;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
-using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
+using HookBridge.AI.Worker.Services.TransformationAgent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -27,7 +27,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
     private readonly ICustomerEndpointRiskScoringService _endpointRiskService;
     private readonly IWebhookFailureAnomalyDetectionService _anomalyService;
     private readonly IAiLogSummarizationService _logSummarizationService;
-    private readonly IWebhookTransformationRecommendationAgent _transformationAgent;
+    private readonly ITransformationAgent _transformationAgent;
     private readonly ILogger<AiAgentOrchestrator> _logger;
     private readonly AiAgentOrchestrationOptions _options;
 
@@ -40,7 +40,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         ICustomerEndpointRiskScoringService endpointRiskService,
         IWebhookFailureAnomalyDetectionService anomalyService,
         IAiLogSummarizationService logSummarizationService,
-        IWebhookTransformationRecommendationAgent transformationAgent,
+        ITransformationAgent transformationAgent,
         IOptions<AiAgentOrchestrationOptions> options,
         ILogger<AiAgentOrchestrator> logger)
     {
@@ -69,7 +69,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 
         var overallRisk = CalculateOverallRisk(results);
         var action = DetermineRecommendedAction(request, results, overallRisk);
-        var requiresApproval = RequiresApproval(overallRisk);
+        var requiresApproval = RequiresApproval(overallRisk) || results.Any(result => result.RequiresApproval);
         var confidence = CalculateConfidence(results);
         var summary = BuildSummary(results, overallRisk, action);
 
@@ -177,7 +177,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         }
         if (_options.EnableTransformationAgent)
         {
-            agents.Add((AiAgentName.TransformationRecommendationAgent, ct => RunTransformationAgentAsync(request, ct)));
+            agents.Add((AiAgentName.TransformationAgent, ct => RunTransformationAgentAsync(request, ct)));
         }
         return agents;
     }
@@ -344,19 +344,30 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 
     private async Task<AiAgentResultDto> RunTransformationAgentAsync(AiAgentOrchestrationRequestDto request, CancellationToken cancellationToken)
     {
-        var response = await _transformationAgent.RecommendAsync(new WebhookTransformationRecommendationRequestDto
+        var stopwatch = Stopwatch.StartNew();
+        var response = await _transformationAgent.AnalyzeAsync(new TransformationAgentRequestDto
         {
             EventId = request.EventId,
             CorrelationId = request.CorrelationId,
+            CustomerId = request.CustomerId,
+            CustomerIdType = request.CustomerIdType,
+            SubscriptionId = request.SubscriptionId,
+            EndpointId = request.EndpointId,
+            Environment = request.Environment,
             EventType = request.EventType,
             Source = request.Source,
-            CustomerId = request.CustomerId,
             SourcePayload = request.Payload,
-            TargetUrl = request.TargetUrl,
-            Headers = request.Headers?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value) ?? new Dictionary<string, string>(),
+            TargetSchema = request.TargetSchema,
+            TargetSamplePayload = request.TargetSamplePayload,
+            ExistingMappingRules = request.ExistingMappingRules,
             ReceivedAtUtc = request.ReceivedAtUtc
         }, cancellationToken);
-        return Success(AiAgentName.TransformationRecommendationAgent, response.Summary, ParseRisk(response.RiskLevel), "GenerateTransformation", response.ConfidenceScore, response.Fallback?.UsedFallback ?? false);
+        stopwatch.Stop();
+        var result = Success(AiAgentName.TransformationAgent, response.Summary, ParseRisk(response.RiskLevel), response.TransformationDecision.ToString(), response.ConfidenceScore, response.Fallback);
+        result.DurationMs = stopwatch.ElapsedMilliseconds;
+        result.Decision = response.TransformationDecision.ToString();
+        result.RequiresApproval = response.RequiresApproval;
+        return result;
     }
 
     public static AiRiskLevel CalculateOverallRisk(IReadOnlyList<AiAgentResultDto> results)

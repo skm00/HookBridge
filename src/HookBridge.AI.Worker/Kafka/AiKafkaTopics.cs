@@ -30,4 +30,6 @@ public static class AiKafkaTopics
     public const string RetryAgent = "hookbridge.ai.retry-agent";
 
     public const string SecurityAgent = "hookbridge.ai.security-agent";
+
+    public const string TransformationAgent = "hookbridge.ai.transformation-agent";
 }

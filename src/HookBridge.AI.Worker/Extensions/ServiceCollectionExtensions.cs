@@ -17,6 +17,7 @@ using HookBridge.AI.Worker.Services.SecurityAgent;
 using HookBridge.AI.Worker.Services.JsonToDtoSuggestion;
 using HookBridge.AI.Worker.Services.FluentValidationRuleGeneration;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
+using HookBridge.AI.Worker.Services.TransformationAgent;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
@@ -115,6 +116,9 @@ public static class ServiceCollectionExtensions
                 options => !string.IsNullOrWhiteSpace(options.SecurityAgentResultsCollectionName),
                 "AiMongo:SecurityAgentResultsCollectionName is required.")
             .Validate(
+                options => !string.IsNullOrWhiteSpace(options.TransformationAgentResultsCollectionName),
+                "AiMongo:TransformationAgentResultsCollectionName is required.")
+            .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiAgentOrchestrationResultsCollectionName),
                 "AiMongo:AiAgentOrchestrationResultsCollectionName is required.")
             .ValidateOnStart();
@@ -163,6 +167,24 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
 
         services.TryAddSingleton<ISecurityAgent, HookBridge.AI.Worker.Services.SecurityAgent.SecurityAgent>();
+        return services;
+    }
+
+    public static IServiceCollection AddTransformationAgentServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<TransformationAgentOptions>()
+            .Bind(configuration.GetSection(TransformationAgentOptions.SectionName))
+            .Validate(options => options.MinimumReadyConfidenceScore is >= 0 and <= 1, "TransformationAgent:MinimumReadyConfidenceScore must be between 0 and 1.")
+            .Validate(options => options.MinimumReviewConfidenceScore is >= 0 and <= 1, "TransformationAgent:MinimumReviewConfidenceScore must be between 0 and 1.")
+            .Validate(options => options.MinimumReadyConfidenceScore >= options.MinimumReviewConfidenceScore, "TransformationAgent:MinimumReadyConfidenceScore must be greater than or equal to MinimumReviewConfidenceScore.")
+            .Validate(options => options.MaxPayloadLength > 0, "TransformationAgent:MaxPayloadLength must be greater than 0.")
+            .Validate(options => options.MaxSchemaLength > 0, "TransformationAgent:MaxSchemaLength must be greater than 0.")
+            .ValidateOnStart();
+
+        services.TryAddSingleton<ITransformationAgent, TransformationAgent>();
         return services;
     }
 
@@ -238,6 +260,12 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.RetryAgentTopic),
                 "AiKafka:RetryAgentTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.SecurityAgentTopic),
+                "AiKafka:SecurityAgentTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.TransformationAgentTopic),
+                "AiKafka:TransformationAgentTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -374,6 +402,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiAgentOrchestrationConsumer, AiAgentOrchestrationConsumer>();
         services.AddSingleton<IRetryAgentConsumer, RetryAgentConsumer>();
         services.AddSingleton<ISecurityAgentConsumer, SecurityAgentConsumer>();
+        services.AddSingleton<ITransformationAgentConsumer, TransformationAgentConsumer>();
         return services;
     }
 
@@ -412,6 +441,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRetryAgentResultRepository, RetryAgentResultRepository>();
         services.AddSingleton<ISecurityAgentResultCollectionProvider, SecurityAgentResultCollectionProvider>();
         services.AddSingleton<ISecurityAgentResultRepository, SecurityAgentResultRepository>();
+        services.AddSingleton<ITransformationAgentResultCollectionProvider, TransformationAgentResultCollectionProvider>();
+        services.AddSingleton<ITransformationAgentResultRepository, TransformationAgentResultRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

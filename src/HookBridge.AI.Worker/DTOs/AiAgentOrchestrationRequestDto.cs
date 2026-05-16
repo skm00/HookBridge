@@ -19,6 +19,9 @@ public sealed class AiAgentOrchestrationRequestDto : IValidatableObject
     public string? FailureReason { get; set; }
     public IDictionary<string, string>? Headers { get; set; }
     public object? Payload { get; set; }
+    public object? TargetSchema { get; set; }
+    public object? TargetSamplePayload { get; set; }
+    public object? ExistingMappingRules { get; set; }
     public int RetryCount { get; set; }
     public int MaxRetryCount { get; set; }
     public DateTime ReceivedAtUtc { get; set; } = DateTime.UtcNow;

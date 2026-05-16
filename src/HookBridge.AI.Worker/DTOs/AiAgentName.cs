@@ -13,5 +13,6 @@ public enum AiAgentName
     EndpointRiskScoringAgent,
     AnomalyDetectionAgent,
     LogSummarizationAgent,
-    TransformationRecommendationAgent
+    TransformationRecommendationAgent,
+    TransformationAgent
 }

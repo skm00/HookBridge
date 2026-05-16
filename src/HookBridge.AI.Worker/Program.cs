@@ -10,6 +10,7 @@ builder.Services.AddAiKafkaOptions(builder.Configuration);
 builder.Services.AddDuplicateReplayDetectionOptions(builder.Configuration);
 builder.Services.AddAiAgentOrchestrationServices(builder.Configuration);
 builder.Services.AddSecurityAgentServices(builder.Configuration);
+builder.Services.AddTransformationAgentServices(builder.Configuration);
 builder.Services.AddAiMongoOptions(builder.Configuration);
 builder.Services.AddSingleton<AiWorkerHealthStatus>();
 builder.Services.AddAiKernelServices();
@@ -41,6 +42,7 @@ builder.Services.AddHostedService<WebhookDuplicateReplayDetectionWorker>();
 builder.Services.AddHostedService<AiAgentOrchestrationWorker>();
 builder.Services.AddHostedService<RetryAgentWorker>();
 builder.Services.AddHostedService<SecurityAgentWorker>();
+builder.Services.AddHostedService<TransformationAgentWorker>();
 
 var host = builder.Build();
 host.Run();

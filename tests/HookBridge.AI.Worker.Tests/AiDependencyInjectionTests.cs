@@ -17,6 +17,7 @@ using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
+using HookBridge.AI.Worker.Services.TransformationAgent;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,7 @@ public sealed class AiDependencyInjectionTests
         services.AddAiLogSummarizationServices();
         services.AddPayloadSchemaDetectionServices();
         services.AddWebhookTransformationRecommendationServices();
+        services.AddTransformationAgentServices(BuildTransformationAgentConfiguration());
         services.AddCustomerEndpointRiskScoringServices();
         services.AddWebhookFailureAnomalyDetectionServices();
         services.AddAiSecurityAnalysisServices();
@@ -57,6 +59,7 @@ public sealed class AiDependencyInjectionTests
         provider.GetRequiredService<ILocalLlmClient>().Should().BeOfType<SemanticKernelLocalLlmClient>();
         provider.GetRequiredService<IAiRetryRecommendationService>().Should().BeOfType<AiRetryRecommendationService>();
         provider.GetRequiredService<IRetryAgent>().Should().BeOfType<RetryAgent>();
+        provider.GetRequiredService<ITransformationAgent>().Should().BeOfType<TransformationAgent>();
         provider.GetRequiredService<IAiLogSummarizationService>().Should().BeOfType<AiLogSummarizationService>();
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAgentOrchestrator) && descriptor.ImplementationType == typeof(AiAgentOrchestrator));
         provider.GetRequiredService<IEndpointHealthScoringService>().Should().BeOfType<EndpointHealthScoringService>();
@@ -100,6 +103,7 @@ public sealed class AiDependencyInjectionTests
         services.AddAiLogSummarizationServices();
         services.AddPayloadSchemaDetectionServices();
         services.AddWebhookTransformationRecommendationServices();
+        services.AddTransformationAgentServices(BuildTransformationAgentConfiguration());
         services.AddCustomerEndpointRiskScoringServices();
         services.AddWebhookFailureAnomalyDetectionServices();
         services.AddAiSecurityAnalysisServices();
@@ -112,6 +116,7 @@ public sealed class AiDependencyInjectionTests
         provider.GetRequiredService<IAiFallbackService>().Should().NotBeNull();
         provider.GetRequiredService<IAiRetryRecommendationService>().Should().NotBeNull();
         provider.GetRequiredService<IRetryAgent>().Should().NotBeNull();
+        provider.GetRequiredService<ITransformationAgent>().Should().NotBeNull();
         provider.GetRequiredService<IAiLogSummarizationService>().Should().NotBeNull();
     }
 
@@ -136,6 +141,10 @@ public sealed class AiDependencyInjectionTests
         services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IAiAnomalyProducer) &&
             descriptor.ImplementationType == typeof(AiAnomalyProducer) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(ITransformationAgentConsumer) &&
+            descriptor.ImplementationType == typeof(TransformationAgentConsumer) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
         services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IRetryAgentConsumer) &&
@@ -170,6 +179,10 @@ public sealed class AiDependencyInjectionTests
             descriptor.ImplementationType == typeof(AiAgentOrchestrationRepository) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
         services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(ITransformationAgentResultRepository) &&
+            descriptor.ImplementationType == typeof(TransformationAgentResultRepository) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IRetryAgentResultRepository) &&
             descriptor.ImplementationType == typeof(RetryAgentResultRepository) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
@@ -182,6 +195,14 @@ public sealed class AiDependencyInjectionTests
             descriptor.ImplementationType == typeof(AiAnomalyRecordCollectionProvider) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
     }
+
+    private static IConfiguration BuildTransformationAgentConfiguration()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{TransformationAgentOptions.SectionName}:Enabled"] = "true"
+            })
+            .Build();
 
     private static IConfiguration BuildRetryAgentConfiguration()
         => new ConfigurationBuilder()

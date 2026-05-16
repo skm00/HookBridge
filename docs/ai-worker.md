@@ -1713,3 +1713,95 @@ The worker consumes retry-agent events from Kafka, runs the deterministic retry 
   "fallback": false
 }
 ```
+
+## Transformation Agent
+
+The Transformation Agent is a dedicated safety-focused agent for webhook payload transformation planning. It compares a source webhook payload with a target schema or sample payload, recommends field mappings, validates whether the mapping is ready, and records whether human approval is required before any transformation recommendation can be used in production.
+
+### Kafka and MongoDB
+
+- Kafka topic: `hookbridge.ai.transformation-agent`
+- MongoDB collection: `transformation_agent_results`
+
+### Decision rules
+
+- Invalid source JSON returns `InvalidSourcePayload`.
+- Invalid or missing target schema/sample returns `InvalidTargetSchema`.
+- Missing required target fields returns `MissingRequiredFields` and requires manual review.
+- Confidence below `0.60` returns `MappingNeedsReview`.
+- All required mappings found with confidence at or above `0.80` returns `MappingReady`.
+- Otherwise, the agent returns `MappingNeedsReview`.
+
+### Approval and safety behavior
+
+- HookBridge never auto-applies transformation code.
+- Generated transformation code is recommendation-only.
+- Any generated transformation code requires human approval.
+- High and Critical risk recommendations require human approval.
+- Missing required target fields require manual review.
+- Full payloads, secrets, tokens, headers, and generated code are not logged; workers log structured metadata only.
+
+### Deterministic fallback mapping
+
+When AI is disabled or unavailable, deterministic fallback mapping is used. It supports exact field matching, case-insensitive matching, snake_case to camelCase matching, and common aliases including `id`/`identifier`, `orderId`/`order_id`, `customerId`/`customer_id`, `createdAt`/`created_at`/`createdAtUtc`, `status`/`state`, and `amount`/`totalAmount`.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_transform_001",
+  "correlationId": "corr_transform_001",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "environment": "qa",
+  "eventType": "OrderCreated",
+  "source": "Shopify",
+  "sourcePayload": {
+    "order_id": "ORD-1001",
+    "order_status": "Created",
+    "total_amount": 129.50,
+    "created_at": "2026-05-14T10:30:00Z"
+  },
+  "targetSamplePayload": {
+    "orderId": "string",
+    "status": "string",
+    "amount": 0,
+    "createdAtUtc": "datetime"
+  },
+  "receivedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_transform_001",
+  "correlationId": "corr_transform_001",
+  "transformationDecision": "MappingNeedsReview",
+  "riskLevel": "Medium",
+  "requiresApproval": true,
+  "summary": "Source payload can be mapped to the target format using rename and type conversion rules.",
+  "recommendation": "Review generated mapping before applying it to production.",
+  "recommendedMappings": [
+    {
+      "sourceJsonPath": "$.order_id",
+      "targetJsonPath": "$.orderId",
+      "transformationType": "Rename",
+      "confidenceScore": 0.9
+    }
+  ],
+  "missingTargetFields": [],
+  "unmappedSourceFields": [],
+  "reasonCodes": [
+    "RenameMappingAvailable",
+    "GeneratedCodeRequiresApproval"
+  ],
+  "confidenceScore": 0.84,
+  "generatedAtUtc": "2026-05-14T10:31:00Z",
+  "promptName": "WebhookTransformationRecommendation",
+  "promptVersion": "v1.0.0",
+  "promptHash": "sha256:abc123..."
+}
+```
