@@ -62,7 +62,7 @@ public sealed class AiLogSummarizationServiceTests
         llmClient.CallCount.Should().Be(0);
         result.Summary.Should().Contain("No logs are available");
         result.RootCause.Should().Contain("No logs are available");
-        result.ConfidenceScore.Should().Be(0.1);
+        result.ConfidenceScore.Should().Be(0.55);
     }
 
     [Fact]

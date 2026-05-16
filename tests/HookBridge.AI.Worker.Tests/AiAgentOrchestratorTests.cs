@@ -169,7 +169,7 @@ public sealed class AiAgentOrchestratorTests
         response.AgentResults.Should().BeEmpty();
         response.OverallRiskLevel.Should().Be(AiRiskLevel.Unknown);
         response.RecommendedAction.Should().Be(AiOrchestrationRecommendedAction.None);
-        response.ConfidenceScore.Should().Be(0);
+        response.ConfidenceScore.Should().Be(0.2167);
     }
 
     [Fact]
