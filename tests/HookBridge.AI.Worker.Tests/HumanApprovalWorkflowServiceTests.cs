@@ -206,8 +206,32 @@ public sealed class HumanApprovalWorkflowServiceTests
         provider.GetRequiredService<IOptions<HumanApprovalWorkflowOptions>>().Value.AllowApplyOnlyAfterApproval.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task HumanWorkflowService_CanUseScopedApprovalRepository()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
+
+        services.AddAiRecommendationApprovalServices(configuration);
+        services.AddScoped<IAiRecommendationApprovalRepository, InMemoryRepository>();
+        services.AddLogging();
+        using var provider = services.BuildServiceProvider(validateScopes: true);
+
+        var service = provider.GetRequiredService<IHumanApprovalWorkflowService>();
+        var response = await service.CreateAsync(CreateRequest(recommendationId: "rec_scoped"));
+
+        response.RecommendationId.Should().Be("rec_scoped");
+    }
+
     private static HumanApprovalWorkflowService CreateService(InMemoryRepository repository, HumanApprovalWorkflowOptions? options = null)
-        => new(repository, Options.Create(options ?? new HumanApprovalWorkflowOptions()), NullLogger<HumanApprovalWorkflowService>.Instance);
+        => new(CreateScopeFactory(repository), Options.Create(options ?? new HumanApprovalWorkflowOptions()), NullLogger<HumanApprovalWorkflowService>.Instance);
+
+    private static IServiceScopeFactory CreateScopeFactory(InMemoryRepository repository)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IAiRecommendationApprovalRepository>(repository);
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+    }
 
     private static HumanApprovalWorkflowCreateRequestDto CreateRequest(string recommendationId = "rec_1", string riskLevel = "High")
         => new()

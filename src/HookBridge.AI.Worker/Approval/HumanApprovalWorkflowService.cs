@@ -1,6 +1,7 @@
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Mongo;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -8,16 +9,16 @@ namespace HookBridge.AI.Worker.Approval;
 
 public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
 {
-    private readonly IAiRecommendationApprovalRepository _repository;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly HumanApprovalWorkflowOptions _options;
     private readonly ILogger<HumanApprovalWorkflowService> _logger;
 
     public HumanApprovalWorkflowService(
-        IAiRecommendationApprovalRepository repository,
+        IServiceScopeFactory scopeFactory,
         IOptions<HumanApprovalWorkflowOptions> options,
         ILogger<HumanApprovalWorkflowService> logger)
     {
-        _repository = repository;
+        _scopeFactory = scopeFactory;
         _options = options.Value;
         _logger = logger;
     }
@@ -26,7 +27,9 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
     {
         ValidateCreateRequest(request);
         var recommendationId = request.RecommendationId.Trim();
-        var existing = await _repository.GetByRecommendationIdAsync(recommendationId, cancellationToken);
+        using var scope = _scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IAiRecommendationApprovalRepository>();
+        var existing = await repository.GetByRecommendationIdAsync(recommendationId, cancellationToken);
         if (existing is not null)
         {
             throw new AiRecommendationApprovalConflictException($"Human approval workflow already exists for recommendation '{recommendationId}'.");
@@ -55,7 +58,7 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
             ExpiresAtUtc = DateTime.SpecifyKind(request.CreatedAtUtc.AddHours(_options.ApprovalExpiryHours), DateTimeKind.Utc)
         };
 
-        await _repository.InsertAsync(approval, cancellationToken);
+        await repository.InsertAsync(approval, cancellationToken);
         _logger.LogInformation(
             "Approval workflow created. ApprovalId={ApprovalId} RecommendationId={RecommendationId} RecommendationType={RecommendationType} ApprovalStatus={ApprovalStatus} RiskLevel={RiskLevel} RequiresApproval={RequiresApproval}",
             approval.Id,
@@ -71,14 +74,18 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
     public async Task<HumanApprovalWorkflowResponseDto?> GetByIdAsync(string approvalId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(approvalId);
-        var approval = await _repository.GetByIdAsync(approvalId, cancellationToken);
+        using var scope = _scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IAiRecommendationApprovalRepository>();
+        var approval = await repository.GetByIdAsync(approvalId, cancellationToken);
         return approval is null ? null : ToResponse(approval);
     }
 
     public async Task<IReadOnlyList<HumanApprovalWorkflowResponseDto>> GetPendingAsync(int limit = 100, CancellationToken cancellationToken = default)
     {
         if (limit is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 500.");
-        var approvals = await _repository.GetPendingAsync(limit, cancellationToken);
+        using var scope = _scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IAiRecommendationApprovalRepository>();
+        var approvals = await repository.GetPendingAsync(limit, cancellationToken);
         return approvals.Select(ToResponse).ToArray();
     }
 
@@ -130,7 +137,9 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
         string? applyComment,
         CancellationToken cancellationToken)
     {
-        var existing = await _repository.GetByIdAsync(approvalId, cancellationToken);
+        using var scope = _scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IAiRecommendationApprovalRepository>();
+        var existing = await repository.GetByIdAsync(approvalId, cancellationToken);
         if (existing is null) return null;
 
         if (!HumanApprovalWorkflowRules.CanTransition(existing.ApprovalStatus, requestedStatus))
@@ -156,7 +165,7 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
             AppliedAtUtc = requestedStatus == AiRecommendationApprovalStatus.Applied ? nowUtc : existing.AppliedAtUtc
         };
 
-        var updated = await _repository.UpdateStatusAsync(approvalId, update, cancellationToken);
+        var updated = await repository.UpdateStatusAsync(approvalId, update, cancellationToken);
         if (updated is null) return null;
 
         LogTransition(updated);
