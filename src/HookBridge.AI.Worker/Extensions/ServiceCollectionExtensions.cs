@@ -18,6 +18,7 @@ using HookBridge.AI.Worker.Services.JsonToDtoSuggestion;
 using HookBridge.AI.Worker.Services.FluentValidationRuleGeneration;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using HookBridge.AI.Worker.Services.TransformationAgent;
+using HookBridge.AI.Worker.Services.ObservabilityAgent;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
@@ -121,6 +122,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiAgentOrchestrationResultsCollectionName),
                 "AiMongo:AiAgentOrchestrationResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.ObservabilityAgentResultsCollectionName),
+                "AiMongo:ObservabilityAgentResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -188,6 +192,28 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+
+    public static IServiceCollection AddObservabilityAgentServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<ObservabilityAgentOptions>()
+            .Bind(configuration.GetSection(ObservabilityAgentOptions.SectionName))
+            .Validate(options => options.KafkaLagDegradedThreshold >= 0, "ObservabilityAgent:KafkaLagDegradedThreshold must be greater than or equal to 0.")
+            .Validate(options => options.KafkaLagCriticalThreshold >= options.KafkaLagDegradedThreshold, "ObservabilityAgent:KafkaLagCriticalThreshold must be greater than or equal to KafkaLagDegradedThreshold.")
+            .Validate(options => options.MongoLatencyDegradedThresholdMs >= 0, "ObservabilityAgent:MongoLatencyDegradedThresholdMs must be greater than or equal to 0.")
+            .Validate(options => options.MongoLatencyUnhealthyThresholdMs >= options.MongoLatencyDegradedThresholdMs, "ObservabilityAgent:MongoLatencyUnhealthyThresholdMs must be greater than or equal to MongoLatencyDegradedThresholdMs.")
+            .Validate(options => options.FailureRateDegradedThresholdPercent is >= 0 and <= 100, "ObservabilityAgent:FailureRateDegradedThresholdPercent must be between 0 and 100.")
+            .Validate(options => options.FailureRateUnhealthyThresholdPercent >= options.FailureRateDegradedThresholdPercent && options.FailureRateUnhealthyThresholdPercent <= 100, "ObservabilityAgent:FailureRateUnhealthyThresholdPercent must be between degraded threshold and 100.")
+            .Validate(options => options.ErrorLogCriticalThreshold >= 0, "ObservabilityAgent:ErrorLogCriticalThreshold must be greater than or equal to 0.")
+            .Validate(options => options.SecurityFindingUnhealthyThreshold >= 0, "ObservabilityAgent:SecurityFindingUnhealthyThreshold must be greater than or equal to 0.")
+            .ValidateOnStart();
+
+        services.TryAddSingleton<IObservabilityAgent, ObservabilityAgent>();
+        return services;
+    }
+
     public static IServiceCollection AddAiAgentOrchestrationServices(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -198,6 +224,7 @@ public static class ServiceCollectionExtensions
             .Validate(options => options.AgentTimeoutSeconds > 0, "AiAgentOrchestration:AgentTimeoutSeconds must be greater than 0.")
             .ValidateOnStart();
 
+        services.TryAddSingleton<IObservabilityAgent, ObservabilityAgent>();
         services.TryAddSingleton<IAiAgentOrchestrator, AiAgentOrchestrator>();
         return services;
     }
@@ -266,6 +293,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.TransformationAgentTopic),
                 "AiKafka:TransformationAgentTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.ObservabilityAgentTopic),
+                "AiKafka:ObservabilityAgentTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -403,6 +433,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRetryAgentConsumer, RetryAgentConsumer>();
         services.AddSingleton<ISecurityAgentConsumer, SecurityAgentConsumer>();
         services.AddSingleton<ITransformationAgentConsumer, TransformationAgentConsumer>();
+        services.AddSingleton<IObservabilityAgentConsumer, ObservabilityAgentConsumer>();
         return services;
     }
 
@@ -443,6 +474,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISecurityAgentResultRepository, SecurityAgentResultRepository>();
         services.AddSingleton<ITransformationAgentResultCollectionProvider, TransformationAgentResultCollectionProvider>();
         services.AddSingleton<ITransformationAgentResultRepository, TransformationAgentResultRepository>();
+        services.AddSingleton<IObservabilityAgentResultCollectionProvider, ObservabilityAgentResultCollectionProvider>();
+        services.AddSingleton<IObservabilityAgentResultRepository, ObservabilityAgentResultRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

@@ -47,6 +47,8 @@ public sealed class AiKafkaOptions
 
     public string TransformationAgentTopic { get; set; } = AiKafkaTopics.TransformationAgent;
 
+    public string ObservabilityAgentTopic { get; set; } = AiKafkaTopics.ObservabilityAgent;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

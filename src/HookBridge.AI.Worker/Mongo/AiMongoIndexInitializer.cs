@@ -17,12 +17,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly IRetryAgentResultCollectionProvider? _retryAgentCollectionProvider;
     private readonly ISecurityAgentResultCollectionProvider? _securityAgentCollectionProvider;
     private readonly ITransformationAgentResultCollectionProvider? _transformationAgentCollectionProvider;
+    private readonly IObservabilityAgentResultCollectionProvider? _observabilityAgentCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -30,7 +31,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -39,7 +40,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -55,6 +56,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IRetryAgentResultCollectionProvider? retryAgentCollectionProvider,
         ISecurityAgentResultCollectionProvider? securityAgentCollectionProvider,
         ITransformationAgentResultCollectionProvider? transformationAgentCollectionProvider,
+        IObservabilityAgentResultCollectionProvider? observabilityAgentCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -68,6 +70,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _retryAgentCollectionProvider = retryAgentCollectionProvider;
         _securityAgentCollectionProvider = securityAgentCollectionProvider;
         _transformationAgentCollectionProvider = transformationAgentCollectionProvider;
+        _observabilityAgentCollectionProvider = observabilityAgentCollectionProvider;
         _logger = logger;
     }
 
@@ -138,6 +141,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
             await transformationAgentCollection.Indexes.CreateManyAsync(CreateTransformationAgentResultIndexModels(), cancellationToken);
         }
 
+        if (_observabilityAgentCollectionProvider is not null)
+        {
+            var observabilityAgentCollection = _observabilityAgentCollectionProvider.GetCollection();
+            await observabilityAgentCollection.Indexes.CreateManyAsync(CreateObservabilityAgentResultIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -161,6 +170,24 @@ public sealed class AiMongoIndexInitializer : IHostedService
 
 
 
+
+
+    public static IReadOnlyList<CreateIndexModel<ObservabilityAgentResult>> CreateObservabilityAgentResultIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.EventId), new CreateIndexOptions { Name = "idx_observability_agent_results_event_id" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.CorrelationId), new CreateIndexOptions { Name = "idx_observability_agent_results_correlation_id" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.Environment), new CreateIndexOptions { Name = "idx_observability_agent_results_environment" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.ServiceName), new CreateIndexOptions { Name = "idx_observability_agent_results_service_name" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.CustomerId), new CreateIndexOptions { Name = "idx_observability_agent_results_customer_id" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.SubscriptionId), new CreateIndexOptions { Name = "idx_observability_agent_results_subscription_id" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.EndpointId), new CreateIndexOptions { Name = "idx_observability_agent_results_endpoint_id" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.ObservabilityStatus), new CreateIndexOptions { Name = "idx_observability_agent_results_status" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_observability_agent_results_risk_level" }),
+            new CreateIndexModel<ObservabilityAgentResult>(Builders<ObservabilityAgentResult>.IndexKeys.Descending(result => result.GeneratedAtUtc), new CreateIndexOptions { Name = "idx_observability_agent_results_generated_at_utc_desc" })
+        };
+    }
 
     public static IReadOnlyList<CreateIndexModel<RetryAgentResult>> CreateRetryAgentResultIndexModels()
     {

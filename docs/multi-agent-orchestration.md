@@ -151,3 +151,7 @@ Responses:
 ## Logging and safety
 
 Orchestration logs structured metadata for lifecycle events: orchestration started/completed, agent started/completed/failed/timed out, approval required, and anomaly published. Logs intentionally avoid full payloads, headers, secrets, and tokens.
+
+## Observability Agent integration
+
+`AiAgentOrchestrator` can include the Observability Agent when `AiAgentOrchestration:EnableObservabilityAgent` is enabled. The orchestrator calls `IObservabilityAgent`, maps `ObservabilityStatus` into the per-agent `Decision`, maps `AiRiskLevel` directly into `AiAgentResultDto.RiskLevel`, carries the first suggested action, duration, confidence score, fallback state, and approval requirement, and includes the result in overall risk and approval calculations.

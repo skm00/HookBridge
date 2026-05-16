@@ -32,4 +32,6 @@ public static class AiKafkaTopics
     public const string SecurityAgent = "hookbridge.ai.security-agent";
 
     public const string TransformationAgent = "hookbridge.ai.transformation-agent";
+
+    public const string ObservabilityAgent = "hookbridge.ai.observability-agent";
 }

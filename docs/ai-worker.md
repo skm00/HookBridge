@@ -1805,3 +1805,11 @@ When AI is disabled or unavailable, deterministic fallback mapping is used. It s
   "promptHash": "sha256:abc123..."
 }
 ```
+
+## Observability Agent
+
+The Observability Agent is a deterministic operational support agent that evaluates telemetry from Kafka, MongoDB, webhook delivery, retry, anomaly, security, and log signals. It exposes `IObservabilityAgent`, consumes Kafka events from `hookbridge.ai.observability-agent`, and persists results to MongoDB collection `observability_agent_results`.
+
+The agent calculates `ObservabilityStatus` using configurable thresholds in `ObservabilityAgentOptions`: high Kafka lag degrades service health, very high Kafka lag is critical, failed MongoDB health checks are critical, Mongo latency moves from degraded to unhealthy, delivery failure rates above 10% and 30% map to degraded and unhealthy, and DLQ, anomaly, security, error-log, and retry-volume signals add deterministic support recommendations. Risk mapping is `Healthy => Low`, `Degraded => Medium`, `Unhealthy => High`, `Critical => Critical`, and `Unknown => Unknown`.
+
+Critical observability results require approval by default. The worker creates an approval record when `RequiresApproval` is true and publishes an anomaly event when the status is `Unhealthy` or `Critical`. Logs contain structured metadata such as event id, correlation id, status, risk level, and signal counts only; full payloads, headers, secrets, tokens, and connection strings are not logged.

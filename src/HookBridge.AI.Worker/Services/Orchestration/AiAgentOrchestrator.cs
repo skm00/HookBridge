@@ -5,6 +5,7 @@ using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.LogSummaries;
+using HookBridge.AI.Worker.Services.ObservabilityAgent;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.RetryAgent;
@@ -28,6 +29,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
     private readonly IWebhookFailureAnomalyDetectionService _anomalyService;
     private readonly IAiLogSummarizationService _logSummarizationService;
     private readonly ITransformationAgent _transformationAgent;
+    private readonly IObservabilityAgent _observabilityAgent;
     private readonly ILogger<AiAgentOrchestrator> _logger;
     private readonly AiAgentOrchestrationOptions _options;
 
@@ -41,6 +43,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         IWebhookFailureAnomalyDetectionService anomalyService,
         IAiLogSummarizationService logSummarizationService,
         ITransformationAgent transformationAgent,
+        IObservabilityAgent observabilityAgent,
         IOptions<AiAgentOrchestrationOptions> options,
         ILogger<AiAgentOrchestrator> logger)
     {
@@ -53,6 +56,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         _anomalyService = anomalyService;
         _logSummarizationService = logSummarizationService;
         _transformationAgent = transformationAgent;
+        _observabilityAgent = observabilityAgent;
         _options = options.Value;
         _logger = logger;
     }
@@ -178,6 +182,10 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         if (_options.EnableTransformationAgent)
         {
             agents.Add((AiAgentName.TransformationAgent, ct => RunTransformationAgentAsync(request, ct)));
+        }
+        if (_options.EnableObservabilityAgent)
+        {
+            agents.Add((AiAgentName.ObservabilityAgent, ct => RunObservabilityAgentAsync(request, ct)));
         }
         return agents;
     }
@@ -366,6 +374,37 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         var result = Success(AiAgentName.TransformationAgent, response.Summary, ParseRisk(response.RiskLevel), response.TransformationDecision.ToString(), response.ConfidenceScore, response.Fallback);
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.Decision = response.TransformationDecision.ToString();
+        result.RequiresApproval = response.RequiresApproval;
+        return result;
+    }
+
+
+    private async Task<AiAgentResultDto> RunObservabilityAgentAsync(AiAgentOrchestrationRequestDto request, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var failedDeliveries = request.StatusCode is >= 400 ? 1 : 0;
+        var response = await _observabilityAgent.AnalyzeAsync(new ObservabilityAgentRequestDto
+        {
+            EventId = request.EventId,
+            CorrelationId = request.CorrelationId,
+            Environment = request.Environment,
+            ServiceName = request.Source ?? "HookBridge.AI.Worker",
+            CustomerId = request.CustomerId,
+            SubscriptionId = request.SubscriptionId,
+            EndpointId = request.EndpointId,
+            MongoIsHealthy = true,
+            TotalDeliveries = 1,
+            FailedDeliveries = failedDeliveries,
+            RetryCount = request.RetryCount,
+            ErrorLogCount = failedDeliveries,
+            EvaluationWindowFromUtc = request.ReceivedAtUtc.AddMinutes(-5),
+            EvaluationWindowToUtc = request.ReceivedAtUtc,
+            CreatedAtUtc = DateTime.UtcNow
+        }, cancellationToken);
+        stopwatch.Stop();
+        var result = Success(AiAgentName.ObservabilityAgent, response.Summary, response.RiskLevel, response.SuggestedActions.FirstOrDefault().ToString(), response.ConfidenceScore, response.Fallback);
+        result.DurationMs = stopwatch.ElapsedMilliseconds;
+        result.Decision = response.ObservabilityStatus.ToString();
         result.RequiresApproval = response.RequiresApproval;
         return result;
     }
