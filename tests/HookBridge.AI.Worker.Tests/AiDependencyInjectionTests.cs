@@ -42,7 +42,6 @@ public sealed class AiDependencyInjectionTests
         services.AddPayloadSchemaDetectionServices();
         services.AddWebhookTransformationRecommendationServices();
         services.AddTransformationAgentServices(BuildTransformationAgentConfiguration());
-        services.AddTransformationAgentServices(BuildTransformationAgentConfiguration());
         services.AddCustomerEndpointRiskScoringServices();
         services.AddWebhookFailureAnomalyDetectionServices();
         services.AddAiSecurityAnalysisServices();
@@ -104,6 +103,7 @@ public sealed class AiDependencyInjectionTests
         services.AddAiLogSummarizationServices();
         services.AddPayloadSchemaDetectionServices();
         services.AddWebhookTransformationRecommendationServices();
+        services.AddTransformationAgentServices(BuildTransformationAgentConfiguration());
         services.AddCustomerEndpointRiskScoringServices();
         services.AddWebhookFailureAnomalyDetectionServices();
         services.AddAiSecurityAnalysisServices();
