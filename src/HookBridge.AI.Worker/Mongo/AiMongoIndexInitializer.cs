@@ -16,12 +16,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly IWebhookTransformationRecommendationCollectionProvider? _transformationRecommendationCollectionProvider;
     private readonly IRetryAgentResultCollectionProvider? _retryAgentCollectionProvider;
     private readonly ISecurityAgentResultCollectionProvider? _securityAgentCollectionProvider;
+    private readonly ITransformationAgentResultCollectionProvider? _transformationAgentCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -29,7 +30,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -38,7 +39,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -53,6 +54,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IWebhookTransformationRecommendationCollectionProvider? transformationRecommendationCollectionProvider,
         IRetryAgentResultCollectionProvider? retryAgentCollectionProvider,
         ISecurityAgentResultCollectionProvider? securityAgentCollectionProvider,
+        ITransformationAgentResultCollectionProvider? transformationAgentCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -65,6 +67,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _transformationRecommendationCollectionProvider = transformationRecommendationCollectionProvider;
         _retryAgentCollectionProvider = retryAgentCollectionProvider;
         _securityAgentCollectionProvider = securityAgentCollectionProvider;
+        _transformationAgentCollectionProvider = transformationAgentCollectionProvider;
         _logger = logger;
     }
 
@@ -129,6 +132,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
             await securityAgentCollection.Indexes.CreateManyAsync(CreateSecurityAgentResultIndexModels(), cancellationToken);
         }
 
+        if (_transformationAgentCollectionProvider is not null)
+        {
+            var transformationAgentCollection = _transformationAgentCollectionProvider.GetCollection();
+            await transformationAgentCollection.Indexes.CreateManyAsync(CreateTransformationAgentResultIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -167,6 +176,24 @@ public sealed class AiMongoIndexInitializer : IHostedService
             new CreateIndexModel<RetryAgentResult>(Builders<RetryAgentResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_retry_agent_results_risk_level" }),
             new CreateIndexModel<RetryAgentResult>(Builders<RetryAgentResult>.IndexKeys.Ascending(result => result.RequiresApproval), new CreateIndexOptions { Name = "idx_retry_agent_results_requires_approval" }),
             new CreateIndexModel<RetryAgentResult>(Builders<RetryAgentResult>.IndexKeys.Descending(result => result.GeneratedAtUtc), new CreateIndexOptions { Name = "idx_retry_agent_results_generated_at_utc_desc" })
+        };
+    }
+
+
+    public static IReadOnlyList<CreateIndexModel<TransformationAgentResult>> CreateTransformationAgentResultIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.EventId), new CreateIndexOptions { Name = "idx_transformation_agent_results_event_id" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.CorrelationId), new CreateIndexOptions { Name = "idx_transformation_agent_results_correlation_id" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.CustomerId), new CreateIndexOptions { Name = "idx_transformation_agent_results_customer_id" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.SubscriptionId), new CreateIndexOptions { Name = "idx_transformation_agent_results_subscription_id" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.EndpointId), new CreateIndexOptions { Name = "idx_transformation_agent_results_endpoint_id" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.Environment), new CreateIndexOptions { Name = "idx_transformation_agent_results_environment" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.TransformationDecision), new CreateIndexOptions { Name = "idx_transformation_agent_results_transformation_decision" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_transformation_agent_results_risk_level" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Ascending(result => result.RequiresApproval), new CreateIndexOptions { Name = "idx_transformation_agent_results_requires_approval" }),
+            new CreateIndexModel<TransformationAgentResult>(Builders<TransformationAgentResult>.IndexKeys.Descending(result => result.GeneratedAtUtc), new CreateIndexOptions { Name = "idx_transformation_agent_results_generated_at_utc_desc" })
         };
     }
 

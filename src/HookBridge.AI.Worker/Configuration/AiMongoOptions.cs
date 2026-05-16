@@ -20,6 +20,7 @@ public sealed class AiMongoOptions
     public const string DefaultAiAgentOrchestrationResultsCollectionName = "ai_agent_orchestration_results";
     public const string DefaultRetryAgentResultsCollectionName = "retry_agent_results";
     public const string DefaultSecurityAgentResultsCollectionName = "security_agent_results";
+    public const string DefaultTransformationAgentResultsCollectionName = "transformation_agent_results";
 
     public string ConnectionString { get; set; } = string.Empty;
 
@@ -52,4 +53,6 @@ public sealed class AiMongoOptions
     public string RetryAgentResultsCollectionName { get; set; } = DefaultRetryAgentResultsCollectionName;
 
     public string SecurityAgentResultsCollectionName { get; set; } = DefaultSecurityAgentResultsCollectionName;
+
+    public string TransformationAgentResultsCollectionName { get; set; } = DefaultTransformationAgentResultsCollectionName;
 }

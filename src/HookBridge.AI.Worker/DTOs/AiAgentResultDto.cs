@@ -13,6 +13,8 @@ public sealed class AiAgentResultDto : IValidatableObject
     public bool UsedFallback { get; set; }
     public string? ErrorMessage { get; set; }
     public long DurationMs { get; set; }
+    public string? Decision { get; set; }
+    public bool RequiresApproval { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

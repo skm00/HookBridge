@@ -214,6 +214,11 @@ dotnet run --project src/HookBridge.AI.Worker/HookBridge.AI.Worker.csproj
 
 See [AI Worker documentation](docs/ai-worker.md) for the full configuration table, fallback decision table, example fallback response, how to disable fallback, production recommendation, environment variable examples, Semantic Kernel usage, Ollama model examples, retry recommendation behavior, and MongoDB AI result storage settings.
 
+
+### Transformation Agent
+
+HookBridge includes a dedicated Transformation Agent for safe webhook payload transformation planning. It analyzes source payloads against target schemas or sample payloads, recommends mappings, validates readiness, requires approval for generated code and High/Critical risk recommendations, and stores results in MongoDB collection `transformation_agent_results`. The worker consumes Kafka topic `hookbridge.ai.transformation-agent`. See [AI Worker documentation](docs/ai-worker.md#transformation-agent) for decision rules, safety behavior, and example request/response payloads.
+
 ## Retry & DLQ
 
 HookBridge includes a webhook retry mechanism that records every delivery attempt and keeps failed delivery state visible to operators.
