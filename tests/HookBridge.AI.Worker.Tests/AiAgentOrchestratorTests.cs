@@ -3,6 +3,7 @@ using FluentAssertions;
 using HookBridge.AI.Worker.Approval;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Services.Confidence;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.LogSummaries;
@@ -348,6 +349,7 @@ public sealed class AiAgentOrchestratorTests
             Transformation.Object,
             Observability.Object,
             ApprovalWorkflow.Object,
+            new AiConfidenceScoreService(Options.Create(new AiConfidenceScoreOptions()), NullLogger<AiConfidenceScoreService>.Instance),
             Options.Create(options),
             NullLogger<AiAgentOrchestrator>.Instance);
     }

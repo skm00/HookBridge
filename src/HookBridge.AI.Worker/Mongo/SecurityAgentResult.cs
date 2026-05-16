@@ -37,6 +37,10 @@ public sealed class SecurityAgentResult
     public List<AiSecuritySignalDto> SecuritySignals { get; set; } = [];
     [BsonRepresentation(BsonType.String)] public List<SecurityAgentReasonCode> ReasonCodes { get; set; } = [];
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public bool Fallback { get; set; }
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime ReceivedAtUtc { get; set; }
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime GeneratedAtUtc { get; set; }
@@ -73,6 +77,8 @@ public sealed class SecurityAgentResult
         SecuritySignals = response.SecuritySignals.ToList(),
         ReasonCodes = response.ReasonCodes.ToList(),
         ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
         GeneratedAtUtc = response.GeneratedAtUtc,
         Fallback = response.Fallback
     };

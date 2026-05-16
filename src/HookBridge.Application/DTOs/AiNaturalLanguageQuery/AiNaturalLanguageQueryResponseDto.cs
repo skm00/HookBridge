@@ -12,6 +12,8 @@ public sealed class AiNaturalLanguageQueryResponseDto
     public IReadOnlyList<AiNaturalLanguageQueryResultDto> Results { get; set; } = [];
     public IReadOnlyList<string> SuggestedActions { get; set; } = [];
     public double ConfidenceScore { get; set; }
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public DateTime GeneratedAtUtc { get; set; }
     public string Model { get; set; } = string.Empty;
     public string Provider { get; set; } = string.Empty;

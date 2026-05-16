@@ -36,6 +36,10 @@ public sealed class ObservabilityAgentResult
     public List<ObservabilitySignalDto> Signals { get; set; } = [];
     public List<ObservabilitySuggestedAction> SuggestedActions { get; set; } = [];
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public bool RequiresApproval { get; set; }
     public DateTime EvaluationWindowFromUtc { get; set; }
     public DateTime EvaluationWindowToUtc { get; set; }
@@ -75,6 +79,8 @@ public sealed class ObservabilityAgentResult
         Signals = response.Signals.ToList(),
         SuggestedActions = response.SuggestedActions.ToList(),
         ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
         RequiresApproval = response.RequiresApproval,
         EvaluationWindowFromUtc = request.EvaluationWindowFromUtc,
         EvaluationWindowToUtc = request.EvaluationWindowToUtc,

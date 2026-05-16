@@ -12,6 +12,9 @@ public sealed class HumanApprovalWorkflowResponseDto
     public bool CanApply { get; set; }
     public string Summary { get; set; } = string.Empty;
     public string Recommendation { get; set; } = string.Empty;
+    public double? ConfidenceScore { get; set; }
+    public string? ConfidenceLevel { get; set; }
+    public string? ConfidenceExplanation { get; set; }
     public string? RequestedBy { get; set; }
     public string? ReviewedBy { get; set; }
     public string? ReviewComment { get; set; }

@@ -14,6 +14,12 @@ public sealed class WebhookFailureAnomalyDetectionResponseDto
     public bool IsAnomalyDetected { get; set; }
     public int AnomalyScore { get; set; }
     public AiRiskLevel RiskLevel { get; set; } = AiRiskLevel.Unknown;
+
+    public double ConfidenceScore { get; set; }
+
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public string Summary { get; set; } = string.Empty;
     public string Recommendation { get; set; } = string.Empty;
     public List<WebhookFailureAnomalyDto> DetectedAnomalies { get; set; } = [];

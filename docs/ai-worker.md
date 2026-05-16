@@ -1892,3 +1892,47 @@ Human approval is required for high-risk and critical-risk recommendations, secu
   "applyComment": "Applied after approval."
 }
 ```
+
+## AI confidence scoring
+
+HookBridge attaches a deterministic `confidenceScore` to every AI-generated or rule-based decision so operators can compare decision quality without asking an LLM to self-score. Scores are normalized from `0.00` to `1.00`, where higher values mean the decision had stronger evidence, cleaner model output, and fewer fallback or validation penalties.
+
+Confidence scoring starts from a default base score of `0.75` and applies transparent factors:
+
+| Factor | Impact |
+| --- | ---: |
+| AI response used and valid JSON | `+0.10` |
+| Required fields present | `+0.05` |
+| Three or more evidence signals | `+0.05` |
+| Rule-based decision with evidence | `+0.05` |
+| Fallback used | `-0.15` |
+| Missing data | `-0.05` per item, capped at `-0.20` |
+| Validation issues | `-0.05` per item, capped at `-0.20` |
+| Failed agents | `-0.10` per failed agent, capped at `-0.30` |
+| Unknown risk level | `-0.10` |
+
+Final scores are clamped to the valid range. Confidence levels are mapped as follows:
+
+| Score range | Level |
+| --- | --- |
+| `0.00` - `0.39` | `Low` |
+| `0.40` - `0.69` | `Medium` |
+| `0.70` - `0.89` | `High` |
+| `0.90` - `1.00` | `VeryHigh` |
+
+Fallback responses are intentionally conservative. Most fallback decisions land between `0.50` and `0.70`; rule-based fallback decisions with strong evidence can reach `0.75`, while missing-data fallback decisions stay below `0.60`.
+
+Approval workflows use confidence as another safety signal. Decisions below `0.60` require manual review. Decisions below `0.40` should be handled as `NeedsMoreInfo` or manual review. High and critical risk recommendations still require approval regardless of confidence.
+
+Example response:
+
+```json
+{
+  "eventId": "evt_12345",
+  "riskLevel": "Medium",
+  "suggestedAction": "RetryWithBackoff",
+  "confidenceScore": 0.82,
+  "confidenceLevel": "High",
+  "confidenceExplanation": "AI response was valid, required fields were present, and multiple evidence signals supported the decision."
+}
+```

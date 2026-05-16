@@ -13,6 +13,12 @@ public sealed class CustomerEndpointRiskScoreResponseDto
     public string? Environment { get; set; }
     public int RiskScore { get; set; }
     public AiRiskLevel RiskLevel { get; set; } = AiRiskLevel.Unknown;
+
+    public double ConfidenceScore { get; set; }
+
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public EndpointHealthStatus HealthStatus { get; set; } = EndpointHealthStatus.Unknown;
     public string Summary { get; set; } = string.Empty;
     public string Recommendation { get; set; } = string.Empty;

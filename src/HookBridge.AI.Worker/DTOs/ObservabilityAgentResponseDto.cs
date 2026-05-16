@@ -15,6 +15,8 @@ public sealed class ObservabilityAgentResponseDto : IValidatableObject
     public IReadOnlyList<ObservabilitySignalDto> Signals { get; set; } = Array.Empty<ObservabilitySignalDto>();
     public IReadOnlyList<ObservabilitySuggestedAction> SuggestedActions { get; set; } = Array.Empty<ObservabilitySuggestedAction>();
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public bool RequiresApproval { get; set; }
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
     public bool Fallback { get; set; }

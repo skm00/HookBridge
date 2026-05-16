@@ -28,6 +28,8 @@ public sealed class AiAgentOrchestrationResult
     [BsonElement("overallRiskLevel")] public string OverallRiskLevel { get; set; } = AiRiskLevel.Unknown.ToString();
     [BsonElement("recommendedAction")] public string RecommendedAction { get; set; } = AiOrchestrationRecommendedAction.None.ToString();
     [BsonElement("confidenceScore")] public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")] public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")] public string ConfidenceExplanation { get; set; } = string.Empty;
     [BsonElement("agentResults")] public List<AiAgentResultDto> AgentResults { get; set; } = [];
     [BsonElement("requiresApproval")] public bool RequiresApproval { get; set; }
     [BsonElement("approvalId")][BsonIgnoreIfNull] public string? ApprovalId { get; set; }
@@ -58,6 +60,8 @@ public sealed class AiAgentOrchestrationResult
             OverallRiskLevel = response.OverallRiskLevel.ToString(),
             RecommendedAction = response.RecommendedAction.ToString(),
             ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
             AgentResults = response.AgentResults.ToList(),
             RequiresApproval = response.RequiresApproval,
             ApprovalId = response.ApprovalId,
@@ -74,6 +78,8 @@ public sealed class AiAgentOrchestrationResult
         OverallRiskLevel = Enum.TryParse<AiRiskLevel>(OverallRiskLevel, out var risk) ? risk : AiRiskLevel.Unknown,
         RecommendedAction = Enum.TryParse<AiOrchestrationRecommendedAction>(RecommendedAction, out var action) ? action : AiOrchestrationRecommendedAction.None,
         ConfidenceScore = ConfidenceScore,
+        ConfidenceLevel = Enum.TryParse<AiConfidenceLevel>(ConfidenceLevel, out var confidenceLevel) ? confidenceLevel : AiConfidenceLevel.Unknown,
+        ConfidenceExplanation = ConfidenceExplanation,
         AgentResults = AgentResults,
         RequiresApproval = RequiresApproval,
         ApprovalId = ApprovalId,

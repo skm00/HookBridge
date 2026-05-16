@@ -64,6 +64,10 @@ public sealed class AiAnalysisResult
 
     [BsonElement("confidenceScore")]
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
 
     [BsonElement("suggestedRetryAction")]
     public string SuggestedRetryAction { get; set; } = string.Empty;

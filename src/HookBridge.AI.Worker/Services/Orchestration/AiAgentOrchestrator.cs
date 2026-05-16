@@ -4,6 +4,7 @@ using HookBridge.AI.Worker.Approval;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
+using HookBridge.AI.Worker.Services.Confidence;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.ObservabilityAgent;
@@ -32,6 +33,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
     private readonly ITransformationAgent _transformationAgent;
     private readonly IObservabilityAgent _observabilityAgent;
     private readonly IHumanApprovalWorkflowService _approvalWorkflowService;
+    private readonly IAiConfidenceScoreService _confidenceScoreService;
     private readonly ILogger<AiAgentOrchestrator> _logger;
     private readonly AiAgentOrchestrationOptions _options;
 
@@ -47,6 +49,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         ITransformationAgent transformationAgent,
         IObservabilityAgent observabilityAgent,
         IHumanApprovalWorkflowService approvalWorkflowService,
+        IAiConfidenceScoreService confidenceScoreService,
         IOptions<AiAgentOrchestrationOptions> options,
         ILogger<AiAgentOrchestrator> logger)
     {
@@ -61,6 +64,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         _transformationAgent = transformationAgent;
         _observabilityAgent = observabilityAgent;
         _approvalWorkflowService = approvalWorkflowService;
+        _confidenceScoreService = confidenceScoreService;
         _options = options.Value;
         _logger = logger;
     }
@@ -77,8 +81,10 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
 
         var overallRisk = CalculateOverallRisk(results);
         var action = DetermineRecommendedAction(request, results, overallRisk);
-        var requiresApproval = RequiresApproval(overallRisk) || results.Any(result => result.RequiresApproval);
-        var confidence = CalculateConfidence(results);
+        var baseRequiresApproval = RequiresApproval(overallRisk) || results.Any(result => result.RequiresApproval);
+        var confidenceResult = CalculateOrchestrationConfidence(results, overallRisk);
+        var confidence = confidenceResult.ConfidenceScore;
+        var requiresApproval = baseRequiresApproval || _confidenceScoreService.RequiresManualReview(confidence, overallRisk);
         var summary = BuildSummary(results, overallRisk, action);
 
         var response = new AiAgentOrchestrationResponseDto
@@ -89,6 +95,8 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
             OverallRiskLevel = overallRisk,
             RecommendedAction = action,
             ConfidenceScore = confidence,
+            ConfidenceLevel = confidenceResult.ConfidenceLevel,
+            ConfidenceExplanation = confidenceResult.Explanation,
             AgentResults = results,
             RequiresApproval = requiresApproval,
             GeneratedAtUtc = DateTime.UtcNow
@@ -111,6 +119,9 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
                 SuggestedAction = response.RecommendedAction.ToString(),
                 Summary = response.OverallSummary,
                 Recommendation = "Review the orchestration result and approve before any production action is applied.",
+                ConfidenceScore = response.ConfidenceScore,
+                ConfidenceLevel = response.ConfidenceLevel.ToString(),
+                ConfidenceExplanation = response.ConfidenceExplanation,
                 RequestedBy = "HookBridge.AI.Orchestrator",
                 CreatedAtUtc = response.GeneratedAtUtc
             }, cancellationToken);
@@ -462,6 +473,29 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         return Math.Clamp(Math.Round(average - failedPenalty - fallbackPenalty, 4), 0, 1);
     }
 
+    private AiConfidenceScoreResponseDto CalculateOrchestrationConfidence(IReadOnlyList<AiAgentResultDto> results, AiRiskLevel riskLevel)
+    {
+        var successful = results.Where(result => result.IsSuccessful).ToList();
+        var averageConfidence = successful.Count == 0 ? 0 : successful.Average(result => result.ConfidenceScore);
+        var calculated = _confidenceScoreService.Calculate(new AiConfidenceScoreRequestDto
+        {
+            DecisionType = AiDecisionType.OrchestrationDecision,
+            RiskLevel = riskLevel,
+            UsedFallback = successful.Any(result => result.UsedFallback),
+            IsRuleBased = true,
+            AgentName = nameof(AiAgentOrchestrator),
+            EvidenceCount = successful.Count,
+            FailedAgentCount = results.Count - successful.Count,
+            TotalAgentCount = results.Count,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+
+        calculated.ConfidenceScore = Math.Clamp(Math.Round((calculated.ConfidenceScore + CalculateConfidence(results) + averageConfidence) / 3d, 4), 0, 1);
+        calculated.ConfidenceLevel = _confidenceScoreService.MapConfidenceLevel(calculated.ConfidenceScore);
+        calculated.Explanation = $"Orchestration confidence averaged successful agent confidence ({averageConfidence:0.00}) and penalized failed or fallback agents. {calculated.Explanation}";
+        return calculated;
+    }
+
     private AiOrchestrationRecommendedAction DetermineRecommendedAction(AiAgentOrchestrationRequestDto request, IReadOnlyList<AiAgentResultDto> results, AiRiskLevel overallRisk)
     {
         if (results.Any(r => (r.AgentName is AiAgentName.SecurityAgent or AiAgentName.SecurityAnalysisAgent) && r.IsSuccessful && r.RiskLevel == AiRiskLevel.Critical))
@@ -517,6 +551,8 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
             RiskLevel = riskLevel,
             SuggestedAction = suggestedAction,
             ConfidenceScore = Math.Clamp(confidence, 0, 1),
+            ConfidenceLevel = confidence switch { < 0.40 => AiConfidenceLevel.Low, < 0.70 => AiConfidenceLevel.Medium, < 0.90 => AiConfidenceLevel.High, <= 1 => AiConfidenceLevel.VeryHigh, _ => AiConfidenceLevel.Unknown },
+            ConfidenceExplanation = usedFallback ? "Agent used fallback output, reducing confidence." : "Agent confidence was supplied by deterministic agent scoring.",
             UsedFallback = usedFallback
         };
 

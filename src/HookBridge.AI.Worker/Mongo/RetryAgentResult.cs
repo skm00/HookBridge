@@ -39,6 +39,10 @@ public sealed class RetryAgentResult
     [BsonRepresentation(BsonType.String)]
     public List<RetryAgentReasonCode> ReasonCodes { get; set; } = [];
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public bool Fallback { get; set; }
 
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime? LastRetryAtUtc { get; set; }
@@ -77,6 +81,8 @@ public sealed class RetryAgentResult
         Recommendation = response.Recommendation,
         ReasonCodes = response.ReasonCodes,
         ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
         GeneratedAtUtc = response.GeneratedAtUtc,
         Fallback = response.Fallback
     };

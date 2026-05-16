@@ -20,6 +20,7 @@ using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using HookBridge.AI.Worker.Services.TransformationAgent;
 using HookBridge.AI.Worker.Services.ObservabilityAgent;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
+using HookBridge.AI.Worker.Services.Confidence;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.Orchestration;
@@ -44,6 +45,19 @@ public static class ServiceCollectionExtensions
             .Validate(options => AiPromptOptions.IsValidVersion(options.DefaultVersion), "AIPrompts:DefaultVersion must follow semantic format like v1.0.0.")
             .Validate(options => options.Prompts.Keys.All(AiPromptNames.IsKnown), "AIPrompts:Prompts may only contain known prompt names.")
             .Validate(options => options.Prompts.Values.All(AiPromptOptions.IsValidVersion), "AIPrompts prompt versions must follow semantic format like v1.0.0.")
+            .ValidateOnStart();
+
+
+        services
+            .AddOptions<AiConfidenceScoreOptions>()
+            .Bind(configuration.GetSection(AiConfidenceScoreOptions.SectionName))
+            .Validate(options => options.BaseScore is >= 0 and <= 1, "AiConfidenceScore:BaseScore must be between 0 and 1.")
+            .Validate(options => options.FallbackPenalty is >= 0 and <= 1, "AiConfidenceScore:FallbackPenalty must be between 0 and 1.")
+            .Validate(options => options.MissingDataPenalty is >= 0 and <= 1, "AiConfidenceScore:MissingDataPenalty must be between 0 and 1.")
+            .Validate(options => options.ValidationIssuePenalty is >= 0 and <= 1, "AiConfidenceScore:ValidationIssuePenalty must be between 0 and 1.")
+            .Validate(options => options.FailedAgentPenalty is >= 0 and <= 1, "AiConfidenceScore:FailedAgentPenalty must be between 0 and 1.")
+            .Validate(options => options.LowConfidenceReviewThreshold is >= 0 and <= 1, "AiConfidenceScore:LowConfidenceReviewThreshold must be between 0 and 1.")
+            .Validate(options => options.VeryLowConfidenceReviewThreshold is >= 0 and <= 1, "AiConfidenceScore:VeryLowConfidenceReviewThreshold must be between 0 and 1.")
             .ValidateOnStart();
 
         services
@@ -232,6 +246,7 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
 
         services.TryAddSingleton<IObservabilityAgent, ObservabilityAgent>();
+        services.TryAddSingleton<IAiConfidenceScoreService, AiConfidenceScoreService>();
         services.TryAddSingleton<IAiAgentOrchestrator, AiAgentOrchestrator>();
         return services;
     }
@@ -321,6 +336,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAiRetryRecommendationServices(this IServiceCollection services)
     {
         services.AddAiFallbackServices();
+        services.TryAddSingleton<IAiConfidenceScoreService, AiConfidenceScoreService>();
         services.TryAddSingleton<IAiRetryRecommendationService, AiRetryRecommendationService>();
         return services;
     }
@@ -341,6 +357,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAiLogSummarizationServices(this IServiceCollection services)
     {
         services.AddAiFallbackServices();
+        services.TryAddSingleton<IAiConfidenceScoreService, AiConfidenceScoreService>();
         services.TryAddSingleton<IAiLogSummarizationService, AiLogSummarizationService>();
         return services;
     }
@@ -397,6 +414,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAiFallbackServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
+        services.TryAddSingleton<IAiConfidenceScoreService, AiConfidenceScoreService>();
         services.TryAddSingleton<IAiFallbackService, AiFallbackService>();
         return services;
     }
@@ -404,6 +422,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddEndpointHealthScoringServices(this IServiceCollection services)
     {
         services.TryAddSingleton<IEndpointHealthScoringService, EndpointHealthScoringService>();
+        services.TryAddSingleton<IAiConfidenceScoreService, AiConfidenceScoreService>();
         services.TryAddSingleton<IAiFallbackService, AiFallbackService>();
         return services;
     }

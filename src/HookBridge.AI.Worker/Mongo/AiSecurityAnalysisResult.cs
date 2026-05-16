@@ -35,6 +35,8 @@ public sealed class AiSecurityAnalysisResult
     [BsonElement("detectedSecuritySignals")] public List<AiSecuritySignalDto> DetectedSecuritySignals { get; set; } = [];
     [BsonElement("suggestedAction")] public string SuggestedAction { get; set; } = AiSecuritySuggestedAction.None.ToString();
     [BsonElement("confidenceScore")] public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")] public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")] public string ConfidenceExplanation { get; set; } = string.Empty;
     [BsonElement("generatedAtUtc")][BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime GeneratedAtUtc { get; set; }
     [BsonElement("model")] public string Model { get; set; } = string.Empty;
     [BsonElement("provider")] public string Provider { get; set; } = string.Empty;
@@ -94,6 +96,8 @@ public sealed class AiSecurityAnalysisResult
             DetectedSecuritySignals = response.DetectedSecuritySignals.ToList(),
             SuggestedAction = response.SuggestedAction.ToString(),
             ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
             GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc, DateTimeKind.Utc),
             Model = response.Model,
             Provider = response.Provider,

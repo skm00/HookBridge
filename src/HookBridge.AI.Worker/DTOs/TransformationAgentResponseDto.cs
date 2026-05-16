@@ -17,6 +17,8 @@ public sealed class TransformationAgentResponseDto : IValidatableObject
     public string GeneratedTransformationCode { get; set; } = string.Empty;
     public List<TransformationAgentReasonCode> ReasonCodes { get; set; } = [];
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
     public bool Fallback { get; set; }
     public string PromptName { get; set; } = string.Empty;

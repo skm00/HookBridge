@@ -46,6 +46,15 @@ public sealed class CustomerEndpointRiskScoreResult
     [BsonElement("riskFactors")]
     public List<CustomerEndpointRiskFactorDto> RiskFactors { get; set; } = [];
 
+    [BsonElement("confidenceScore")]
+    public double ConfidenceScore { get; set; }
+
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
+
     [BsonElement("calculatedAtUtc")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CalculatedAtUtc { get; set; }
@@ -81,6 +90,9 @@ public sealed class CustomerEndpointRiskScoreResult
             Summary = response.Summary,
             Recommendation = response.Recommendation,
             RiskFactors = response.RiskFactors.ToList(),
+            ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
             CalculatedAtUtc = DateTime.SpecifyKind(response.CalculatedAtUtc, DateTimeKind.Utc),
             CreatedAtUtc = DateTime.UtcNow
         };

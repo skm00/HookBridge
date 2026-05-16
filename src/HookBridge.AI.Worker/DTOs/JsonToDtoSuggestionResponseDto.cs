@@ -11,6 +11,8 @@ public sealed class JsonToDtoSuggestionResponseDto
     public string Summary { get; set; } = string.Empty;
     public IReadOnlyList<string> ValidationNotes { get; set; } = Array.Empty<string>();
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public string RiskLevel { get; set; } = "Unknown";
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
     public string Model { get; set; } = string.Empty;

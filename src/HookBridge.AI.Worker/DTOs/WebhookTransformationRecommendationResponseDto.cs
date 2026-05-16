@@ -11,6 +11,8 @@ public sealed class WebhookTransformationRecommendationResponseDto
     public IReadOnlyList<string> TransformationNotes { get; set; } = Array.Empty<string>();
     public string GeneratedTransformationCode { get; set; } = string.Empty;
     public double ConfidenceScore { get; set; }
+    public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
+    public string ConfidenceExplanation { get; set; } = string.Empty;
     public string RiskLevel { get; set; } = "Unknown";
     public DateTime GeneratedAtUtc { get; set; }
     public string Model { get; set; } = string.Empty;

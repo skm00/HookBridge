@@ -42,6 +42,10 @@ public sealed class JsonToDtoSuggestionResult
 
     [BsonElement("confidenceScore")]
     public double ConfidenceScore { get; set; }
+    [BsonElement("confidenceLevel")]
+    public string ConfidenceLevel { get; set; } = "Unknown";
+    [BsonElement("confidenceExplanation")]
+    public string ConfidenceExplanation { get; set; } = string.Empty;
 
     [BsonElement("riskLevel")]
     public string RiskLevel { get; set; } = "Unknown";
@@ -99,6 +103,8 @@ public sealed class JsonToDtoSuggestionResult
             Summary = response.Summary,
             ValidationNotes = response.ValidationNotes.ToList(),
             ConfidenceScore = response.ConfidenceScore,
+            ConfidenceLevel = response.ConfidenceLevel.ToString(),
+            ConfidenceExplanation = response.ConfidenceExplanation,
             RiskLevel = response.RiskLevel,
             GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc, DateTimeKind.Utc),
             Model = response.Model,
