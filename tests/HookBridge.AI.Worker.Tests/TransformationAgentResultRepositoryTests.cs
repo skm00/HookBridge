@@ -51,6 +51,84 @@ public sealed class TransformationAgentResultRepositoryTests
         collection.Verify(mongoCollection => mongoCollection.FindAsync(It.IsAny<FilterDefinition<TransformationAgentResult>>(), It.IsAny<FindOptions<TransformationAgentResult, TransformationAgentResult>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+
+
+    [Fact]
+    public async Task GetByCorrelationIdAndCustomerIdAndRecent_QueryMongoCollection()
+    {
+        var collection = CreateCollectionReturning(CreateResult());
+        var repository = CreateRepository(collection.Object);
+
+        (await repository.GetByCorrelationIdAsync("corr-1")).Should().ContainSingle();
+        (await repository.GetByCustomerIdAsync("cust-1")).Should().ContainSingle();
+        (await repository.GetRecentAsync(5)).Should().ContainSingle();
+
+        collection.Verify(mongoCollection => mongoCollection.FindAsync(It.IsAny<FilterDefinition<TransformationAgentResult>>(), It.IsAny<FindOptions<TransformationAgentResult, TransformationAgentResult>>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task GetRecentAsync_WithNonPositiveLimit_ReturnsEmptyWithoutQueryingMongo()
+    {
+        var collection = new Mock<IMongoCollection<TransformationAgentResult>>();
+        var repository = CreateRepository(collection.Object);
+
+        var results = await repository.GetRecentAsync(0);
+
+        results.Should().BeEmpty();
+        collection.Verify(mongoCollection => mongoCollection.FindAsync(It.IsAny<FilterDefinition<TransformationAgentResult>>(), It.IsAny<FindOptions<TransformationAgentResult, TransformationAgentResult>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public void FromResponse_MapsRequestAndResponseMetadata()
+    {
+        var request = new TransformationAgentRequestDto
+        {
+            EventId = "evt-1",
+            CorrelationId = "corr-1",
+            CustomerId = "cust-1",
+            CustomerIdType = "Tenant",
+            SubscriptionId = "sub-1",
+            EndpointId = "endpoint-1",
+            Environment = "qa",
+            EventType = "OrderCreated",
+            Source = "Shopify",
+            SourcePayload = new { id = "1" },
+            TargetSamplePayload = new { id = "string" },
+            ReceivedAtUtc = DateTime.UtcNow
+        };
+        var response = new TransformationAgentResponseDto
+        {
+            EventId = request.EventId,
+            CorrelationId = request.CorrelationId,
+            TransformationDecision = TransformationAgentDecision.MappingReady,
+            RiskLevel = "Low",
+            RequiresApproval = true,
+            Summary = "summary",
+            Recommendation = "recommendation",
+            RecommendedMappings = [new WebhookFieldMappingRecommendationDto { SourceJsonPath = "$.id", TargetJsonPath = "$.id" }],
+            MissingTargetFields = ["$.missing"],
+            UnmappedSourceFields = ["$.extra"],
+            GeneratedTransformationCode = "code",
+            ReasonCodes = [TransformationAgentReasonCode.DirectMappingAvailable],
+            ConfidenceScore = 0.9,
+            GeneratedAtUtc = DateTime.UtcNow,
+            Fallback = true,
+            PromptName = "prompt",
+            PromptVersion = "v1.0.0",
+            PromptHash = "sha256:abc"
+        };
+
+        var result = TransformationAgentResult.FromResponse(response, request);
+
+        result.CustomerId.Should().Be("cust-1");
+        result.Source.Should().Be("Shopify");
+        result.RequiresApproval.Should().BeTrue();
+        result.RecommendedMappings.Should().ContainSingle();
+        result.MissingTargetFields.Should().Contain("$.missing");
+        result.UnmappedSourceFields.Should().Contain("$.extra");
+        result.PromptHash.Should().Be("sha256:abc");
+    }
+
     [Fact]
     public void CreateTransformationAgentResultIndexModels_ReturnsRequiredIndexes()
     {
@@ -78,15 +156,19 @@ public sealed class TransformationAgentResultRepositoryTests
 
     private static Mock<IMongoCollection<TransformationAgentResult>> CreateCollectionReturning(TransformationAgentResult result)
     {
+        var collection = new Mock<IMongoCollection<TransformationAgentResult>>();
+        collection.Setup(mongoCollection => mongoCollection.FindAsync(It.IsAny<FilterDefinition<TransformationAgentResult>>(), It.IsAny<FindOptions<TransformationAgentResult, TransformationAgentResult>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => CreateCursor(result).Object);
+        return collection;
+    }
+
+    private static Mock<IAsyncCursor<TransformationAgentResult>> CreateCursor(TransformationAgentResult result)
+    {
         var cursor = new Mock<IAsyncCursor<TransformationAgentResult>>();
         cursor.SetupSequence(mongoCursor => mongoCursor.MoveNext(It.IsAny<CancellationToken>())).Returns(true).Returns(false);
         cursor.SetupSequence(mongoCursor => mongoCursor.MoveNextAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true).ReturnsAsync(false);
         cursor.Setup(mongoCursor => mongoCursor.Current).Returns(new[] { result });
-
-        var collection = new Mock<IMongoCollection<TransformationAgentResult>>();
-        collection.Setup(mongoCollection => mongoCollection.FindAsync(It.IsAny<FilterDefinition<TransformationAgentResult>>(), It.IsAny<FindOptions<TransformationAgentResult, TransformationAgentResult>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(cursor.Object);
-        return collection;
+        return cursor;
     }
 
     private static TransformationAgentResult CreateResult() => new()

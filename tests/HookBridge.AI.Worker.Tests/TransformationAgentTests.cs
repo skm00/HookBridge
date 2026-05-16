@@ -129,6 +129,106 @@ public sealed class TransformationAgentTests
         response.PromptHash.Should().Be("sha256:abc");
     }
 
+
+
+    [Fact]
+    public async Task TargetSchemaProperties_AreUsedWhenSamplePayloadIsMissing()
+    {
+        var request = CreateRequest("""{"id":"1","status":"created"}""", """{}""");
+        request.TargetSamplePayload = null;
+        request.TargetSchema = """{"properties":{"id":{"type":"string"},"status":{"type":"string"}}}""";
+
+        var response = await CreateFallbackAgent().AnalyzeAsync(request);
+
+        response.TransformationDecision.Should().Be(TransformationAgentDecision.MappingReady);
+        response.MissingTargetFields.Should().BeEmpty();
+        response.RecommendedMappings.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task NestedArrayPayload_FallbackMapsNestedFields()
+    {
+        var response = await CreateFallbackAgent().AnalyzeAsync(CreateRequest(
+            """{"items":[{"order_id":"ORD-1"}]}""",
+            """{"items":[{"orderId":"string"}]}"""));
+
+        response.RecommendedMappings.Should().Contain(mapping => mapping.SourceJsonPath == "$.items[].order_id" && mapping.TargetJsonPath == "$.items[].orderId");
+        response.TransformationDecision.Should().Be(TransformationAgentDecision.MappingReady);
+    }
+
+    [Fact]
+    public async Task AiUnavailable_UsesDeterministicFallback()
+    {
+        var response = await CreateAiAgent(null).AnalyzeAsync(CreateRequest("""{"id":"1"}""", """{"id":"string"}"""));
+
+        response.Fallback.Should().BeTrue();
+        response.TransformationDecision.Should().Be(TransformationAgentDecision.MappingReady);
+    }
+
+    [Fact]
+    public async Task AiRecommendation_TypeAndDateConversionsPopulateReasonCodesAndSecretCodeIsSanitized()
+    {
+        var agent = CreateAiAgent(new WebhookTransformationRecommendationResponseDto
+        {
+            ConfidenceScore = 0.9,
+            RiskLevel = "not-a-risk",
+            RecommendedMappings =
+            [
+                Mapping(WebhookTransformationType.TypeConversion),
+                Mapping(WebhookTransformationType.DateFormat, sourceFieldName: "created_at", targetFieldName: "createdAtUtc")
+            ],
+            GeneratedTransformationCode = "var secret = \"super-secret\"; var token=\"abc123\";"
+        });
+
+        var response = await agent.AnalyzeAsync(CreateRequest("""{"id":"1","created_at":"2026-05-14T10:30:00Z"}""", """{"id":"string","createdAtUtc":"datetime"}"""));
+
+        response.RiskLevel.Should().Be("Unknown");
+        response.GeneratedTransformationCode.Should().Contain("secret=\"***\"");
+        response.GeneratedTransformationCode.Should().Contain("token=\"***\"");
+        response.ReasonCodes.Should().Contain(TransformationAgentReasonCode.TypeConversionRequired);
+        response.ReasonCodes.Should().Contain(TransformationAgentReasonCode.DateFormatConversionRequired);
+        response.RequiresApproval.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task MissingEventId_ThrowsValidationException()
+    {
+        var request = CreateRequest();
+        request.EventId = string.Empty;
+
+        var act = async () => await CreateFallbackAgent().AnalyzeAsync(request);
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("EventId is required.");
+    }
+
+    [Fact]
+    public async Task MissingTarget_ReturnsInvalidTargetSchema()
+    {
+        var request = CreateRequest();
+        request.TargetSamplePayload = null;
+        request.TargetSchema = null;
+
+        var response = await CreateFallbackAgent().AnalyzeAsync(request);
+
+        response.TransformationDecision.Should().Be(TransformationAgentDecision.InvalidTargetSchema);
+        response.RequiresApproval.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ResponseValidation_RejectsNonUtcGeneratedAtAndOutOfRangeConfidence()
+    {
+        var response = new TransformationAgentResponseDto
+        {
+            GeneratedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Local),
+            ConfidenceScore = 1.1
+        };
+
+        var results = response.Validate(new ValidationContext(response)).ToList();
+
+        results.Should().Contain(result => result.ErrorMessage == "GeneratedAtUtc must be UTC.");
+        results.Should().Contain(result => result.ErrorMessage == "ConfidenceScore must be between 0 and 1.");
+    }
+
     [Fact]
     public void RequestValidation_RejectsNonUtcReceivedAt()
     {
@@ -152,7 +252,15 @@ public sealed class TransformationAgentTests
         ReceivedAtUtc = DateTime.UtcNow
     };
 
-    private static WebhookFieldMappingRecommendationDto Mapping() => new() { SourceJsonPath = "$.id", TargetJsonPath = "$.id", SourceFieldName = "id", TargetFieldName = "id", TransformationType = WebhookTransformationType.DirectMap, ConfidenceScore = 0.9 };
+    private static WebhookFieldMappingRecommendationDto Mapping(WebhookTransformationType transformationType = WebhookTransformationType.DirectMap, string sourceFieldName = "id", string targetFieldName = "id") => new()
+    {
+        SourceJsonPath = "$." + sourceFieldName,
+        TargetJsonPath = "$." + targetFieldName,
+        SourceFieldName = sourceFieldName,
+        TargetFieldName = targetFieldName,
+        TransformationType = transformationType,
+        ConfidenceScore = 0.9
+    };
 
     private sealed class StubRecommendationAgent : IWebhookTransformationRecommendationAgent
     {
