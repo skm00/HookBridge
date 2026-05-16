@@ -1813,3 +1813,82 @@ The Observability Agent is a deterministic operational support agent that evalua
 The agent calculates `ObservabilityStatus` using configurable thresholds in `ObservabilityAgentOptions`: high Kafka lag degrades service health, very high Kafka lag is critical, failed MongoDB health checks are critical, Mongo latency moves from degraded to unhealthy, delivery failure rates above 10% and 30% map to degraded and unhealthy, and DLQ, anomaly, security, error-log, and retry-volume signals add deterministic support recommendations. Risk mapping is `Healthy => Low`, `Degraded => Medium`, `Unhealthy => High`, `Critical => Critical`, and `Unknown => Unknown`.
 
 Critical observability results require approval by default. The worker creates an approval record when `RequiresApproval` is true and publishes an anomaly event when the status is `Unhealthy` or `Critical`. Logs contain structured metadata such as event id, correlation id, status, risk level, and signal counts only; full payloads, headers, secrets, tokens, and connection strings are not logged.
+
+## Human Approval Workflow
+
+HookBridge treats AI output as advisory. AI agents and the multi-agent orchestrator may recommend retries, security actions, transformations, observability actions, or generated code, but they must not apply production actions directly. Human approval workflow records are stored in the existing `ai_recommendation_approvals` collection so approval state is centralized and auditable.
+
+### Approval statuses
+
+- `PendingReview` - a recommendation is waiting for a human reviewer.
+- `Approved` - a reviewer approved the recommendation and it may be applied by an authorized human/operator process.
+- `Rejected` - a reviewer rejected the recommendation.
+- `NeedsMoreInfo` - a reviewer needs clarification before approving or rejecting.
+- `Applied` - an approved recommendation was marked as applied.
+- `Expired` - a pending or approved recommendation expired before completion.
+
+### Valid transitions
+
+- `PendingReview` => `Approved`
+- `PendingReview` => `Rejected`
+- `PendingReview` => `NeedsMoreInfo`
+- `NeedsMoreInfo` => `Approved`
+- `NeedsMoreInfo` => `Rejected`
+- `Approved` => `Applied`
+- `PendingReview` => `Expired`
+- `Approved` => `Expired`
+
+Rejected, applied, and expired records are terminal. `PendingReview` and `NeedsMoreInfo` cannot be applied directly; only `Approved` records return `CanApply = true`.
+
+### Safety rules
+
+Human approval is required for high-risk and critical-risk recommendations, security recommendations, transformation recommendations, and generated-code recommendations. Low-risk retry recommendations may skip review only when `HumanApprovalWorkflow:AllowLowRiskAutoApproval` is explicitly enabled. The default is safe: approval workflow is enabled, high/critical/security/transformation approvals are required, low-risk auto-approval is disabled, approvals expire after 72 hours, and applying is allowed only after approval.
+
+### API endpoints
+
+- `POST /api/ai-approval-workflow` - create a workflow approval record.
+- `GET /api/ai-approval-workflow/{approvalId}` - read one approval record.
+- `GET /api/ai-approval-workflow/pending` - list pending approvals.
+- `PUT /api/ai-approval-workflow/{approvalId}/review` - approve, reject, or request more information.
+- `PUT /api/ai-approval-workflow/{approvalId}/apply` - mark an approved recommendation as applied.
+- `PUT /api/ai-approval-workflow/{approvalId}/expire` - expire a pending or approved recommendation.
+
+### Example create request
+
+```json
+{
+  "recommendationId": "rec_1001",
+  "recommendationType": "RetryRecommendation",
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "environment": "qa",
+  "riskLevel": "High",
+  "suggestedAction": "RetryWithBackoff",
+  "summary": "Endpoint is failing due to HTTP 429 rate limiting.",
+  "recommendation": "Retry with exponential backoff and reduce delivery concurrency.",
+  "requestedBy": "HookBridge.AI.Worker",
+  "createdAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example review request
+
+```json
+{
+  "approvalStatus": "Approved",
+  "reviewedBy": "admin@hookbridge.local",
+  "reviewComment": "Approved for controlled retry with exponential backoff."
+}
+```
+
+### Example apply request
+
+```json
+{
+  "appliedBy": "admin@hookbridge.local",
+  "applyComment": "Applied after approval."
+}
+```

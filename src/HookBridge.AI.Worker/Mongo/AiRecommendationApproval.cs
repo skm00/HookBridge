@@ -25,6 +25,10 @@ public sealed class AiRecommendationApproval
     [BsonIgnoreIfNull]
     public string? CustomerId { get; set; }
 
+    [BsonElement("customerIdType")]
+    [BsonIgnoreIfNull]
+    public string? CustomerIdType { get; set; }
+
     [BsonElement("subscriptionId")]
     [BsonIgnoreIfNull]
     public string? SubscriptionId { get; set; }
@@ -32,6 +36,10 @@ public sealed class AiRecommendationApproval
     [BsonElement("endpointId")]
     [BsonIgnoreIfNull]
     public string? EndpointId { get; set; }
+
+    [BsonElement("environment")]
+    [BsonIgnoreIfNull]
+    public string? Environment { get; set; }
 
     [BsonElement("recommendationType")]
     [BsonRepresentation(BsonType.String)]
@@ -54,6 +62,9 @@ public sealed class AiRecommendationApproval
     [BsonElement("recommendation")]
     public string Recommendation { get; set; } = string.Empty;
 
+    [BsonElement("requiresApproval")]
+    public bool RequiresApproval { get; set; } = true;
+
     [BsonElement("requestedBy")]
     [BsonIgnoreIfNull]
     public string? RequestedBy { get; set; }
@@ -65,6 +76,14 @@ public sealed class AiRecommendationApproval
     [BsonElement("reviewComment")]
     [BsonIgnoreIfNull]
     public string? ReviewComment { get; set; }
+
+    [BsonElement("appliedBy")]
+    [BsonIgnoreIfNull]
+    public string? AppliedBy { get; set; }
+
+    [BsonElement("applyComment")]
+    [BsonIgnoreIfNull]
+    public string? ApplyComment { get; set; }
 
     [BsonElement("createdAtUtc")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]

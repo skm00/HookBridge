@@ -394,6 +394,7 @@ public sealed class AiRecommendationApprovalServiceTests
             RequestedBy = "worker",
             ReviewedBy = "admin",
             ReviewComment = "approved",
+            RequiresApproval = false,
             CreatedAtUtc = reviewedAt,
             ReviewedAtUtc = reviewedAt,
             AppliedAtUtc = appliedAt,

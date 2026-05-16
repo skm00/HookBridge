@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using HookBridge.AI.Worker.Approval;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
@@ -30,6 +31,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
     private readonly IAiLogSummarizationService _logSummarizationService;
     private readonly ITransformationAgent _transformationAgent;
     private readonly IObservabilityAgent _observabilityAgent;
+    private readonly IHumanApprovalWorkflowService _approvalWorkflowService;
     private readonly ILogger<AiAgentOrchestrator> _logger;
     private readonly AiAgentOrchestrationOptions _options;
 
@@ -44,6 +46,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         IAiLogSummarizationService logSummarizationService,
         ITransformationAgent transformationAgent,
         IObservabilityAgent observabilityAgent,
+        IHumanApprovalWorkflowService approvalWorkflowService,
         IOptions<AiAgentOrchestrationOptions> options,
         ILogger<AiAgentOrchestrator> logger)
     {
@@ -57,6 +60,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         _logSummarizationService = logSummarizationService;
         _transformationAgent = transformationAgent;
         _observabilityAgent = observabilityAgent;
+        _approvalWorkflowService = approvalWorkflowService;
         _options = options.Value;
         _logger = logger;
     }
@@ -89,6 +93,30 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
             RequiresApproval = requiresApproval,
             GeneratedAtUtc = DateTime.UtcNow
         };
+
+        if (response.RequiresApproval)
+        {
+            var approval = await _approvalWorkflowService.CreateAsync(new HumanApprovalWorkflowCreateRequestDto
+            {
+                RecommendationId = $"orchestrator:{request.EventId}:{response.GeneratedAtUtc:O}",
+                RecommendationType = AiRecommendationType.AnomalyRecommendation,
+                EventId = request.EventId,
+                CorrelationId = request.CorrelationId,
+                CustomerId = request.CustomerId,
+                CustomerIdType = request.CustomerIdType,
+                SubscriptionId = request.SubscriptionId,
+                EndpointId = request.EndpointId,
+                Environment = request.Environment,
+                RiskLevel = response.OverallRiskLevel.ToString(),
+                SuggestedAction = response.RecommendedAction.ToString(),
+                Summary = response.OverallSummary,
+                Recommendation = "Review the orchestration result and approve before any production action is applied.",
+                RequestedBy = "HookBridge.AI.Orchestrator",
+                CreatedAtUtc = response.GeneratedAtUtc
+            }, cancellationToken);
+            response.ApprovalId = approval.ApprovalId;
+            _logger.LogInformation("Approval required by agent/orchestrator. EventId: {EventId}, CorrelationId: {CorrelationId}, ApprovalId: {ApprovalId}", request.EventId, request.CorrelationId, response.ApprovalId);
+        }
 
         _logger.LogInformation("AI agent orchestration completed. EventId: {EventId}, CorrelationId: {CorrelationId}, OverallRiskLevel: {OverallRiskLevel}, RecommendedAction: {RecommendedAction}, RequiresApproval: {RequiresApproval}, AgentCount: {AgentCount}", request.EventId, request.CorrelationId, response.OverallRiskLevel, response.RecommendedAction, response.RequiresApproval, response.AgentResults.Count);
         return response;

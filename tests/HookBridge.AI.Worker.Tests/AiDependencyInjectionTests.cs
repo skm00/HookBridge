@@ -1,4 +1,5 @@
 using FluentAssertions;
+using HookBridge.AI.Worker.Approval;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
@@ -49,6 +50,7 @@ public sealed class AiDependencyInjectionTests
         services.AddWebhookFailureAnomalyDetectionServices();
         services.AddAiSecurityAnalysisServices();
         services.AddWebhookDuplicateReplayDetectionServices();
+        services.TryAddSingleton<IHumanApprovalWorkflowService, NoopHumanApprovalWorkflowService>();
         services.AddAiAgentOrchestrationServices(BuildOrchestrationConfiguration());
         services.AddEndpointHealthScoringServices();
         services.AddCustomerEndpointRiskScoringServices();
@@ -112,6 +114,7 @@ public sealed class AiDependencyInjectionTests
         services.AddWebhookFailureAnomalyDetectionServices();
         services.AddAiSecurityAnalysisServices();
         services.AddWebhookDuplicateReplayDetectionServices();
+        services.TryAddSingleton<IHumanApprovalWorkflowService, NoopHumanApprovalWorkflowService>();
         services.AddAiAgentOrchestrationServices(BuildOrchestrationConfiguration());
 
         using var provider = services.BuildServiceProvider(validateScopes: true);
@@ -266,4 +269,16 @@ public sealed class AiDependencyInjectionTests
         public Task<LlmResponseResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
             => Task.FromResult(LlmResponseResult.Failure(AiFallbackReason.AiDisabled, "AI is disabled.", 0));
     }
+
+    private sealed class NoopHumanApprovalWorkflowService : IHumanApprovalWorkflowService
+    {
+        public Task<HumanApprovalWorkflowResponseDto> CreateAsync(HumanApprovalWorkflowCreateRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult(new HumanApprovalWorkflowResponseDto { ApprovalId = "approval_1", RecommendationId = request.RecommendationId, ApprovalStatus = AiRecommendationApprovalStatus.PendingReview, RequiresApproval = true });
+        public Task<HumanApprovalWorkflowResponseDto?> GetByIdAsync(string approvalId, CancellationToken cancellationToken = default) => Task.FromResult<HumanApprovalWorkflowResponseDto?>(null);
+        public Task<IReadOnlyList<HumanApprovalWorkflowResponseDto>> GetPendingAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<HumanApprovalWorkflowResponseDto>>(Array.Empty<HumanApprovalWorkflowResponseDto>());
+        public Task<HumanApprovalWorkflowResponseDto?> ReviewAsync(string approvalId, HumanApprovalWorkflowReviewRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<HumanApprovalWorkflowResponseDto?>(null);
+        public Task<HumanApprovalWorkflowResponseDto?> ApplyAsync(string approvalId, HumanApprovalWorkflowApplyRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<HumanApprovalWorkflowResponseDto?>(null);
+        public Task<HumanApprovalWorkflowResponseDto?> ExpireAsync(string approvalId, CancellationToken cancellationToken = default) => Task.FromResult<HumanApprovalWorkflowResponseDto?>(null);
+    }
+
 }

@@ -141,7 +141,14 @@ public static class ServiceCollectionExtensions
             .Validate(options => options.ApprovalExpiryHours > 0, "AiRecommendationApproval:ApprovalExpiryHours must be greater than 0.")
             .ValidateOnStart();
 
+        services
+            .AddOptions<HumanApprovalWorkflowOptions>()
+            .Bind(configuration.GetSection(HumanApprovalWorkflowOptions.SectionName))
+            .Validate(options => options.ApprovalExpiryHours > 0, "HumanApprovalWorkflow:ApprovalExpiryHours must be greater than 0.")
+            .ValidateOnStart();
+
         services.TryAddSingleton<IAiRecommendationApprovalService, AiRecommendationApprovalService>();
+        services.TryAddSingleton<IHumanApprovalWorkflowService, HumanApprovalWorkflowService>();
 
         return services;
     }
