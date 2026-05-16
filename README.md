@@ -1476,3 +1476,93 @@ See [Multi-Agent AI Orchestration](docs/multi-agent-orchestration.md) for config
 ### Retry Agent
 
 HookBridge includes a deterministic Retry Agent for failed webhook deliveries. It consumes retry-agent events on `hookbridge.ai.retry-agent`, evaluates retry count, HTTP status, endpoint risk, and safety signals, persists results in MongoDB collection `retry_agent_results`, and creates approval records for high-risk or manual-review retry actions. The agent uses exponential backoff (`min(BaseDelaySeconds * 2^RetryCount, MaxDelaySeconds)`) for rate limits, timeouts, and transient server errors, and it never auto-retries authentication, authorization, critical-risk, replay, or max-retry-exhausted failures.
+
+### Observability Agent
+
+HookBridge includes a deterministic Observability Agent for support and debugging workflows. It analyzes operational telemetry for Kafka consumer lag, MongoDB health and latency, webhook delivery failures, retry volume, dead-letter records, anomaly counts, security findings, and recent error volume. The agent produces an operational summary, an `ObservabilityStatus`, a mapped `AiRiskLevel`, safe recommendations, suggested support actions, confidence, and approval metadata. It never auto-remediates production systems.
+
+- Kafka topic: `hookbridge.ai.observability-agent`
+- MongoDB collection: `observability_agent_results`
+- Worker behavior: consumes observability events, runs `IObservabilityAgent`, stores the result, creates an approval record when `RequiresApproval` is true, and publishes an anomaly event to `hookbridge.ai.anomalies` when status is `Unhealthy` or `Critical`.
+- Orchestration: `AiAgentOrchestrator` can call the Observability Agent and maps duration, risk level, status/decision, suggested action, confidence score, fallback state, and approval requirement into `AiAgentResultDto`.
+
+Status calculation rules are deterministic and configurable with `ObservabilityAgentOptions`:
+
+| Signal | Rule | Status impact |
+| --- | --- | --- |
+| Kafka lag | `KafkaConsumerLag > 1000` | `Degraded` |
+| Kafka lag | `KafkaConsumerLag > 10000` | `Critical` |
+| Mongo health | `MongoIsHealthy = false` | `Critical` |
+| Mongo latency | `MongoLatencyMs > 1000` | `Degraded` |
+| Mongo latency | `MongoLatencyMs > 5000` | `Unhealthy` |
+| Failure rate | `FailedDeliveries / TotalDeliveries > 10%` | `Degraded` |
+| Failure rate | `FailedDeliveries / TotalDeliveries > 30%` | `Unhealthy` |
+| Dead-letter records | `DeadLetterCount > 0` | `Degraded` |
+| Anomalies | `AnomalyCount > 0` | `Degraded` |
+| Security findings | `SecurityFindingCount > 0` | `Degraded`; `Unhealthy` at configured count |
+| Error logs | `ErrorLogCount > 0` | `Degraded`; `Critical` at configured count |
+| Retry volume | High retry-to-delivery ratio | `Degraded` |
+
+Risk mapping is: `Healthy => Low`, `Degraded => Medium`, `Unhealthy => High`, `Critical => Critical`, and `Unknown => Unknown`. Critical status requires approval by default. Recommendations remain safe and support-focused: check Kafka consumer health and scale workers, verify MongoDB connection/server/credentials, inspect indexes and query patterns, review endpoint failures and retry strategy, review DLQ records before replay, review security analysis results, and investigate recent errors by trace or correlation id.
+
+Example request:
+
+```json
+{
+  "eventId": "evt_obs_001",
+  "correlationId": "corr_obs_001",
+  "environment": "qa",
+  "serviceName": "HookBridge.AI.Worker",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "kafkaConsumerLag": 12000,
+  "kafkaTopic": "hookbridge.ai.analysis",
+  "kafkaConsumerGroupId": "hookbridge-ai-worker",
+  "mongoIsHealthy": true,
+  "mongoLatencyMs": 850,
+  "totalDeliveries": 1000,
+  "failedDeliveries": 180,
+  "retryCount": 300,
+  "deadLetterCount": 25,
+  "anomalyCount": 8,
+  "securityFindingCount": 2,
+  "errorLogCount": 12,
+  "warningLogCount": 40,
+  "evaluationWindowFromUtc": "2026-05-14T10:00:00Z",
+  "evaluationWindowToUtc": "2026-05-14T10:15:00Z",
+  "createdAtUtc": "2026-05-14T10:16:00Z"
+}
+```
+
+Example response:
+
+```json
+{
+  "eventId": "evt_obs_001",
+  "correlationId": "corr_obs_001",
+  "environment": "qa",
+  "serviceName": "HookBridge.AI.Worker",
+  "observabilityStatus": "Critical",
+  "riskLevel": "Critical",
+  "summary": "HookBridge.AI.Worker is Critical due to KafkaConsumerLag, FailureRate, DeadLetterCount, AnomalyCount.",
+  "recommendation": "Check Kafka consumer health and scale workers. Review endpoint failures and retry strategy. Review dead-letter queue records before replay.",
+  "signals": [
+    {
+      "signalName": "KafkaConsumerLag",
+      "severity": "Critical",
+      "value": "12000",
+      "description": "Kafka consumer lag is above the critical threshold.",
+      "recommendation": "Check Kafka consumer health and scale workers."
+    }
+  ],
+  "suggestedActions": ["Monitor", "CheckKafkaLag", "ReviewDeadLetterQueue", "InvestigateLogs", "RequireManualReview"],
+  "confidenceScore": 0.9,
+  "requiresApproval": true,
+  "generatedAtUtc": "2026-05-14T10:16:30Z",
+  "fallback": false,
+  "promptName": "observability-agent",
+  "promptVersion": "v1.0.0",
+  "promptHash": "..."
+}
+```

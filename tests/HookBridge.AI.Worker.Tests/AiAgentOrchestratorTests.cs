@@ -6,6 +6,7 @@ using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.Orchestration;
+using HookBridge.AI.Worker.Services.ObservabilityAgent;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
 using HookBridge.AI.Worker.Services.RetryAgent;
@@ -307,6 +308,7 @@ public sealed class AiAgentOrchestratorTests
         public Mock<IWebhookFailureAnomalyDetectionService> Anomaly { get; } = new();
         public Mock<IAiLogSummarizationService> LogSummary { get; } = new();
         public Mock<ITransformationAgent> Transformation { get; } = new();
+        public Mock<IObservabilityAgent> Observability { get; } = new();
 
         public Fixture()
         {
@@ -326,6 +328,8 @@ public sealed class AiAgentOrchestratorTests
                 .Returns(new WebhookFailureAnomalyDetectionResponseDto { CustomerId = "cust-1", RiskLevel = AiRiskLevel.Low, Summary = "No anomaly detected.", Recommendation = "Monitor", AnomalyScore = 30 });
             Transformation.Setup(agent => agent.AnalyzeAsync(It.IsAny<TransformationAgentRequestDto>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new TransformationAgentResponseDto { EventId = "evt-1", Summary = "Transformation mapping is ready.", RiskLevel = "Low", TransformationDecision = TransformationAgentDecision.MappingReady, ConfidenceScore = 0.9 });
+            Observability.Setup(agent => agent.AnalyzeAsync(It.IsAny<ObservabilityAgentRequestDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ObservabilityAgentResponseDto { EventId = "evt-1", Summary = "Operational telemetry is healthy.", RiskLevel = AiRiskLevel.Low, ObservabilityStatus = ObservabilityStatus.Healthy, SuggestedActions = [ObservabilitySuggestedAction.Monitor], ConfidenceScore = 0.85 });
         }
 
         public AiAgentOrchestrator Create(AiAgentOrchestrationOptions options) => new(
@@ -338,6 +342,7 @@ public sealed class AiAgentOrchestratorTests
             Anomaly.Object,
             LogSummary.Object,
             Transformation.Object,
+            Observability.Object,
             Options.Create(options),
             NullLogger<AiAgentOrchestrator>.Instance);
     }

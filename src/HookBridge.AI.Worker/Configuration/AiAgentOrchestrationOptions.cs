@@ -16,6 +16,7 @@ public sealed class AiAgentOrchestrationOptions
     public bool EnableAnomalyAgent { get; set; } = true;
     public bool EnableLogSummaryAgent { get; set; } = false;
     public bool EnableTransformationAgent { get; set; } = false;
+    public bool EnableObservabilityAgent { get; set; } = false;
     public int AgentTimeoutSeconds { get; set; } = 30;
     public bool RequireApprovalForHighRisk { get; set; } = true;
     public bool RequireApprovalForCriticalRisk { get; set; } = true;

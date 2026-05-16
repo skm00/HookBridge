@@ -18,6 +18,8 @@ using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using HookBridge.AI.Worker.Services.TransformationAgent;
+using HookBridge.AI.Worker.Services.ObservabilityAgent;
+using ObservabilityAgentService = HookBridge.AI.Worker.Services.ObservabilityAgent.ObservabilityAgent;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +44,7 @@ public sealed class AiDependencyInjectionTests
         services.AddPayloadSchemaDetectionServices();
         services.AddWebhookTransformationRecommendationServices();
         services.AddTransformationAgentServices(BuildTransformationAgentConfiguration());
+        services.AddObservabilityAgentServices(new ConfigurationBuilder().Build());
         services.AddCustomerEndpointRiskScoringServices();
         services.AddWebhookFailureAnomalyDetectionServices();
         services.AddAiSecurityAnalysisServices();
@@ -60,6 +63,7 @@ public sealed class AiDependencyInjectionTests
         provider.GetRequiredService<IAiRetryRecommendationService>().Should().BeOfType<AiRetryRecommendationService>();
         provider.GetRequiredService<IRetryAgent>().Should().BeOfType<RetryAgent>();
         provider.GetRequiredService<ITransformationAgent>().Should().BeOfType<TransformationAgent>();
+        provider.GetRequiredService<IObservabilityAgent>().Should().BeOfType<ObservabilityAgentService>();
         provider.GetRequiredService<IAiLogSummarizationService>().Should().BeOfType<AiLogSummarizationService>();
         services.Should().Contain(descriptor => descriptor.ServiceType == typeof(IAiAgentOrchestrator) && descriptor.ImplementationType == typeof(AiAgentOrchestrator));
         provider.GetRequiredService<IEndpointHealthScoringService>().Should().BeOfType<EndpointHealthScoringService>();
