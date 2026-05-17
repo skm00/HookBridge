@@ -227,6 +227,86 @@ public sealed class AiAgentOrchestratorTests
         response.RecommendedAction.Should().Be(AiOrchestrationRecommendedAction.RequireManualReview);
     }
 
+
+    [Fact]
+    public async Task BlockedAgentSafeModeDecision_PropagatesToTopLevelResponse()
+    {
+        var fixture = new Fixture();
+        fixture.RetryAgent.Setup(agent => agent.AnalyzeAsync(It.IsAny<RetryAgentRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RetryAgentResponseDto
+            {
+                EventId = "evt-1",
+                Summary = "Retry was blocked by safe mode.",
+                RiskLevel = AiRiskLevel.Medium.ToString(),
+                RetryDecision = RetryAgentDecision.RetryWithExponentialBackoff,
+                ConfidenceScore = 0.8,
+                SafeModeDecision = AiSafeModeDecision.Blocked,
+                SafeModeReason = "Production retry actions require approved human approval.",
+                IsActionAllowed = false,
+                RequiresApproval = false
+            });
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions
+        {
+            EnableSecurityAgent = false,
+            EnableDuplicateReplayAgent = false,
+            EnablePayloadSchemaAgent = false,
+            EnableEndpointRiskAgent = false,
+            EnableAnomalyAgent = false
+        });
+
+        var response = await orchestrator.OrchestrateAsync(CreateRequest());
+
+        response.SafeModeDecision.Should().Be(AiSafeModeDecision.Blocked);
+        response.SafeModeReason.Should().Be("Production retry actions require approved human approval.");
+        response.IsActionAllowed.Should().BeFalse();
+        response.AgentResults.Should().ContainSingle(result =>
+            result.AgentName == AiAgentName.RetryRecommendationAgent &&
+            result.SafeModeDecision == AiSafeModeDecision.Blocked &&
+            !result.IsActionAllowed);
+    }
+
+    [Fact]
+    public async Task AutoRemediationSafeModeRequiresApproval_PropagatesToTopLevelResponse()
+    {
+        var fixture = new Fixture();
+        fixture.AutoRemediation.Setup(service => service.RecommendAsync(It.IsAny<AutoRemediationRecommendationRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AutoRemediationRecommendationRequestDto request, CancellationToken _) => new AutoRemediationRecommendationResponseDto
+            {
+                EventId = request.EventId,
+                CorrelationId = request.CorrelationId,
+                RemediationType = AutoRemediationType.RetryTuning,
+                RecommendedAction = AutoRemediationRecommendedAction.RetryWithBackoff,
+                RiskLevel = request.RiskLevel ?? AiRiskLevel.Medium.ToString(),
+                ConfidenceScore = request.ConfidenceScore,
+                RequiresApproval = true,
+                CanAutoApply = false,
+                SafeModeDecision = AiSafeModeDecision.RequiresApproval,
+                SafeModeReason = "AI recommendation is advisory only.",
+                IsActionAllowed = false,
+                Summary = "Retry tuning recommendation.",
+                Recommendation = "Retry with backoff after approval.",
+                ReasonCodes = [AutoRemediationReasonCode.RateLimited],
+                GeneratedAtUtc = DateTime.UtcNow
+            });
+        var orchestrator = fixture.Create(new AiAgentOrchestrationOptions
+        {
+            EnableRetryAgent = false,
+            EnableSecurityAgent = false,
+            EnableDuplicateReplayAgent = false,
+            EnablePayloadSchemaAgent = false,
+            EnableEndpointRiskAgent = false,
+            EnableAnomalyAgent = false
+        });
+
+        var response = await orchestrator.OrchestrateAsync(CreateRequest());
+
+        response.SafeModeDecision.Should().Be(AiSafeModeDecision.RequiresApproval);
+        response.SafeModeReason.Should().Be("AI recommendation is advisory only.");
+        response.IsActionAllowed.Should().BeFalse();
+        response.RequiresApproval.Should().BeTrue();
+        response.ApprovalId.Should().Be("approval_1");
+    }
+
     [Fact]
     public async Task EmptyEventId_ThrowsValidationException()
     {
