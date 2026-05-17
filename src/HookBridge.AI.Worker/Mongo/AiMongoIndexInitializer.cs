@@ -18,12 +18,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly ISecurityAgentResultCollectionProvider? _securityAgentCollectionProvider;
     private readonly ITransformationAgentResultCollectionProvider? _transformationAgentCollectionProvider;
     private readonly IObservabilityAgentResultCollectionProvider? _observabilityAgentCollectionProvider;
+    private readonly IAutoRemediationRecommendationCollectionProvider? _autoRemediationCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -31,7 +32,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -40,7 +41,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -57,6 +58,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ISecurityAgentResultCollectionProvider? securityAgentCollectionProvider,
         ITransformationAgentResultCollectionProvider? transformationAgentCollectionProvider,
         IObservabilityAgentResultCollectionProvider? observabilityAgentCollectionProvider,
+        IAutoRemediationRecommendationCollectionProvider? autoRemediationCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -71,6 +73,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _securityAgentCollectionProvider = securityAgentCollectionProvider;
         _transformationAgentCollectionProvider = transformationAgentCollectionProvider;
         _observabilityAgentCollectionProvider = observabilityAgentCollectionProvider;
+        _autoRemediationCollectionProvider = autoRemediationCollectionProvider;
         _logger = logger;
     }
 
@@ -147,6 +150,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
             await observabilityAgentCollection.Indexes.CreateManyAsync(CreateObservabilityAgentResultIndexModels(), cancellationToken);
         }
 
+        if (_autoRemediationCollectionProvider is not null)
+        {
+            var autoRemediationCollection = _autoRemediationCollectionProvider.GetCollection();
+            await autoRemediationCollection.Indexes.CreateManyAsync(CreateAutoRemediationRecommendationIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -171,6 +180,25 @@ public sealed class AiMongoIndexInitializer : IHostedService
 
 
 
+
+
+    public static IReadOnlyList<CreateIndexModel<AutoRemediationRecommendationResult>> CreateAutoRemediationRecommendationIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.EventId), new CreateIndexOptions { Name = "idx_auto_remediation_results_event_id" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.CorrelationId), new CreateIndexOptions { Name = "idx_auto_remediation_results_correlation_id" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.CustomerId), new CreateIndexOptions { Name = "idx_auto_remediation_results_customer_id" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.SubscriptionId), new CreateIndexOptions { Name = "idx_auto_remediation_results_subscription_id" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.EndpointId), new CreateIndexOptions { Name = "idx_auto_remediation_results_endpoint_id" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.Environment), new CreateIndexOptions { Name = "idx_auto_remediation_results_environment" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.RemediationType), new CreateIndexOptions { Name = "idx_auto_remediation_results_remediation_type" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.RecommendedAction), new CreateIndexOptions { Name = "idx_auto_remediation_results_recommended_action" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_auto_remediation_results_risk_level" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Ascending(result => result.RequiresApproval), new CreateIndexOptions { Name = "idx_auto_remediation_results_requires_approval" }),
+            new CreateIndexModel<AutoRemediationRecommendationResult>(Builders<AutoRemediationRecommendationResult>.IndexKeys.Descending(result => result.GeneratedAtUtc), new CreateIndexOptions { Name = "idx_auto_remediation_results_generated_at_utc_desc" })
+        };
+    }
 
     public static IReadOnlyList<CreateIndexModel<ObservabilityAgentResult>> CreateObservabilityAgentResultIndexModels()
     {

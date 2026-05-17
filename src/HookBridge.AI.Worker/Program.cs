@@ -8,6 +8,7 @@ builder.Services.AddAiOptions(builder.Configuration);
 builder.Services.AddAiRecommendationApprovalServices(builder.Configuration);
 builder.Services.AddAiKafkaOptions(builder.Configuration);
 builder.Services.AddDuplicateReplayDetectionOptions(builder.Configuration);
+builder.Services.AddAutoRemediationRecommendationServices(builder.Configuration);
 builder.Services.AddAiAgentOrchestrationServices(builder.Configuration);
 builder.Services.AddSecurityAgentServices(builder.Configuration);
 builder.Services.AddTransformationAgentServices(builder.Configuration);
@@ -45,6 +46,7 @@ builder.Services.AddHostedService<RetryAgentWorker>();
 builder.Services.AddHostedService<SecurityAgentWorker>();
 builder.Services.AddHostedService<TransformationAgentWorker>();
 builder.Services.AddHostedService<ObservabilityAgentWorker>();
+builder.Services.AddHostedService<AutoRemediationRecommendationWorker>();
 
 var host = builder.Build();
 host.Run();

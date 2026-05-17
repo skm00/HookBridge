@@ -13,6 +13,7 @@ public sealed class AiAgentOrchestrationResponseDto : IValidatableObject
     public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
     public string ConfidenceExplanation { get; set; } = string.Empty;
     public IReadOnlyList<AiAgentResultDto> AgentResults { get; set; } = Array.Empty<AiAgentResultDto>();
+    public AutoRemediationRecommendationResponseDto? AutoRemediationRecommendation { get; set; }
     public bool RequiresApproval { get; set; }
     public string? ApprovalId { get; set; }
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;

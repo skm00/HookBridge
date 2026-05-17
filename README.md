@@ -1570,3 +1570,73 @@ Example response:
 ### Human approval workflow for AI recommendations
 
 HookBridge AI recommendations are advisory by default. The human approval workflow (`/api/ai-approval-workflow`) records recommendations in the existing AI recommendation approval store, requires human review for high/critical risk, security, transformation, and generated-code actions, and only allows approved records to be marked applied. AI agents and orchestration must not apply production actions directly; they create approval workflow records for human review. See `docs/ai-worker.md` for statuses, valid transitions, endpoint details, and example create/review/apply requests.
+
+## Auto-Remediation Recommendations
+
+HookBridge includes a deterministic, recommendation-only auto-remediation service for webhook delivery operations. It evaluates structured delivery metadata such as HTTP status codes, retry counts, dead-letter counts, Kafka consumer lag, MongoDB health, security flags, endpoint health, and observability status, then produces a safe remediation recommendation without executing production actions.
+
+### Safety and approval behavior
+
+- Recommendations are advisory only; HookBridge does not directly pause endpoints, replay dead-letter records, quarantine events, change credentials, scale consumers, or alter production settings from this workflow.
+- `CanAutoApply` is `false` by default. Low-risk auto-apply remains disabled unless explicitly configured.
+- Human approval is required for high and critical risk recommendations, security quarantine actions, endpoint pause/resume recommendations, dead-letter review/replay actions, and low-confidence recommendations.
+- Logs include structured operational metadata only and must not include payloads, headers, secrets, tokens, cookies, or connection strings.
+
+### Supported remediation types
+
+Supported `AutoRemediationType` values include `RetryTuning`, `DeadLetterReview`, `EndpointPauseRecommendation`, `EndpointResumeRecommendation`, `SecurityQuarantineRecommendation`, `KafkaLagInvestigation`, `MongoHealthInvestigation`, `ConcurrencyReduction`, `TimeoutAdjustment`, `CredentialReview`, `PayloadContractReview`, and `ManualReview`.
+
+### Integration points
+
+- Kafka topic: `hookbridge.ai.auto-remediation`
+- MongoDB collection: `auto_remediation_recommendation_results`
+- API endpoint: `GET /api/ai-remediation/events/{eventId}`
+- Multi-agent orchestration includes the generated remediation recommendation after retry, security, observability, and transformation agent results are available.
+
+### Example request
+
+```json
+{
+  "eventId": "evt_429_001",
+  "correlationId": "corr_429_001",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "environment": "qa",
+  "eventType": "WebhookDeliveryFailed",
+  "riskLevel": "Medium",
+  "confidenceScore": 0.82,
+  "statusCode": 429,
+  "failureReason": "Too Many Requests",
+  "retryCount": 2,
+  "maxRetryCount": 5,
+  "deadLetterCount": 0,
+  "createdAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+### Example response
+
+```json
+{
+  "eventId": "evt_429_001",
+  "correlationId": "corr_429_001",
+  "remediationType": "RetryTuning",
+  "recommendedAction": "RetryWithBackoff",
+  "riskLevel": "Medium",
+  "confidenceScore": 0.82,
+  "requiresApproval": false,
+  "canAutoApply": false,
+  "summary": "Webhook delivery is rate limited by the target endpoint.",
+  "recommendation": "Retry with exponential backoff and reduce delivery concurrency for this endpoint.",
+  "steps": [
+    "Keep the event in retry queue.",
+    "Apply exponential backoff for the next retry.",
+    "Review endpoint concurrency limits if 429 responses continue."
+  ],
+  "reasonCodes": [
+    "RateLimited"
+  ],
+  "generatedAtUtc": "2026-05-14T10:31:00Z"
+}
+```

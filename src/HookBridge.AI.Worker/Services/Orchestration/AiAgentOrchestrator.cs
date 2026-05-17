@@ -15,6 +15,7 @@ using HookBridge.AI.Worker.Services.SecurityAnalysis;
 using HookBridge.AI.Worker.Services.SecurityAgent;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.TransformationAgent;
+using HookBridge.AI.Worker.Services.AutoRemediationRecommendation;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -34,6 +35,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
     private readonly IObservabilityAgent _observabilityAgent;
     private readonly IHumanApprovalWorkflowService _approvalWorkflowService;
     private readonly IAiConfidenceScoreService _confidenceScoreService;
+    private readonly IAutoRemediationRecommendationService _autoRemediationRecommendationService;
     private readonly ILogger<AiAgentOrchestrator> _logger;
     private readonly AiAgentOrchestrationOptions _options;
 
@@ -50,6 +52,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         IObservabilityAgent observabilityAgent,
         IHumanApprovalWorkflowService approvalWorkflowService,
         IAiConfidenceScoreService confidenceScoreService,
+        IAutoRemediationRecommendationService autoRemediationRecommendationService,
         IOptions<AiAgentOrchestrationOptions> options,
         ILogger<AiAgentOrchestrator> logger)
     {
@@ -65,6 +68,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         _observabilityAgent = observabilityAgent;
         _approvalWorkflowService = approvalWorkflowService;
         _confidenceScoreService = confidenceScoreService;
+        _autoRemediationRecommendationService = autoRemediationRecommendationService;
         _options = options.Value;
         _logger = logger;
     }
@@ -86,6 +90,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         var confidence = confidenceResult.ConfidenceScore;
         var requiresApproval = baseRequiresApproval || _confidenceScoreService.RequiresManualReview(confidence, overallRisk);
         var summary = BuildSummary(results, overallRisk, action);
+        var remediationRecommendation = await _autoRemediationRecommendationService.RecommendAsync(BuildAutoRemediationRequest(request, results, overallRisk, confidence), cancellationToken);
 
         var response = new AiAgentOrchestrationResponseDto
         {
@@ -98,7 +103,8 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
             ConfidenceLevel = confidenceResult.ConfidenceLevel,
             ConfidenceExplanation = confidenceResult.Explanation,
             AgentResults = results,
-            RequiresApproval = requiresApproval,
+            AutoRemediationRecommendation = remediationRecommendation,
+            RequiresApproval = requiresApproval || remediationRecommendation.RequiresApproval,
             GeneratedAtUtc = DateTime.UtcNow
         };
 
@@ -494,6 +500,41 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         calculated.ConfidenceLevel = _confidenceScoreService.MapConfidenceLevel(calculated.ConfidenceScore);
         calculated.Explanation = $"Orchestration confidence averaged successful agent confidence ({averageConfidence:0.00}) and penalized failed or fallback agents. {calculated.Explanation}";
         return calculated;
+    }
+
+
+    private static AutoRemediationRecommendationRequestDto BuildAutoRemediationRequest(AiAgentOrchestrationRequestDto request, IReadOnlyList<AiAgentResultDto> results, AiRiskLevel overallRisk, double confidence)
+    {
+        var security = results.FirstOrDefault(result => result.AgentName is AiAgentName.SecurityAgent or AiAgentName.SecurityAnalysisAgent);
+        var retry = results.FirstOrDefault(result => result.AgentName is AiAgentName.RetryRecommendationAgent);
+        var observability = results.FirstOrDefault(result => result.AgentName == AiAgentName.ObservabilityAgent);
+        var duplicate = results.FirstOrDefault(result => result.AgentName == AiAgentName.DuplicateReplayDetectionAgent);
+        return new AutoRemediationRecommendationRequestDto
+        {
+            EventId = request.EventId,
+            CorrelationId = request.CorrelationId,
+            CustomerId = request.CustomerId,
+            CustomerIdType = request.CustomerIdType,
+            SubscriptionId = request.SubscriptionId,
+            EndpointId = request.EndpointId,
+            Environment = request.Environment,
+            Source = request.Source,
+            EventType = request.EventType,
+            RiskLevel = overallRisk.ToString(),
+            ConfidenceScore = confidence,
+            FailureReason = request.FailureReason,
+            StatusCode = request.StatusCode,
+            RetryCount = request.RetryCount,
+            MaxRetryCount = request.MaxRetryCount,
+            IsSuspicious = (security?.RiskLevel ?? AiRiskLevel.Unknown) >= AiRiskLevel.High || Contains(security?.SuggestedAction, "Quarantine"),
+            IsReplay = Contains(duplicate?.Summary, "replay") || Contains(duplicate?.SuggestedAction, "Replay"),
+            IsDuplicate = Contains(duplicate?.SuggestedAction, "Duplicate"),
+            EndpointHealthStatus = overallRisk == AiRiskLevel.Critical ? "Critical" : null,
+            ObservabilityStatus = observability?.RiskLevel == AiRiskLevel.Critical ? "Critical" : null,
+            SecurityDecision = security?.SuggestedAction,
+            RetryDecision = retry?.SuggestedAction,
+            CreatedAtUtc = request.ReceivedAtUtc
+        };
     }
 
     private AiOrchestrationRecommendedAction DetermineRecommendedAction(AiAgentOrchestrationRequestDto request, IReadOnlyList<AiAgentResultDto> results, AiRiskLevel overallRisk)

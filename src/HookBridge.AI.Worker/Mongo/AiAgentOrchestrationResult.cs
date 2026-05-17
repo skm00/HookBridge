@@ -31,6 +31,7 @@ public sealed class AiAgentOrchestrationResult
     [BsonElement("confidenceLevel")] public string ConfidenceLevel { get; set; } = "Unknown";
     [BsonElement("confidenceExplanation")] public string ConfidenceExplanation { get; set; } = string.Empty;
     [BsonElement("agentResults")] public List<AiAgentResultDto> AgentResults { get; set; } = [];
+    [BsonElement("autoRemediationRecommendation")][BsonIgnoreIfNull] public AutoRemediationRecommendationResponseDto? AutoRemediationRecommendation { get; set; }
     [BsonElement("requiresApproval")] public bool RequiresApproval { get; set; }
     [BsonElement("approvalId")][BsonIgnoreIfNull] public string? ApprovalId { get; set; }
     [BsonElement("generatedAtUtc")][BsonDateTimeOptions(Kind = DateTimeKind.Utc)] public DateTime GeneratedAtUtc { get; set; }
@@ -63,6 +64,7 @@ public sealed class AiAgentOrchestrationResult
             ConfidenceLevel = response.ConfidenceLevel.ToString(),
             ConfidenceExplanation = response.ConfidenceExplanation,
             AgentResults = response.AgentResults.ToList(),
+            AutoRemediationRecommendation = response.AutoRemediationRecommendation,
             RequiresApproval = response.RequiresApproval,
             ApprovalId = response.ApprovalId,
             GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc, DateTimeKind.Utc),
@@ -81,6 +83,7 @@ public sealed class AiAgentOrchestrationResult
         ConfidenceLevel = Enum.TryParse<AiConfidenceLevel>(ConfidenceLevel, out var confidenceLevel) ? confidenceLevel : AiConfidenceLevel.Unknown,
         ConfidenceExplanation = ConfidenceExplanation,
         AgentResults = AgentResults,
+        AutoRemediationRecommendation = AutoRemediationRecommendation,
         RequiresApproval = RequiresApproval,
         ApprovalId = ApprovalId,
         GeneratedAtUtc = GeneratedAtUtc

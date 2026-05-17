@@ -34,4 +34,6 @@ public static class AiKafkaTopics
     public const string TransformationAgent = "hookbridge.ai.transformation-agent";
 
     public const string ObservabilityAgent = "hookbridge.ai.observability-agent";
+
+    public const string AutoRemediation = "hookbridge.ai.auto-remediation";
 }
