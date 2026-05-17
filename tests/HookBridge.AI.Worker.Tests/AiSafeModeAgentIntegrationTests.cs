@@ -44,6 +44,37 @@ public sealed class AiSafeModeAgentIntegrationTests
         safeMode.Requests.Should().ContainSingle(request => request.ActionType == AiActionType.RetryWebhook && request.EventId == "evt-retry");
     }
 
+
+    [Fact]
+    public async Task RetryAgent_DefaultsSafeModeEnvironmentToProductionWhenRequestEnvironmentIsMissing()
+    {
+        var safeMode = new RecordingSafeModeGuard(AiSafeModeDecision.RequiresApproval, allowed: false, requiresApproval: true);
+        var agent = new RetryAgent(Options.Create(new RetryAgentOptions()), NullLogger<RetryAgent>.Instance, safeMode);
+
+        var response = await agent.AnalyzeAsync(new RetryAgentRequestDto
+        {
+            EventId = "evt-retry-no-env",
+            CorrelationId = "corr-retry-no-env",
+            CustomerId = "cust-1",
+            SubscriptionId = "sub-1",
+            EndpointId = "endpoint-1",
+            EventType = "WebhookDeliveryFailed",
+            TargetUrl = "https://example.test/webhook",
+            HttpMethod = "POST",
+            StatusCode = 429,
+            RetryCount = 1,
+            MaxRetryCount = 5,
+            FailedAtUtc = DateTime.UtcNow,
+            EndpointRiskLevel = "Medium"
+        });
+
+        response.SafeModeDecision.Should().Be(AiSafeModeDecision.RequiresApproval);
+        safeMode.Requests.Should().ContainSingle(request =>
+            request.ActionType == AiActionType.RetryWebhook &&
+            request.EventId == "evt-retry-no-env" &&
+            request.Environment == "production");
+    }
+
     [Fact]
     public async Task SecurityAgent_AppliesSafeModeDecisionToQuarantineAction()
     {

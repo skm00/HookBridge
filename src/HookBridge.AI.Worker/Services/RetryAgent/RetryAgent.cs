@@ -82,7 +82,7 @@ public sealed class RetryAgent : IRetryAgent
         var decision = await _safeModeGuard.EvaluateAsync(new AiSafeModeEvaluationRequestDto
         {
             ActionType = actionType,
-            Environment = request.Environment,
+            Environment = request.Environment ?? "production",
             EventId = request.EventId,
             CorrelationId = request.CorrelationId,
             CustomerId = request.CustomerId,
