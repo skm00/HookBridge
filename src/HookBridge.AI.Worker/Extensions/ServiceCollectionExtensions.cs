@@ -24,6 +24,7 @@ using HookBridge.AI.Worker.Services.Confidence;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.Orchestration;
+using HookBridge.AI.Worker.Services.AutoRemediationRecommendation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -247,7 +248,25 @@ public static class ServiceCollectionExtensions
 
         services.TryAddSingleton<IObservabilityAgent, ObservabilityAgent>();
         services.TryAddSingleton<IAiConfidenceScoreService, AiConfidenceScoreService>();
+        services.TryAddSingleton<IAutoRemediationRecommendationService, AutoRemediationRecommendationService>();
         services.TryAddSingleton<IAiAgentOrchestrator, AiAgentOrchestrator>();
+        return services;
+    }
+
+
+    public static IServiceCollection AddAutoRemediationRecommendationServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<AutoRemediationRecommendationOptions>()
+            .Bind(configuration.GetSection(AutoRemediationRecommendationOptions.SectionName))
+            .Validate(options => options.LowConfidenceThreshold is >= 0 and <= 1, "AutoRemediationRecommendation:LowConfidenceThreshold must be between 0 and 1.")
+            .Validate(options => options.KafkaLagThreshold >= 0, "AutoRemediationRecommendation:KafkaLagThreshold must be greater than or equal to 0.")
+            .Validate(options => options.MongoLatencyThresholdMs >= 0, "AutoRemediationRecommendation:MongoLatencyThresholdMs must be greater than or equal to 0.")
+            .ValidateOnStart();
+
+        services.TryAddSingleton<IAutoRemediationRecommendationService, AutoRemediationRecommendationService>();
         return services;
     }
 
@@ -318,6 +337,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ObservabilityAgentTopic),
                 "AiKafka:ObservabilityAgentTopic is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AutoRemediationTopic),
+                "AiKafka:AutoRemediationTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -460,6 +482,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISecurityAgentConsumer, SecurityAgentConsumer>();
         services.AddSingleton<ITransformationAgentConsumer, TransformationAgentConsumer>();
         services.AddSingleton<IObservabilityAgentConsumer, ObservabilityAgentConsumer>();
+        services.AddSingleton<IAutoRemediationRecommendationConsumer, AutoRemediationRecommendationConsumer>();
         return services;
     }
 
@@ -502,6 +525,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITransformationAgentResultRepository, TransformationAgentResultRepository>();
         services.AddSingleton<IObservabilityAgentResultCollectionProvider, ObservabilityAgentResultCollectionProvider>();
         services.AddSingleton<IObservabilityAgentResultRepository, ObservabilityAgentResultRepository>();
+        services.AddSingleton<IAutoRemediationRecommendationCollectionProvider, AutoRemediationRecommendationCollectionProvider>();
+        services.AddSingleton<IAutoRemediationRecommendationRepository, AutoRemediationRecommendationRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

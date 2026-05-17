@@ -149,6 +149,7 @@ builder.Services.AddScoped<IIpAllowlistService, IpAllowlistService>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
 builder.Services.AddAiOptions(builder.Configuration);
 builder.Services.AddAiRecommendationApprovalServices(builder.Configuration);
+builder.Services.AddAutoRemediationRecommendationServices(builder.Configuration);
 builder.Services.AddAiPromptServices();
 builder.Services.AddAiKernelServices();
 builder.Services.AddOptions<AiNaturalLanguageQueryOptions>()
@@ -197,6 +198,11 @@ builder.Services.AddOptions<AiMongoOptions>()
         {
             options.AiAgentOrchestrationResultsCollectionName = AiMongoOptions.DefaultAiAgentOrchestrationResultsCollectionName;
         }
+
+        if (string.IsNullOrWhiteSpace(options.AutoRemediationRecommendationResultsCollectionName))
+        {
+            options.AutoRemediationRecommendationResultsCollectionName = AiMongoOptions.DefaultAutoRemediationRecommendationResultsCollectionName;
+        }
     });
 builder.Services.AddSingleton<IAiAnalysisResultCollectionProvider, AiAnalysisResultCollectionProvider>();
 builder.Services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
@@ -212,6 +218,8 @@ builder.Services.AddSingleton<IAiRecommendationApprovalCollectionProvider, AiRec
 builder.Services.AddSingleton<IAiRecommendationApprovalRepository, AiRecommendationApprovalRepository>();
 builder.Services.AddSingleton<IAiAgentOrchestrationCollectionProvider, AiAgentOrchestrationCollectionProvider>();
 builder.Services.AddSingleton<IAiAgentOrchestrationRepository, AiAgentOrchestrationRepository>();
+builder.Services.AddSingleton<IAutoRemediationRecommendationCollectionProvider, AutoRemediationRecommendationCollectionProvider>();
+builder.Services.AddSingleton<IAutoRemediationRecommendationRepository, AutoRemediationRecommendationRepository>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();

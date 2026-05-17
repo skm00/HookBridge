@@ -22,6 +22,7 @@ public sealed class AiMongoOptions
     public const string DefaultSecurityAgentResultsCollectionName = "security_agent_results";
     public const string DefaultTransformationAgentResultsCollectionName = "transformation_agent_results";
     public const string DefaultObservabilityAgentResultsCollectionName = "observability_agent_results";
+    public const string DefaultAutoRemediationRecommendationResultsCollectionName = "auto_remediation_recommendation_results";
 
     public string ConnectionString { get; set; } = string.Empty;
 
@@ -58,4 +59,6 @@ public sealed class AiMongoOptions
     public string TransformationAgentResultsCollectionName { get; set; } = DefaultTransformationAgentResultsCollectionName;
 
     public string ObservabilityAgentResultsCollectionName { get; set; } = DefaultObservabilityAgentResultsCollectionName;
+
+    public string AutoRemediationRecommendationResultsCollectionName { get; set; } = DefaultAutoRemediationRecommendationResultsCollectionName;
 }

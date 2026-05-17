@@ -20,6 +20,7 @@ using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
 using HookBridge.AI.Worker.Services.TransformationAgent;
 using HookBridge.AI.Worker.Services.ObservabilityAgent;
+using HookBridge.AI.Worker.Services.AutoRemediationRecommendation;
 using ObservabilityAgentService = HookBridge.AI.Worker.Services.ObservabilityAgent.ObservabilityAgent;
 using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using Microsoft.Extensions.Configuration;
@@ -51,6 +52,7 @@ public sealed class AiDependencyInjectionTests
         services.AddAiSecurityAnalysisServices();
         services.AddWebhookDuplicateReplayDetectionServices();
         services.TryAddSingleton<IHumanApprovalWorkflowService, NoopHumanApprovalWorkflowService>();
+        services.AddAutoRemediationRecommendationServices(new ConfigurationBuilder().Build());
         services.AddAiAgentOrchestrationServices(BuildOrchestrationConfiguration());
         services.AddEndpointHealthScoringServices();
         services.AddCustomerEndpointRiskScoringServices();
@@ -72,6 +74,7 @@ public sealed class AiDependencyInjectionTests
         provider.GetRequiredService<ICustomerEndpointRiskScoringService>().Should().BeOfType<CustomerEndpointRiskScoringService>();
         provider.GetRequiredService<IWebhookFailureAnomalyDetectionService>().Should().BeOfType<WebhookFailureAnomalyDetectionService>();
         provider.GetRequiredService<IAiFallbackService>().Should().BeOfType<AiFallbackService>();
+        provider.GetRequiredService<IAutoRemediationRecommendationService>().Should().BeOfType<AutoRemediationRecommendationService>();
     }
 
     [Fact]
@@ -162,6 +165,10 @@ public sealed class AiDependencyInjectionTests
             descriptor.ImplementationType == typeof(AiAgentOrchestrationConsumer) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
         services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAutoRemediationRecommendationConsumer) &&
+            descriptor.ImplementationType == typeof(AutoRemediationRecommendationConsumer) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IAiAnomalyConsumer) &&
             descriptor.ImplementationType == typeof(AiAnomalyConsumer) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
@@ -196,6 +203,10 @@ public sealed class AiDependencyInjectionTests
         services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IAiAnomalyRecordRepository) &&
             descriptor.ImplementationType == typeof(AiAnomalyRecordRepository) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAutoRemediationRecommendationRepository) &&
+            descriptor.ImplementationType == typeof(AutoRemediationRecommendationRepository) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
         services.Should().Contain(descriptor =>
             descriptor.ServiceType == typeof(IAiAnomalyRecordCollectionProvider) &&

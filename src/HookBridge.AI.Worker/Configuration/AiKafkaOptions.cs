@@ -49,6 +49,8 @@ public sealed class AiKafkaOptions
 
     public string ObservabilityAgentTopic { get; set; } = AiKafkaTopics.ObservabilityAgent;
 
+    public string AutoRemediationTopic { get; set; } = AiKafkaTopics.AutoRemediation;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }
