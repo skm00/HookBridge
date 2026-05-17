@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Services.SafeMode;
@@ -41,6 +42,47 @@ public sealed class AiSafeModeControllerTests
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
+
+
+    [Fact]
+    public async Task Evaluate_Returns400ForNullRequest()
+    {
+        var controller = new AiSafeModeController(new StubSafeModeGuard(), NullLogger<AiSafeModeController>.Instance);
+
+        var result = await controller.EvaluateAsync(null, CancellationToken.None);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Evaluate_Returns400WhenGuardThrowsValidationException()
+    {
+        var controller = new AiSafeModeController(new ThrowingSafeModeGuard(new ValidationException("invalid safe mode request")), NullLogger<AiSafeModeController>.Instance);
+
+        var result = await controller.EvaluateAsync(ValidRequest(), CancellationToken.None);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Evaluate_Returns500ForUnexpectedErrors()
+    {
+        var controller = new AiSafeModeController(new ThrowingSafeModeGuard(new InvalidOperationException("boom")), NullLogger<AiSafeModeController>.Instance);
+
+        var result = await controller.EvaluateAsync(ValidRequest(), CancellationToken.None);
+
+        var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(500);
+    }
+
+    private static AiSafeModeEvaluationRequestDto ValidRequest() => new()
+    {
+        ActionType = AiActionType.RetryWebhook,
+        Environment = "production",
+        RequestedAtUtc = DateTime.UtcNow,
+        ConfidenceScore = 0.9
+    };
+
     private sealed class StubSafeModeGuard : IAiSafeModeGuard
     {
         public Task<AiSafeModeEvaluationResponseDto> EvaluateAsync(AiSafeModeEvaluationRequestDto request, CancellationToken cancellationToken = default)
@@ -55,5 +97,16 @@ public sealed class AiSafeModeControllerTests
                 Environment = request.Environment,
                 EvaluatedAtUtc = DateTime.UtcNow
             });
+    }
+
+
+    private sealed class ThrowingSafeModeGuard : IAiSafeModeGuard
+    {
+        private readonly Exception _exception;
+
+        public ThrowingSafeModeGuard(Exception exception) => _exception = exception;
+
+        public Task<AiSafeModeEvaluationResponseDto> EvaluateAsync(AiSafeModeEvaluationRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromException<AiSafeModeEvaluationResponseDto>(_exception);
     }
 }

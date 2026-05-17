@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
@@ -90,6 +91,143 @@ public sealed class AiSafeModeGuardTests
     {
         var response = await CreateGuard().EvaluateAsync(Request(AiActionType.ScaleWorker, "qa", riskLevel: "Low"));
         response.Decision.Should().Be(AiSafeModeDecision.Blocked);
+    }
+
+
+    [Fact]
+    public async Task DisabledSafeMode_AllowsActionWithoutAuditWhenNoRepository()
+    {
+        var response = await CreateGuard(new AiSafeModeOptions { Enabled = false }).EvaluateAsync(Request(AiActionType.RestartWorker, "production"));
+
+        response.Decision.Should().Be(AiSafeModeDecision.Allowed);
+        response.Reason.Should().Be("AI Safe Mode is disabled.");
+    }
+
+    [Fact]
+    public async Task ReadOnlyQuery_BlockedWhenReadOnlyActionsDisabled()
+    {
+        var response = await CreateGuard(new AiSafeModeOptions { AllowReadOnlyActions = false })
+            .EvaluateAsync(Request(AiActionType.ReadOnlyQuery, "production"));
+
+        response.Decision.Should().Be(AiSafeModeDecision.Blocked);
+        response.BlockMessage.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Theory]
+    [InlineData(AiActionType.ResumeEndpoint, "Production endpoint resumes require approved human approval.")]
+    [InlineData(AiActionType.QuarantineEvent, "Production quarantines require approved human approval.")]
+    [InlineData(AiActionType.RejectEvent, "Production traffic rejection requires approved human approval.")]
+    [InlineData(AiActionType.ApplyValidationRule, "Generated validation rules require approved human approval.")]
+    [InlineData(AiActionType.ScaleWorker, "Production worker scaling requires approved human approval.")]
+    [InlineData(AiActionType.RestartWorker, "Production worker restarts require approved human approval.")]
+    public async Task ProtectedProductionActions_ReturnActionSpecificReason(AiActionType actionType, string expectedReason)
+    {
+        var response = await CreateGuard().EvaluateAsync(Request(actionType, "prod"));
+
+        response.Decision.Should().Be(AiSafeModeDecision.RequiresApproval);
+        response.Reason.Should().Be(expectedReason);
+    }
+
+    [Fact]
+    public async Task AlwaysProtectedAction_RequiresApprovalWhenProductionBlockingIsDisabled()
+    {
+        var response = await CreateGuard(new AiSafeModeOptions
+        {
+            BlockProductionActions = false,
+            RequireApprovalForAllProductionActions = false
+        }).EvaluateAsync(Request(AiActionType.UpdateConfiguration, "qa"));
+
+        response.Decision.Should().Be(AiSafeModeDecision.RequiresApproval);
+        response.Reason.Should().Contain(nameof(AiActionType.UpdateConfiguration));
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task NonProductionLowRiskAction_IsAllowedWhenEitherNonProductionOrDevelopmentAutoApplyIsEnabled(bool allowLowRisk, bool allowDevelopment)
+    {
+        var response = await CreateGuard(new AiSafeModeOptions
+        {
+            AllowLowRiskActionsInNonProduction = allowLowRisk,
+            AllowAutoApplyInDevelopment = allowDevelopment
+        }).EvaluateAsync(Request(AiActionType.ScaleWorker, "staging", riskLevel: "Low"));
+
+        response.Decision.Should().Be(AiSafeModeDecision.Allowed);
+        response.IsAllowed.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(AiRecommendationApprovalStatus.NeedsMoreInfo)]
+    [InlineData(AiRecommendationApprovalStatus.PendingReview)]
+    public async Task TerminalOrPendingApprovalStatus_BlocksAction(AiRecommendationApprovalStatus approvalStatus)
+    {
+        var response = await CreateGuard().EvaluateAsync(Request(AiActionType.RestartWorker, "production", approvalStatus: approvalStatus));
+
+        response.Decision.Should().Be(AiSafeModeDecision.Blocked);
+        response.Reason.Should().Contain(approvalStatus.ToString());
+    }
+
+    [Fact]
+    public async Task AuditDisabled_DoesNotStoreBlockedAction()
+    {
+        var repository = new InMemoryAiSafeModeAuditRepository();
+        var response = await CreateGuard(new AiSafeModeOptions { AuditBlockedActions = false }, repository)
+            .EvaluateAsync(Request(AiActionType.RetryWebhook, "production"));
+
+        response.IsAllowed.Should().BeFalse();
+        repository.Records.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AuditEnabled_StoresAllowedActionWithEvaluationMetadata()
+    {
+        var repository = new InMemoryAiSafeModeAuditRepository();
+        var response = await CreateGuard(repository: repository)
+            .EvaluateAsync(Request(AiActionType.NotifyOnly, "production", approvalStatus: AiRecommendationApprovalStatus.Approved));
+
+        response.IsAllowed.Should().BeTrue();
+        repository.Records.Should().ContainSingle(record =>
+            record.Decision == AiSafeModeDecision.Allowed &&
+            record.CustomerId == "cust-1" &&
+            record.ApprovalStatus == AiRecommendationApprovalStatus.Approved &&
+            record.EvaluatedAtUtc.Kind == DateTimeKind.Utc);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_ThrowsValidationExceptionForInvalidRequest()
+    {
+        var request = Request(AiActionType.RetryWebhook, "production");
+        request.RequestedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Local);
+
+        var act = async () => await CreateGuard().EvaluateAsync(request);
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("RequestedAtUtc must be UTC.");
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_ThrowsWhenCancelledBeforeEvaluation()
+    {
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+
+        var act = async () => await CreateGuard().EvaluateAsync(Request(AiActionType.RetryWebhook, "production"), source.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public void SafeModeDtos_ValidateUtcAndConfidenceRules()
+    {
+        var request = Request(AiActionType.RetryWebhook, "production", confidenceScore: 1.1);
+        request.RequestedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Local);
+        var response = new AiSafeModeEvaluationResponseDto
+        {
+            EvaluatedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Local)
+        };
+
+        request.Validate(new ValidationContext(request)).Should().Contain(result => result.ErrorMessage == "RequestedAtUtc must be UTC.");
+        request.Validate(new ValidationContext(request)).Should().Contain(result => result.ErrorMessage == "ConfidenceScore must be between 0 and 1.");
+        response.Validate(new ValidationContext(response)).Should().Contain(result => result.ErrorMessage == "EvaluatedAtUtc must be UTC.");
     }
 
     [Fact]
