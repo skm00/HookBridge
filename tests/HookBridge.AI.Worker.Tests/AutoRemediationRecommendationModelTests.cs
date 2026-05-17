@@ -96,7 +96,9 @@ public sealed class AutoRemediationRecommendationModelTests
 
         var validationResults = Validate(request);
 
-        Assert.Contains(validationResults, result => result.MemberNames.Contains(nameof(request.EventId)));
+        Assert.Contains(validationResults, result =>
+            result.MemberNames.Contains(nameof(request.EventId)) &&
+            result.ErrorMessage == "The EventId field is required.");
         Assert.Contains(validationResults, result => result.MemberNames.Contains(nameof(request.ConfidenceScore)));
         Assert.Contains(validationResults, result => result.MemberNames.Contains(nameof(request.CreatedAtUtc)));
         Assert.Contains(validationResults, result => result.MemberNames.Contains(nameof(request.StatusCode)));

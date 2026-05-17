@@ -5,7 +5,6 @@ namespace HookBridge.AI.Worker.DTOs;
 public sealed class AutoRemediationRecommendationRequestDto : IValidatableObject
 {
     [Required(ErrorMessage = "The EventId field is required.")]
-    [RegularExpression(@".*\S.*", ErrorMessage = "The EventId field is required.")]
     public string EventId { get; set; } = string.Empty;
     public string? CorrelationId { get; set; }
     public string? CustomerId { get; set; }
@@ -36,7 +35,7 @@ public sealed class AutoRemediationRecommendationRequestDto : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (string.IsNullOrWhiteSpace(EventId)) yield return new("EventId is required.", [nameof(EventId)]);
+        if (string.IsNullOrWhiteSpace(EventId)) yield return new("The EventId field is required.", [nameof(EventId)]);
         if (ConfidenceScore is < 0 or > 1) yield return new("ConfidenceScore must be between 0 and 1.", [nameof(ConfidenceScore)]);
         if (CreatedAtUtc.Kind != DateTimeKind.Utc) yield return new("CreatedAtUtc must be UTC.", [nameof(CreatedAtUtc)]);
         if (StatusCode is < 100 or > 599) yield return new("StatusCode must be between 100 and 599 when provided.", [nameof(StatusCode)]);
