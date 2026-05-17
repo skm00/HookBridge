@@ -79,11 +79,31 @@ public sealed class AutoRemediationRecommendationModelTests
     }
 
     [Fact]
-    public void RequestValidation_ReturnsExpectedFailures_ForInvalidValues()
+    public void RequestValidation_ReturnsExpectedFailure_ForWhitespaceEventId()
     {
         var request = new AutoRemediationRecommendationRequestDto
         {
             EventId = " ",
+            ConfidenceScore = 0.8,
+            StatusCode = 500,
+            RetryCount = 1,
+            MaxRetryCount = 3,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        var validationResults = Validate(request);
+
+        Assert.Contains(validationResults, result =>
+            result.MemberNames.Contains(nameof(request.EventId)) &&
+            result.ErrorMessage == "The EventId field is required.");
+    }
+
+    [Fact]
+    public void RequestValidation_ReturnsExpectedFailures_ForInvalidValues()
+    {
+        var request = new AutoRemediationRecommendationRequestDto
+        {
+            EventId = "evt_invalid_values",
             ConfidenceScore = 1.1,
             StatusCode = 600,
             RetryCount = -1,
@@ -96,9 +116,6 @@ public sealed class AutoRemediationRecommendationModelTests
 
         var validationResults = Validate(request);
 
-        Assert.Contains(validationResults, result =>
-            result.MemberNames.Contains(nameof(request.EventId)) &&
-            result.ErrorMessage == "The EventId field is required.");
         Assert.Contains(validationResults, result => result.MemberNames.Contains(nameof(request.ConfidenceScore)));
         Assert.Contains(validationResults, result => result.MemberNames.Contains(nameof(request.CreatedAtUtc)));
         Assert.Contains(validationResults, result => result.MemberNames.Contains(nameof(request.StatusCode)));
