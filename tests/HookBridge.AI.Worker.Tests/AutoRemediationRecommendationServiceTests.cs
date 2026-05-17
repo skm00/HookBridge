@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Services.AutoRemediationRecommendation;
@@ -102,6 +103,98 @@ public sealed class AutoRemediationRecommendationServiceTests
         Assert.Contains(AutoRemediationReasonCode.LowConfidence, response.ReasonCodes);
     }
 
+    [Theory]
+    [InlineData(504, AutoRemediationType.TimeoutAdjustment, AutoRemediationRecommendedAction.RetryWithBackoff, AutoRemediationReasonCode.Timeout)]
+    [InlineData(502, AutoRemediationType.RetryTuning, AutoRemediationRecommendedAction.RetryWithBackoff, AutoRemediationReasonCode.ServerError)]
+    [InlineData(503, AutoRemediationType.RetryTuning, AutoRemediationRecommendedAction.RetryWithBackoff, AutoRemediationReasonCode.ServerError)]
+    [InlineData(403, AutoRemediationType.CredentialReview, AutoRemediationRecommendedAction.ReviewCredentials, AutoRemediationReasonCode.AuthorizationFailure)]
+    [InlineData(404, AutoRemediationType.PayloadContractReview, AutoRemediationRecommendedAction.ReviewPayloadContract, AutoRemediationReasonCode.ClientError)]
+    public async Task RecommendAsync_MapsAdditionalHttpStatusBranches(int statusCode, AutoRemediationType type, AutoRemediationRecommendedAction action, AutoRemediationReasonCode reason)
+    {
+        var response = await CreateService().RecommendAsync(CreateRequest(statusCode: statusCode));
+
+        Assert.Equal(type, response.RemediationType);
+        Assert.Equal(action, response.RecommendedAction);
+        Assert.Contains(reason, response.ReasonCodes);
+    }
+
+    [Fact]
+    public async Task RecommendAsync_DuplicateRequiresManualReview()
+    {
+        var response = await CreateService().RecommendAsync(CreateRequest(isDuplicate: true));
+
+        Assert.Equal(AutoRemediationType.ManualReview, response.RemediationType);
+        Assert.Equal(AutoRemediationRecommendedAction.RequireManualReview, response.RecommendedAction);
+        Assert.Contains(AutoRemediationReasonCode.DuplicateDetected, response.ReasonCodes);
+    }
+
+    [Fact]
+    public async Task RecommendAsync_DisabledOptionsReturnManualRecommendation()
+    {
+        var response = await CreateService(new AutoRemediationRecommendationOptions { Enabled = false })
+            .RecommendAsync(CreateRequest(statusCode: 429));
+
+        Assert.Equal(AutoRemediationType.ManualReview, response.RemediationType);
+        Assert.Equal(AutoRemediationRecommendedAction.RequireManualReview, response.RecommendedAction);
+        Assert.Contains(AutoRemediationReasonCode.Unknown, response.ReasonCodes);
+    }
+
+    [Fact]
+    public async Task RecommendAsync_CanAutoApplyOnlyWhenExplicitlyEnabledAndNoApprovalRequired()
+    {
+        var response = await CreateService(new AutoRemediationRecommendationOptions { AllowAutoApplyLowRisk = true })
+            .RecommendAsync(CreateRequest(riskLevel: "Low", statusCode: 500));
+
+        Assert.False(response.RequiresApproval);
+        Assert.True(response.CanAutoApply);
+    }
+
+    [Fact]
+    public async Task RecommendAsync_ApprovalOptionsCanDisableSpecificApprovalBranches()
+    {
+        var service = CreateService(new AutoRemediationRecommendationOptions
+        {
+            RequireApprovalForHighRisk = false,
+            RequireApprovalForCriticalRisk = false,
+            RequireApprovalForSecurityActions = false,
+            RequireApprovalForEndpointPause = false,
+            RequireApprovalForDeadLetterActions = false
+        });
+
+        Assert.False((await service.RecommendAsync(CreateRequest(riskLevel: "High", statusCode: 500))).RequiresApproval);
+        Assert.False((await service.RecommendAsync(CreateRequest(riskLevel: "Critical", statusCode: 500))).RequiresApproval);
+        Assert.False((await service.RecommendAsync(CreateRequest(isSuspicious: true))).RequiresApproval);
+        Assert.False((await service.RecommendAsync(CreateRequest(endpointHealthStatus: "Critical"))).RequiresApproval);
+        Assert.False((await service.RecommendAsync(CreateRequest(deadLetterCount: 1))).RequiresApproval);
+    }
+
+    [Fact]
+    public async Task RecommendAsync_UsesUnknownRiskAndTrimsBlankCorrelationId()
+    {
+        var request = CreateRequest(statusCode: 500, riskLevel: "   ");
+        request.CorrelationId = "   ";
+
+        var response = await CreateService().RecommendAsync(request);
+
+        Assert.Equal("Unknown", response.RiskLevel);
+        Assert.Null(response.CorrelationId);
+    }
+
+    [Fact]
+    public async Task RecommendAsync_ThrowsValidationException_ForInvalidRequestMetadata()
+    {
+        var request = CreateRequest(statusCode: 99);
+        request.EventId = "   ";
+        request.RetryCount = -1;
+        request.MaxRetryCount = -1;
+        request.DeadLetterCount = -1;
+        request.KafkaConsumerLag = -1;
+        request.MongoLatencyMs = -1;
+        request.CreatedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Local);
+
+        await Assert.ThrowsAsync<ValidationException>(() => CreateService().RecommendAsync(request));
+    }
+
     [Fact]
     public async Task RecommendAsync_ClampsResponseConfidence()
     {
@@ -128,6 +221,7 @@ public sealed class AutoRemediationRecommendationServiceTests
         long mongoLatencyMs = 0,
         bool isSuspicious = false,
         bool isReplay = false,
+        bool isDuplicate = false,
         string? endpointHealthStatus = null,
         string? observabilityStatus = null) => new()
         {
@@ -145,6 +239,7 @@ public sealed class AutoRemediationRecommendationServiceTests
             MongoLatencyMs = mongoLatencyMs,
             IsSuspicious = isSuspicious,
             IsReplay = isReplay,
+            IsDuplicate = isDuplicate,
             EndpointHealthStatus = endpointHealthStatus,
             ObservabilityStatus = observabilityStatus,
             CreatedAtUtc = DateTime.UtcNow

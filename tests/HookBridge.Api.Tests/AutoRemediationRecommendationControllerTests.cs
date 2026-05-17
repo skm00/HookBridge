@@ -43,6 +43,15 @@ public sealed class AutoRemediationRecommendationControllerTests
         Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
     }
 
+    [Fact]
+    public async Task GetByEventIdAsync_ReturnsInternalServerError_WhenRepositoryThrows()
+    {
+        var result = await CreateController(new FakeRepository(null, throwOnLookup: true)).GetByEventIdAsync("evt_error", CancellationToken.None);
+
+        var error = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, error.StatusCode);
+    }
+
     private static AutoRemediationRecommendationController CreateController(IAutoRemediationRecommendationRepository repository)
     {
         var controller = new AutoRemediationRecommendationController(repository, NullLogger<AutoRemediationRecommendationController>.Instance);
@@ -65,10 +74,18 @@ public sealed class AutoRemediationRecommendationControllerTests
         CreatedAtUtc = DateTime.UtcNow
     };
 
-    private sealed class FakeRepository(AutoRemediationRecommendationResult? result) : IAutoRemediationRecommendationRepository
+    private sealed class FakeRepository(AutoRemediationRecommendationResult? result, bool throwOnLookup = false) : IAutoRemediationRecommendationRepository
     {
         public Task InsertAsync(AutoRemediationRecommendationResult result, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<AutoRemediationRecommendationResult?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default) => Task.FromResult(result);
+        public Task<AutoRemediationRecommendationResult?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
+        {
+            if (throwOnLookup)
+            {
+                throw new InvalidOperationException("Repository failed.");
+            }
+
+            return Task.FromResult(result);
+        }
         public Task<IReadOnlyList<AutoRemediationRecommendationResult>> GetByCorrelationIdAsync(string correlationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AutoRemediationRecommendationResult>>(Array.Empty<AutoRemediationRecommendationResult>());
         public Task<IReadOnlyList<AutoRemediationRecommendationResult>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AutoRemediationRecommendationResult>>(Array.Empty<AutoRemediationRecommendationResult>());
         public Task<IReadOnlyList<AutoRemediationRecommendationResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AutoRemediationRecommendationResult>>(Array.Empty<AutoRemediationRecommendationResult>());
