@@ -59,10 +59,12 @@ public sealed class AiSafeModeAgentIntegrationTests
             EndpointId = "endpoint-1",
             Environment = "production",
             TargetUrl = "https://example.test/webhook",
-            Payload = new { value = "<script>alert(1)</script>" },
+            IsReplay = true,
+            Payload = "replay signal that should be quarantined",
             ReceivedAtUtc = DateTime.UtcNow
         });
 
+        response.SecurityDecision.Should().Be(SecurityAgentDecision.Quarantine);
         response.SafeModeDecision.Should().Be(AiSafeModeDecision.RequiresApproval);
         response.IsActionAllowed.Should().BeFalse();
         safeMode.Requests.Should().ContainSingle(request => request.ActionType == AiActionType.QuarantineEvent && request.EventId == "evt-security");
