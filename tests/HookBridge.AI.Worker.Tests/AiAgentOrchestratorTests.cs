@@ -8,6 +8,7 @@ using HookBridge.AI.Worker.Services.CustomerEndpointRiskScoring;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.LogSummaries;
 using HookBridge.AI.Worker.Services.Orchestration;
+using HookBridge.AI.Worker.Services.AutoRemediationRecommendation;
 using HookBridge.AI.Worker.Services.ObservabilityAgent;
 using HookBridge.AI.Worker.Services.PayloadSchemaDetection;
 using HookBridge.AI.Worker.Services.RetryRecommendations;
@@ -312,6 +313,7 @@ public sealed class AiAgentOrchestratorTests
         public Mock<ITransformationAgent> Transformation { get; } = new();
         public Mock<IObservabilityAgent> Observability { get; } = new();
         public Mock<IHumanApprovalWorkflowService> ApprovalWorkflow { get; } = new();
+        public Mock<IAutoRemediationRecommendationService> AutoRemediation { get; } = new();
 
         public Fixture()
         {
@@ -335,6 +337,22 @@ public sealed class AiAgentOrchestratorTests
                 .ReturnsAsync(new ObservabilityAgentResponseDto { EventId = "evt-1", Summary = "Operational telemetry is healthy.", RiskLevel = AiRiskLevel.Low, ObservabilityStatus = ObservabilityStatus.Healthy, SuggestedActions = [ObservabilitySuggestedAction.Monitor], ConfidenceScore = 0.85 });
             ApprovalWorkflow.Setup(service => service.CreateAsync(It.IsAny<HumanApprovalWorkflowCreateRequestDto>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new HumanApprovalWorkflowResponseDto { ApprovalId = "approval_1", ApprovalStatus = AiRecommendationApprovalStatus.PendingReview, RequiresApproval = true });
+            AutoRemediation.Setup(service => service.RecommendAsync(It.IsAny<AutoRemediationRecommendationRequestDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((AutoRemediationRecommendationRequestDto request, CancellationToken _) => new AutoRemediationRecommendationResponseDto
+                {
+                    EventId = request.EventId,
+                    CorrelationId = request.CorrelationId,
+                    RemediationType = AutoRemediationType.RetryTuning,
+                    RecommendedAction = AutoRemediationRecommendedAction.RetryWithBackoff,
+                    RiskLevel = request.RiskLevel ?? AiRiskLevel.Medium.ToString(),
+                    ConfidenceScore = request.ConfidenceScore,
+                    RequiresApproval = false,
+                    CanAutoApply = false,
+                    Summary = "Retry tuning recommendation.",
+                    Recommendation = "Retry with backoff.",
+                    ReasonCodes = [AutoRemediationReasonCode.RateLimited],
+                    GeneratedAtUtc = DateTime.UtcNow
+                });
         }
 
         public AiAgentOrchestrator Create(AiAgentOrchestrationOptions options) => new(
@@ -350,6 +368,7 @@ public sealed class AiAgentOrchestratorTests
             Observability.Object,
             ApprovalWorkflow.Object,
             new AiConfidenceScoreService(Options.Create(new AiConfidenceScoreOptions()), NullLogger<AiConfidenceScoreService>.Instance),
+            AutoRemediation.Object,
             Options.Create(options),
             NullLogger<AiAgentOrchestrator>.Instance);
     }
