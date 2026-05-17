@@ -1936,3 +1936,62 @@ Example response:
   "confidenceExplanation": "AI response was valid, required fields were present, and multiple evidence signals supported the decision."
 }
 ```
+
+## AI Safe Mode
+
+AI Safe Mode is HookBridge's global guardrail for AI-assisted operations. It keeps every AI agent advisory by default and prevents AI-generated recommendations from directly executing production-impacting actions without explicit human approval.
+
+### Protected action list
+
+Protected actions include retrying webhooks, moving events to dead-letter storage, replaying dead-letter events, pausing or resuming endpoints, quarantining or rejecting events, applying generated transformation code, applying generated validation rules, updating configuration, scaling workers, and restarting workers.
+
+### Production safety rules
+
+- AI cannot execute production actions directly.
+- `ReadOnlyQuery`, `GenerateRecommendation`, and `NotifyOnly` are advisory/read-only actions and are allowed when read-only actions are enabled.
+- In `prod` or `production`, protected actions are blocked from auto-execution unless the request carries an `Approved` human approval status.
+- When `RequireApprovalForAllProductionActions` is enabled, every non-read-only production action requires approval.
+- High and critical risk actions require approval in every environment.
+- Confidence scores below `0.60` require manual review.
+- `PendingReview`, `Rejected`, `NeedsMoreInfo`, `Expired`, and `Applied` approval statuses do not allow protected actions.
+
+### API endpoint
+
+`POST /api/ai-safe-mode/evaluate`
+
+Example request:
+
+```json
+{
+  "actionType": "RetryWebhook",
+  "environment": "production",
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "riskLevel": "High",
+  "confidenceScore": 0.82,
+  "approvalStatus": "PendingReview",
+  "requestedBy": "HookBridge.AI.Worker",
+  "reason": "AI recommended retry with backoff.",
+  "requestedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+Example response:
+
+```json
+{
+  "decision": "RequiresApproval",
+  "isAllowed": false,
+  "requiresApproval": true,
+  "reason": "Production retry actions require approved human approval.",
+  "blockMessage": "AI recommendation is advisory only. Approve this action before applying it.",
+  "actionType": "RetryWebhook",
+  "environment": "production",
+  "evaluatedAtUtc": "2026-05-14T10:30:01Z"
+}
+```
+
+Safe mode evaluations are audit logged to MongoDB in the `ai_safe_mode_audit_records` collection with action, decision, environment, tenant context, approval status, confidence score, reason, block message, and UTC evaluation time.

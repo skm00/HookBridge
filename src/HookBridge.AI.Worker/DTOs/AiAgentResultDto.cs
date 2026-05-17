@@ -17,6 +17,9 @@ public sealed class AiAgentResultDto : IValidatableObject
     public long DurationMs { get; set; }
     public string? Decision { get; set; }
     public bool RequiresApproval { get; set; }
+    public AiSafeModeDecision SafeModeDecision { get; set; } = AiSafeModeDecision.Allowed;
+    public string SafeModeReason { get; set; } = string.Empty;
+    public bool IsActionAllowed { get; set; } = true;
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

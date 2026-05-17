@@ -11,6 +11,9 @@ public sealed class AutoRemediationRecommendationResponseDto : IValidatableObjec
     public string RiskLevel { get; set; } = "Unknown";
     public double ConfidenceScore { get; set; }
     public bool RequiresApproval { get; set; }
+    public AiSafeModeDecision SafeModeDecision { get; set; } = AiSafeModeDecision.Allowed;
+    public string SafeModeReason { get; set; } = string.Empty;
+    public bool IsActionAllowed { get; set; } = true;
     public bool CanAutoApply { get; set; }
     public string Summary { get; set; } = string.Empty;
     public string Recommendation { get; set; } = string.Empty;

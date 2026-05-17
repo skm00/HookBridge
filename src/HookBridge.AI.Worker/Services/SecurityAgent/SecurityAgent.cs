@@ -5,6 +5,7 @@ using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.SecurityAnalysis;
+using HookBridge.AI.Worker.Services.SafeMode;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -23,17 +24,20 @@ public sealed class SecurityAgent : ISecurityAgent
     private readonly IAiSecurityAnalysisAgent? _aiSecurityAnalysisAgent;
     private readonly IWebhookDuplicateReplayDetectionService? _duplicateReplayService;
     private readonly ILogger<SecurityAgent> _logger;
+    private readonly IAiSafeModeGuard? _safeModeGuard;
 
     public SecurityAgent(
         IOptions<SecurityAgentOptions> options,
         ILogger<SecurityAgent> logger,
         IAiSecurityAnalysisAgent? aiSecurityAnalysisAgent = null,
-        IWebhookDuplicateReplayDetectionService? duplicateReplayService = null)
+        IWebhookDuplicateReplayDetectionService? duplicateReplayService = null,
+        IAiSafeModeGuard? safeModeGuard = null)
     {
         _options = options.Value;
         _logger = logger;
         _aiSecurityAnalysisAgent = aiSecurityAnalysisAgent;
         _duplicateReplayService = duplicateReplayService;
+        _safeModeGuard = safeModeGuard;
     }
 
     public async Task<SecurityAgentResponseDto> AnalyzeAsync(SecurityAgentRequestDto request, CancellationToken cancellationToken = default)
@@ -120,9 +124,41 @@ public sealed class SecurityAgent : ISecurityAgent
             _logger.LogWarning("Suspicious payload detected. EventId: {EventId}, CorrelationId: {CorrelationId}, ReasonCodes: {ReasonCodes}", request.EventId, request.CorrelationId, string.Join(',', response.ReasonCodes));
         }
 
+        await ApplySafeModeAsync(request, response, cancellationToken);
+
         _logger.LogInformation("Security decision calculated. EventId: {EventId}, CorrelationId: {CorrelationId}, SecurityDecision: {SecurityDecision}, RiskLevel: {RiskLevel}, SecurityRiskScore: {SecurityRiskScore}, RequiresApproval: {RequiresApproval}", response.EventId, response.CorrelationId, response.SecurityDecision, response.RiskLevel, response.SecurityRiskScore, response.RequiresApproval);
         if (requiresApproval) _logger.LogInformation("Approval required. EventId: {EventId}, CorrelationId: {CorrelationId}, SecurityDecision: {SecurityDecision}, RiskLevel: {RiskLevel}", response.EventId, response.CorrelationId, response.SecurityDecision, response.RiskLevel);
         return response;
+    }
+
+    private async Task ApplySafeModeAsync(SecurityAgentRequestDto request, SecurityAgentResponseDto response, CancellationToken cancellationToken)
+    {
+        if (_safeModeGuard is null) return;
+        var actionType = response.SecurityDecision switch
+        {
+            SecurityAgentDecision.Quarantine => AiActionType.QuarantineEvent,
+            SecurityAgentDecision.Reject or SecurityAgentDecision.BlockTemporarily => AiActionType.RejectEvent,
+            _ => AiActionType.GenerateRecommendation
+        };
+        var safeModeResponse = await _safeModeGuard.EvaluateAsync(new AiSafeModeEvaluationRequestDto
+        {
+            ActionType = actionType,
+            Environment = request.Environment ?? "production",
+            EventId = request.EventId,
+            CorrelationId = request.CorrelationId,
+            CustomerId = request.CustomerId,
+            SubscriptionId = request.SubscriptionId,
+            EndpointId = request.EndpointId,
+            RiskLevel = response.RiskLevel.ToString(),
+            ConfidenceScore = response.ConfidenceScore,
+            RequestedBy = nameof(SecurityAgent),
+            Reason = response.Recommendation,
+            RequestedAtUtc = DateTime.UtcNow
+        }, cancellationToken);
+        response.SafeModeDecision = safeModeResponse.Decision;
+        response.SafeModeReason = safeModeResponse.Reason;
+        response.IsActionAllowed = safeModeResponse.IsAllowed;
+        response.RequiresApproval = response.RequiresApproval || safeModeResponse.RequiresApproval;
     }
 
     private async Task<WebhookDuplicateReplayDetectionResponseDto?> TryDetectDuplicateReplayAsync(SecurityAgentRequestDto request, CancellationToken cancellationToken)

@@ -19,12 +19,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly ITransformationAgentResultCollectionProvider? _transformationAgentCollectionProvider;
     private readonly IObservabilityAgentResultCollectionProvider? _observabilityAgentCollectionProvider;
     private readonly IAutoRemediationRecommendationCollectionProvider? _autoRemediationCollectionProvider;
+    private readonly IAiSafeModeAuditRecordCollectionProvider? _safeModeAuditCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -32,7 +33,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -41,7 +42,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -59,6 +60,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ITransformationAgentResultCollectionProvider? transformationAgentCollectionProvider,
         IObservabilityAgentResultCollectionProvider? observabilityAgentCollectionProvider,
         IAutoRemediationRecommendationCollectionProvider? autoRemediationCollectionProvider,
+        IAiSafeModeAuditRecordCollectionProvider? safeModeAuditCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -74,6 +76,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _transformationAgentCollectionProvider = transformationAgentCollectionProvider;
         _observabilityAgentCollectionProvider = observabilityAgentCollectionProvider;
         _autoRemediationCollectionProvider = autoRemediationCollectionProvider;
+        _safeModeAuditCollectionProvider = safeModeAuditCollectionProvider;
         _logger = logger;
     }
 
@@ -154,6 +157,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
         {
             var autoRemediationCollection = _autoRemediationCollectionProvider.GetCollection();
             await autoRemediationCollection.Indexes.CreateManyAsync(CreateAutoRemediationRecommendationIndexModels(), cancellationToken);
+        }
+
+        if (_safeModeAuditCollectionProvider is not null)
+        {
+            var safeModeAuditCollection = _safeModeAuditCollectionProvider.GetCollection();
+            await safeModeAuditCollection.Indexes.CreateManyAsync(CreateAiSafeModeAuditRecordIndexModels(), cancellationToken);
         }
 
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
@@ -385,4 +394,21 @@ public sealed class AiMongoIndexInitializer : IHostedService
             new CreateIndexModel<AiSecurityAnalysisResult>(Builders<AiSecurityAnalysisResult>.IndexKeys.Descending(result => result.GeneratedAtUtc), new CreateIndexOptions { Name = "idx_ai_security_analysis_generated_at_utc_desc" })
         };
     }
+
+    public static IReadOnlyList<CreateIndexModel<AiSafeModeAuditRecord>> CreateAiSafeModeAuditRecordIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Ascending(record => record.EventId), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_event_id" }),
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Ascending(record => record.CorrelationId), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_correlation_id" }),
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Ascending(record => record.CustomerId), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_customer_id" }),
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Ascending(record => record.SubscriptionId), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_subscription_id" }),
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Ascending(record => record.EndpointId), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_endpoint_id" }),
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Ascending(record => record.Environment), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_environment" }),
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Ascending(record => record.ActionType), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_action_type" }),
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Ascending(record => record.Decision), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_decision" }),
+            new CreateIndexModel<AiSafeModeAuditRecord>(Builders<AiSafeModeAuditRecord>.IndexKeys.Descending(record => record.EvaluatedAtUtc), new CreateIndexOptions { Name = "idx_ai_safe_mode_audit_evaluated_at_utc_desc" })
+        };
+    }
+
 }

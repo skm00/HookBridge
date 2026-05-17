@@ -25,6 +25,7 @@ using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.Orchestration;
 using HookBridge.AI.Worker.Services.AutoRemediationRecommendation;
+using HookBridge.AI.Worker.Services.SafeMode;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -140,11 +141,30 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ObservabilityAgentResultsCollectionName),
                 "AiMongo:ObservabilityAgentResultsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AiSafeModeAuditRecordsCollectionName),
+                "AiMongo:AiSafeModeAuditRecordsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
     }
 
+
+    public static IServiceCollection AddAiSafeModeServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<AiSafeModeOptions>()
+            .Bind(configuration.GetSection(AiSafeModeOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Environment), "AiSafeMode:Environment is required.")
+            .ValidateOnStart();
+
+        services.TryAddSingleton<IAiSafeModeAuditRecordCollectionProvider, AiSafeModeAuditRecordCollectionProvider>();
+        services.TryAddSingleton<IAiSafeModeAuditRepository, AiSafeModeAuditRepository>();
+        services.TryAddSingleton<IAiSafeModeGuard, AiSafeModeGuard>();
+        return services;
+    }
 
     public static IServiceCollection AddAiRecommendationApprovalServices(
         this IServiceCollection services,
@@ -527,6 +547,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IObservabilityAgentResultRepository, ObservabilityAgentResultRepository>();
         services.AddSingleton<IAutoRemediationRecommendationCollectionProvider, AutoRemediationRecommendationCollectionProvider>();
         services.AddSingleton<IAutoRemediationRecommendationRepository, AutoRemediationRecommendationRepository>();
+        services.AddSingleton<IAiSafeModeAuditRecordCollectionProvider, AiSafeModeAuditRecordCollectionProvider>();
+        services.AddSingleton<IAiSafeModeAuditRepository, AiSafeModeAuditRepository>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;

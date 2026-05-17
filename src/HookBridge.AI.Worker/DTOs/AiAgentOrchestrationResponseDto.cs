@@ -15,6 +15,9 @@ public sealed class AiAgentOrchestrationResponseDto : IValidatableObject
     public IReadOnlyList<AiAgentResultDto> AgentResults { get; set; } = Array.Empty<AiAgentResultDto>();
     public AutoRemediationRecommendationResponseDto? AutoRemediationRecommendation { get; set; }
     public bool RequiresApproval { get; set; }
+    public AiSafeModeDecision SafeModeDecision { get; set; } = AiSafeModeDecision.Allowed;
+    public string SafeModeReason { get; set; } = string.Empty;
+    public bool IsActionAllowed { get; set; } = true;
     public string? ApprovalId { get; set; }
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
 

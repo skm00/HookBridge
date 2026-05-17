@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Services.WebhookTransformationRecommendation;
+using HookBridge.AI.Worker.Services.SafeMode;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -34,12 +35,14 @@ public sealed partial class TransformationAgent : ITransformationAgent
     private readonly TransformationAgentOptions _options;
     private readonly IWebhookTransformationRecommendationAgent _recommendationAgent;
     private readonly ILogger<TransformationAgent> _logger;
+    private readonly IAiSafeModeGuard? _safeModeGuard;
 
-    public TransformationAgent(IOptions<TransformationAgentOptions> options, IWebhookTransformationRecommendationAgent recommendationAgent, ILogger<TransformationAgent> logger)
+    public TransformationAgent(IOptions<TransformationAgentOptions> options, IWebhookTransformationRecommendationAgent recommendationAgent, ILogger<TransformationAgent> logger, IAiSafeModeGuard? safeModeGuard = null)
     {
         _options = options.Value;
         _recommendationAgent = recommendationAgent;
         _logger = logger;
+        _safeModeGuard = safeModeGuard;
     }
 
     public async Task<TransformationAgentResponseDto> AnalyzeAsync(TransformationAgentRequestDto request, CancellationToken cancellationToken = default)
@@ -105,10 +108,35 @@ public sealed partial class TransformationAgent : ITransformationAgent
         }
 
         ApplyDecisionAndSafetyRules(response);
+        await ApplySafeModeAsync(request, response, cancellationToken);
         _logger.LogInformation("Mapping recommendation calculated. EventId: {EventId}, CorrelationId: {CorrelationId}, TransformationDecision: {TransformationDecision}, RiskLevel: {RiskLevel}, RequiresApproval: {RequiresApproval}, ConfidenceScore: {ConfidenceScore}, Fallback: {Fallback}", response.EventId, response.CorrelationId, response.TransformationDecision, response.RiskLevel, response.RequiresApproval, response.ConfidenceScore, response.Fallback);
         if (response.MissingTargetFields.Count > 0) _logger.LogInformation("Missing target fields detected. EventId: {EventId}, CorrelationId: {CorrelationId}, MissingTargetFieldCount: {MissingTargetFieldCount}", response.EventId, response.CorrelationId, response.MissingTargetFields.Count);
         if (response.RequiresApproval) _logger.LogInformation("Approval required. EventId: {EventId}, CorrelationId: {CorrelationId}, TransformationDecision: {TransformationDecision}, RiskLevel: {RiskLevel}", response.EventId, response.CorrelationId, response.TransformationDecision, response.RiskLevel);
         return response;
+    }
+
+    private async Task ApplySafeModeAsync(TransformationAgentRequestDto request, TransformationAgentResponseDto response, CancellationToken cancellationToken)
+    {
+        if (_safeModeGuard is null) return;
+        var safeModeResponse = await _safeModeGuard.EvaluateAsync(new AiSafeModeEvaluationRequestDto
+        {
+            ActionType = string.IsNullOrWhiteSpace(response.GeneratedTransformationCode) ? AiActionType.GenerateRecommendation : AiActionType.ApplyTransformation,
+            Environment = request.Environment ?? "production",
+            EventId = request.EventId,
+            CorrelationId = request.CorrelationId,
+            CustomerId = request.CustomerId,
+            SubscriptionId = request.SubscriptionId,
+            EndpointId = request.EndpointId,
+            RiskLevel = response.RiskLevel,
+            ConfidenceScore = response.ConfidenceScore,
+            RequestedBy = nameof(TransformationAgent),
+            Reason = response.Recommendation,
+            RequestedAtUtc = DateTime.UtcNow
+        }, cancellationToken);
+        response.SafeModeDecision = safeModeResponse.Decision;
+        response.SafeModeReason = safeModeResponse.Reason;
+        response.IsActionAllowed = safeModeResponse.IsAllowed;
+        response.RequiresApproval = response.RequiresApproval || safeModeResponse.RequiresApproval;
     }
 
     private TransformationAgentResponseDto CreateFallback(TransformationAgentRequestDto request, JsonNode source, JsonNode target)

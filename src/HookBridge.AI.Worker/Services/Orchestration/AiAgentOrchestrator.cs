@@ -91,6 +91,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         var requiresApproval = baseRequiresApproval || _confidenceScoreService.RequiresManualReview(confidence, overallRisk);
         var summary = BuildSummary(results, overallRisk, action);
         var remediationRecommendation = await _autoRemediationRecommendationService.RecommendAsync(BuildAutoRemediationRequest(request, results, overallRisk, confidence), cancellationToken);
+        var safeModeDecision = AggregateSafeModeDecision(results, remediationRecommendation);
 
         var response = new AiAgentOrchestrationResponseDto
         {
@@ -104,7 +105,10 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
             ConfidenceExplanation = confidenceResult.Explanation,
             AgentResults = results,
             AutoRemediationRecommendation = remediationRecommendation,
-            RequiresApproval = requiresApproval || remediationRecommendation.RequiresApproval,
+            RequiresApproval = requiresApproval || remediationRecommendation.RequiresApproval || safeModeDecision == AiSafeModeDecision.RequiresApproval,
+            SafeModeDecision = safeModeDecision,
+            SafeModeReason = AggregateSafeModeReason(safeModeDecision, results, remediationRecommendation),
+            IsActionAllowed = results.All(result => result.IsActionAllowed) && remediationRecommendation.IsActionAllowed,
             GeneratedAtUtc = DateTime.UtcNow
         };
 
@@ -257,7 +261,9 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         }, cancellationToken);
 
         var riskLevel = Enum.TryParse<AiRiskLevel>(response.RiskLevel, true, out var parsedRisk) ? parsedRisk : AiRiskLevel.Unknown;
-        return Success(AiAgentName.RetryRecommendationAgent, response.Summary, riskLevel, MapRetryAgentSuggestedAction(response.RetryDecision), response.ConfidenceScore, response.Fallback);
+        var result = Success(AiAgentName.RetryRecommendationAgent, response.Summary, riskLevel, MapRetryAgentSuggestedAction(response.RetryDecision), response.ConfidenceScore, response.Fallback);
+        ApplySafeMode(result, response.SafeModeDecision, response.SafeModeReason, response.IsActionAllowed, response.RequiresApproval);
+        return result;
     }
 
     private static string MapRetryAgentSuggestedAction(RetryAgentDecision decision) => decision switch
@@ -290,7 +296,9 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
             ReceivedAtUtc = request.ReceivedAtUtc
         }, cancellationToken);
 
-        return Success(AiAgentName.SecurityAgent, response.Summary, response.RiskLevel, response.SecurityDecision.ToString(), response.ConfidenceScore, response.Fallback);
+        var result = Success(AiAgentName.SecurityAgent, response.Summary, response.RiskLevel, response.SecurityDecision.ToString(), response.ConfidenceScore, response.Fallback);
+        ApplySafeMode(result, response.SafeModeDecision, response.SafeModeReason, response.IsActionAllowed, response.RequiresApproval);
+        return result;
     }
 
     private async Task<AiAgentResultDto> RunDuplicateReplayAgentAsync(AiAgentOrchestrationRequestDto request, CancellationToken cancellationToken)
@@ -419,7 +427,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         var result = Success(AiAgentName.TransformationAgent, response.Summary, ParseRisk(response.RiskLevel), response.TransformationDecision.ToString(), response.ConfidenceScore, response.Fallback);
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.Decision = response.TransformationDecision.ToString();
-        result.RequiresApproval = response.RequiresApproval;
+        ApplySafeMode(result, response.SafeModeDecision, response.SafeModeReason, response.IsActionAllowed, response.RequiresApproval);
         return result;
     }
 
@@ -450,7 +458,7 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
         var result = Success(AiAgentName.ObservabilityAgent, response.Summary, response.RiskLevel, response.SuggestedActions.FirstOrDefault().ToString(), response.ConfidenceScore, response.Fallback);
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.Decision = response.ObservabilityStatus.ToString();
-        result.RequiresApproval = response.RequiresApproval;
+        ApplySafeMode(result, response.SafeModeDecision, response.SafeModeReason, response.IsActionAllowed, response.RequiresApproval);
         return result;
     }
 
@@ -596,6 +604,57 @@ public sealed class AiAgentOrchestrator : IAiAgentOrchestrator
             ConfidenceExplanation = usedFallback ? "Agent used fallback output, reducing confidence." : "Agent confidence was supplied by deterministic agent scoring.",
             UsedFallback = usedFallback
         };
+
+    private static void ApplySafeMode(
+        AiAgentResultDto result,
+        AiSafeModeDecision decision,
+        string reason,
+        bool isActionAllowed,
+        bool requiresApproval)
+    {
+        result.SafeModeDecision = decision;
+        result.SafeModeReason = reason;
+        result.IsActionAllowed = isActionAllowed;
+        result.RequiresApproval = requiresApproval;
+    }
+
+    private static AiSafeModeDecision AggregateSafeModeDecision(
+        IReadOnlyList<AiAgentResultDto> results,
+        AutoRemediationRecommendationResponseDto remediationRecommendation)
+    {
+        var decisions = results.Select(result => result.SafeModeDecision).Append(remediationRecommendation.SafeModeDecision);
+        if (decisions.Any(decision => decision == AiSafeModeDecision.Blocked)) return AiSafeModeDecision.Blocked;
+        if (decisions.Any(decision => decision == AiSafeModeDecision.RequiresManualReview)) return AiSafeModeDecision.RequiresManualReview;
+        if (decisions.Any(decision => decision == AiSafeModeDecision.RequiresApproval)) return AiSafeModeDecision.RequiresApproval;
+        return AiSafeModeDecision.Allowed;
+    }
+
+    private static string AggregateSafeModeReason(
+        AiSafeModeDecision aggregateDecision,
+        IReadOnlyList<AiAgentResultDto> results,
+        AutoRemediationRecommendationResponseDto remediationRecommendation)
+    {
+        var matchingAgentReason = results
+            .Where(result => result.SafeModeDecision == aggregateDecision)
+            .Select(result => result.SafeModeReason)
+            .FirstOrDefault(reason => !string.IsNullOrWhiteSpace(reason));
+
+        if (!string.IsNullOrWhiteSpace(matchingAgentReason))
+        {
+            return matchingAgentReason;
+        }
+
+        if (remediationRecommendation.SafeModeDecision == aggregateDecision &&
+            !string.IsNullOrWhiteSpace(remediationRecommendation.SafeModeReason))
+        {
+            return remediationRecommendation.SafeModeReason;
+        }
+
+        return results
+            .Where(result => result.SafeModeDecision != AiSafeModeDecision.Allowed)
+            .Select(result => result.SafeModeReason)
+            .FirstOrDefault(reason => !string.IsNullOrWhiteSpace(reason)) ?? remediationRecommendation.SafeModeReason;
+    }
 
     private static AiAgentResultDto Failed(AiAgentName name, string errorMessage, long durationMs)
         => new()
