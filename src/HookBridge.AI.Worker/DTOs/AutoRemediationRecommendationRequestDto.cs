@@ -4,7 +4,9 @@ namespace HookBridge.AI.Worker.DTOs;
 
 public sealed class AutoRemediationRecommendationRequestDto : IValidatableObject
 {
-    [Required] public string EventId { get; set; } = string.Empty;
+    [Required(ErrorMessage = "The EventId field is required.")]
+    [RegularExpression(@".*\S.*", ErrorMessage = "The EventId field is required.")]
+    public string EventId { get; set; } = string.Empty;
     public string? CorrelationId { get; set; }
     public string? CustomerId { get; set; }
     public string? CustomerIdType { get; set; }
