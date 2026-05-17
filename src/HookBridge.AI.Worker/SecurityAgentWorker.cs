@@ -1,4 +1,5 @@
 using HookBridge.AI.Worker.Approval;
+using HookBridge.AI.Worker.Audit;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
@@ -15,13 +16,14 @@ public sealed class SecurityAgentWorker : BackgroundService
     private readonly ISecurityAgentConsumer _consumer;
     private readonly ISecurityAgent _agent;
     private readonly ISecurityAgentResultRepository _repository;
+    private readonly IAiDecisionAuditService? _auditService;
     private readonly IAiRecommendationApprovalService _approvalService;
     private readonly IAiAnomalyProducer _anomalyProducer;
     private readonly ILogger<SecurityAgentWorker> _logger;
     private readonly AiKafkaOptions _kafkaOptions;
     private readonly SecurityAgentOptions _securityOptions;
 
-    public SecurityAgentWorker(ISecurityAgentConsumer consumer, ISecurityAgent agent, ISecurityAgentResultRepository repository, IAiRecommendationApprovalService approvalService, IAiAnomalyProducer anomalyProducer, ILogger<SecurityAgentWorker> logger, IOptions<AiKafkaOptions> kafkaOptions, IOptions<SecurityAgentOptions> securityOptions)
+    public SecurityAgentWorker(ISecurityAgentConsumer consumer, ISecurityAgent agent, ISecurityAgentResultRepository repository, IAiRecommendationApprovalService approvalService, IAiAnomalyProducer anomalyProducer, ILogger<SecurityAgentWorker> logger, IOptions<AiKafkaOptions> kafkaOptions, IOptions<SecurityAgentOptions> securityOptions, IAiDecisionAuditService? auditService = null)
     {
         _consumer = consumer;
         _agent = agent;
@@ -31,6 +33,7 @@ public sealed class SecurityAgentWorker : BackgroundService
         _logger = logger;
         _kafkaOptions = kafkaOptions.Value;
         _securityOptions = securityOptions.Value;
+        _auditService = auditService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -48,6 +51,7 @@ public sealed class SecurityAgentWorker : BackgroundService
             {
                 var response = await _agent.AnalyzeAsync(request, stoppingToken);
                 await _repository.InsertAsync(SecurityAgentResult.FromResponse(response, request), stoppingToken);
+                if (_auditService is not null) await _auditService.AuditSecurityDecisionAsync(AiDecisionAuditRequestFactory.FromSecurity(response, request), stoppingToken);
                 _logger.LogInformation("Result stored. EventId: {EventId}, CorrelationId: {CorrelationId}, SecurityDecision: {SecurityDecision}, RiskLevel: {RiskLevel}, RequiresApproval: {RequiresApproval}", response.EventId, response.CorrelationId, response.SecurityDecision, response.RiskLevel, response.RequiresApproval);
 
                 if (response.RequiresApproval)

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using HookBridge.AI.Worker.Approval;
+using HookBridge.AI.Worker.Audit;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
@@ -16,12 +17,13 @@ public sealed class AutoRemediationRecommendationWorker : BackgroundService
     private readonly IAutoRemediationRecommendationConsumer _consumer;
     private readonly IAutoRemediationRecommendationService _service;
     private readonly IAutoRemediationRecommendationRepository _repository;
+    private readonly IAiDecisionAuditService? _auditService;
     private readonly IAiRecommendationApprovalService _approvalService;
     private readonly IAiAnomalyProducer _anomalyProducer;
     private readonly ILogger<AutoRemediationRecommendationWorker> _logger;
     private readonly AiKafkaOptions _kafkaOptions;
 
-    public AutoRemediationRecommendationWorker(IAutoRemediationRecommendationConsumer consumer, IAutoRemediationRecommendationService service, IAutoRemediationRecommendationRepository repository, IAiRecommendationApprovalService approvalService, IAiAnomalyProducer anomalyProducer, ILogger<AutoRemediationRecommendationWorker> logger, IOptions<AiKafkaOptions> kafkaOptions)
+    public AutoRemediationRecommendationWorker(IAutoRemediationRecommendationConsumer consumer, IAutoRemediationRecommendationService service, IAutoRemediationRecommendationRepository repository, IAiRecommendationApprovalService approvalService, IAiAnomalyProducer anomalyProducer, ILogger<AutoRemediationRecommendationWorker> logger, IOptions<AiKafkaOptions> kafkaOptions, IAiDecisionAuditService? auditService = null)
     {
         _consumer = consumer;
         _service = service;
@@ -30,6 +32,7 @@ public sealed class AutoRemediationRecommendationWorker : BackgroundService
         _anomalyProducer = anomalyProducer;
         _logger = logger;
         _kafkaOptions = kafkaOptions.Value;
+        _auditService = auditService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,6 +50,7 @@ public sealed class AutoRemediationRecommendationWorker : BackgroundService
             {
                 var response = await _service.RecommendAsync(request, stoppingToken);
                 await _repository.InsertAsync(AutoRemediationRecommendationResult.FromResponse(response, request), stoppingToken);
+                if (_auditService is not null) await _auditService.AuditAutoRemediationRecommendationAsync(AiDecisionAuditRequestFactory.FromAutoRemediation(response, request), stoppingToken);
                 _logger.LogInformation("Result stored. EventId: {EventId}, CorrelationId: {CorrelationId}, RemediationType: {RemediationType}, RecommendedAction: {RecommendedAction}, RiskLevel: {RiskLevel}, RequiresApproval: {RequiresApproval}", response.EventId, response.CorrelationId, response.RemediationType, response.RecommendedAction, response.RiskLevel, response.RequiresApproval);
 
                 if (response.RequiresApproval)

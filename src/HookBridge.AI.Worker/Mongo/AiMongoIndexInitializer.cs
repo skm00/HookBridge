@@ -20,12 +20,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly IObservabilityAgentResultCollectionProvider? _observabilityAgentCollectionProvider;
     private readonly IAutoRemediationRecommendationCollectionProvider? _autoRemediationCollectionProvider;
     private readonly IAiSafeModeAuditRecordCollectionProvider? _safeModeAuditCollectionProvider;
+    private readonly IAiDecisionAuditRecordCollectionProvider? _decisionAuditCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -33,7 +34,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -42,7 +43,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -61,6 +62,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IObservabilityAgentResultCollectionProvider? observabilityAgentCollectionProvider,
         IAutoRemediationRecommendationCollectionProvider? autoRemediationCollectionProvider,
         IAiSafeModeAuditRecordCollectionProvider? safeModeAuditCollectionProvider,
+        IAiDecisionAuditRecordCollectionProvider? decisionAuditCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -77,6 +79,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _observabilityAgentCollectionProvider = observabilityAgentCollectionProvider;
         _autoRemediationCollectionProvider = autoRemediationCollectionProvider;
         _safeModeAuditCollectionProvider = safeModeAuditCollectionProvider;
+        _decisionAuditCollectionProvider = decisionAuditCollectionProvider;
         _logger = logger;
     }
 
@@ -163,6 +166,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
         {
             var safeModeAuditCollection = _safeModeAuditCollectionProvider.GetCollection();
             await safeModeAuditCollection.Indexes.CreateManyAsync(CreateAiSafeModeAuditRecordIndexModels(), cancellationToken);
+        }
+
+        if (_decisionAuditCollectionProvider is not null)
+        {
+            var decisionAuditCollection = _decisionAuditCollectionProvider.GetCollection();
+            await decisionAuditCollection.Indexes.CreateManyAsync(AiDecisionAuditRepository.CreateIndexModels(), cancellationToken);
         }
 
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");

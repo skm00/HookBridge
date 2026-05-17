@@ -1,4 +1,5 @@
 using HookBridge.AI.Worker.Approval;
+using HookBridge.AI.Worker.Audit;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
@@ -15,6 +16,7 @@ public sealed class AiAgentOrchestrationWorker : BackgroundService
     private readonly IAiAgentOrchestrationConsumer _consumer;
     private readonly IAiAgentOrchestrator _orchestrator;
     private readonly IAiAgentOrchestrationRepository _repository;
+    private readonly IAiDecisionAuditService? _auditService;
     private readonly IAiRecommendationApprovalService _approvalService;
     private readonly IAiAnomalyProducer _anomalyProducer;
     private readonly AiKafkaOptions _kafkaOptions;
@@ -27,7 +29,8 @@ public sealed class AiAgentOrchestrationWorker : BackgroundService
         IAiRecommendationApprovalService approvalService,
         IAiAnomalyProducer anomalyProducer,
         IOptions<AiKafkaOptions> kafkaOptions,
-        ILogger<AiAgentOrchestrationWorker> logger)
+        ILogger<AiAgentOrchestrationWorker> logger,
+        IAiDecisionAuditService? auditService = null)
     {
         _consumer = consumer;
         _orchestrator = orchestrator;
@@ -36,6 +39,7 @@ public sealed class AiAgentOrchestrationWorker : BackgroundService
         _anomalyProducer = anomalyProducer;
         _kafkaOptions = kafkaOptions.Value;
         _logger = logger;
+        _auditService = auditService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -78,6 +82,7 @@ public sealed class AiAgentOrchestrationWorker : BackgroundService
             }
 
             await _repository.InsertAsync(AiAgentOrchestrationResult.FromResponse(response, request), stoppingToken);
+            if (_auditService is not null) await _auditService.AuditOrchestrationDecisionAsync(AiDecisionAuditRequestFactory.FromOrchestration(response, request), stoppingToken);
 
             if (response.OverallRiskLevel is AiRiskLevel.High or AiRiskLevel.Critical && !string.IsNullOrWhiteSpace(_kafkaOptions.AnomaliesTopic))
             {

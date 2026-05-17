@@ -24,6 +24,7 @@ public sealed class AiMongoOptions
     public const string DefaultObservabilityAgentResultsCollectionName = "observability_agent_results";
     public const string DefaultAutoRemediationRecommendationResultsCollectionName = "auto_remediation_recommendation_results";
     public const string DefaultAiSafeModeAuditRecordsCollectionName = "ai_safe_mode_audit_records";
+    public const string DefaultAiDecisionAuditRecordsCollectionName = "ai_decision_audit_records";
 
     public string ConnectionString { get; set; } = string.Empty;
 
@@ -64,4 +65,6 @@ public sealed class AiMongoOptions
     public string AutoRemediationRecommendationResultsCollectionName { get; set; } = DefaultAutoRemediationRecommendationResultsCollectionName;
 
     public string AiSafeModeAuditRecordsCollectionName { get; set; } = DefaultAiSafeModeAuditRecordsCollectionName;
+
+    public string AiDecisionAuditRecordsCollectionName { get; set; } = DefaultAiDecisionAuditRecordsCollectionName;
 }

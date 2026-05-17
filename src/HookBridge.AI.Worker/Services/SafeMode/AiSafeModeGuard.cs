@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using HookBridge.AI.Worker.Audit;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Mongo;
@@ -12,13 +13,15 @@ public sealed class AiSafeModeGuard : IAiSafeModeGuard
     private const double LowConfidenceThreshold = 0.60;
     private readonly AiSafeModeOptions _options;
     private readonly IAiSafeModeAuditRepository? _auditRepository;
+    private readonly IAiDecisionAuditService? _decisionAuditService;
     private readonly ILogger<AiSafeModeGuard> _logger;
 
-    public AiSafeModeGuard(IOptions<AiSafeModeOptions> options, ILogger<AiSafeModeGuard> logger, IAiSafeModeAuditRepository? auditRepository = null)
+    public AiSafeModeGuard(IOptions<AiSafeModeOptions> options, ILogger<AiSafeModeGuard> logger, IAiSafeModeAuditRepository? auditRepository = null, IAiDecisionAuditService? decisionAuditService = null)
     {
         _options = options.Value;
         _logger = logger;
         _auditRepository = auditRepository;
+        _decisionAuditService = decisionAuditService;
     }
 
     public async Task<AiSafeModeEvaluationResponseDto> EvaluateAsync(AiSafeModeEvaluationRequestDto request, CancellationToken cancellationToken = default)
@@ -33,6 +36,33 @@ public sealed class AiSafeModeGuard : IAiSafeModeGuard
 
         var response = EvaluateCore(request, environment);
         await StoreAuditRecordAsync(request, response, cancellationToken);
+        if (_decisionAuditService is not null)
+        {
+            await _decisionAuditService.AuditSafeModeEvaluationAsync(new AiDecisionAuditCreateRequestDto
+            {
+                EventId = request.EventId,
+                CorrelationId = request.CorrelationId,
+                CustomerId = request.CustomerId,
+                SubscriptionId = request.SubscriptionId,
+                EndpointId = request.EndpointId,
+                Environment = response.Environment,
+                AgentName = nameof(AiSafeModeGuard),
+                DecisionType = AiDecisionAuditType.SafeModeEvaluation,
+                Decision = response.Decision.ToString(),
+                RiskLevel = request.RiskLevel,
+                ConfidenceScore = request.ConfidenceScore,
+                RequiresApproval = response.RequiresApproval,
+                ApprovalId = request.ApprovalId,
+                ApprovalStatus = request.ApprovalStatus,
+                SafeModeDecision = response.Decision.ToString(),
+                IsActionAllowed = response.IsAllowed,
+                UsedAi = false,
+                UsedFallback = false,
+                Summary = response.Reason,
+                Recommendation = response.BlockMessage,
+                CreatedBy = request.RequestedBy
+            }, cancellationToken);
+        }
         LogDecision(response, request);
         return response;
     }
@@ -122,8 +152,15 @@ public sealed class AiSafeModeGuard : IAiSafeModeGuard
             BlockMessage = response.BlockMessage,
             EvaluatedAtUtc = response.EvaluatedAtUtc
         };
-        await _auditRepository.InsertAsync(record, cancellationToken);
-        _logger.LogInformation("Audit record stored. ActionType: {ActionType}, Decision: {Decision}, Environment: {Environment}, EventId: {EventId}, CorrelationId: {CorrelationId}", response.ActionType, response.Decision, response.Environment, request.EventId, request.CorrelationId);
+        try
+        {
+            await _auditRepository.InsertAsync(record, cancellationToken);
+            _logger.LogInformation("Audit record stored. ActionType: {ActionType}, Decision: {Decision}, Environment: {Environment}, EventId: {EventId}, CorrelationId: {CorrelationId}", response.ActionType, response.Decision, response.Environment, request.EventId, request.CorrelationId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Safe mode audit insert failed. ActionType: {ActionType}, Decision: {Decision}, EventId: {EventId}, CorrelationId: {CorrelationId}", response.ActionType, response.Decision, request.EventId, request.CorrelationId);
+        }
     }
 
     private void LogDecision(AiSafeModeEvaluationResponseDto response, AiSafeModeEvaluationRequestDto request)

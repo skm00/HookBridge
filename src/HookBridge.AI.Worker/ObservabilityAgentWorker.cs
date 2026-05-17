@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using HookBridge.AI.Worker.Approval;
+using HookBridge.AI.Worker.Audit;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Kafka;
@@ -16,12 +17,13 @@ public sealed class ObservabilityAgentWorker : BackgroundService
     private readonly IObservabilityAgentConsumer _consumer;
     private readonly IObservabilityAgent _agent;
     private readonly IObservabilityAgentResultRepository _repository;
+    private readonly IAiDecisionAuditService? _auditService;
     private readonly IAiRecommendationApprovalService _approvalService;
     private readonly IAiAnomalyProducer _anomalyProducer;
     private readonly ILogger<ObservabilityAgentWorker> _logger;
     private readonly AiKafkaOptions _kafkaOptions;
 
-    public ObservabilityAgentWorker(IObservabilityAgentConsumer consumer, IObservabilityAgent agent, IObservabilityAgentResultRepository repository, IAiRecommendationApprovalService approvalService, IAiAnomalyProducer anomalyProducer, ILogger<ObservabilityAgentWorker> logger, IOptions<AiKafkaOptions> kafkaOptions)
+    public ObservabilityAgentWorker(IObservabilityAgentConsumer consumer, IObservabilityAgent agent, IObservabilityAgentResultRepository repository, IAiRecommendationApprovalService approvalService, IAiAnomalyProducer anomalyProducer, ILogger<ObservabilityAgentWorker> logger, IOptions<AiKafkaOptions> kafkaOptions, IAiDecisionAuditService? auditService = null)
     {
         _consumer = consumer;
         _agent = agent;
@@ -30,6 +32,7 @@ public sealed class ObservabilityAgentWorker : BackgroundService
         _anomalyProducer = anomalyProducer;
         _logger = logger;
         _kafkaOptions = kafkaOptions.Value;
+        _auditService = auditService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -55,6 +58,7 @@ public sealed class ObservabilityAgentWorker : BackgroundService
             }
 
             await _repository.InsertAsync(ObservabilityAgentResult.FromResponse(response, request), stoppingToken);
+            if (_auditService is not null) await _auditService.AuditObservabilityDecisionAsync(AiDecisionAuditRequestFactory.FromObservability(response, request), stoppingToken);
             _logger.LogInformation("Result stored. EventId: {EventId}, CorrelationId: {CorrelationId}, ObservabilityStatus: {ObservabilityStatus}, RiskLevel: {RiskLevel}, RequiresApproval: {RequiresApproval}", response.EventId, response.CorrelationId, response.ObservabilityStatus, response.RiskLevel, response.RequiresApproval);
 
             if (response.RequiresApproval)
