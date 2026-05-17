@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Services.SafeMode;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -11,14 +12,16 @@ public sealed class RetryAgent : IRetryAgent
     private const long LargePayloadThresholdBytes = 1024 * 1024;
     private readonly RetryAgentOptions _options;
     private readonly ILogger<RetryAgent> _logger;
+    private readonly IAiSafeModeGuard? _safeModeGuard;
 
-    public RetryAgent(IOptions<RetryAgentOptions> options, ILogger<RetryAgent> logger)
+    public RetryAgent(IOptions<RetryAgentOptions> options, ILogger<RetryAgent> logger, IAiSafeModeGuard? safeModeGuard = null)
     {
         _options = options.Value;
         _logger = logger;
+        _safeModeGuard = safeModeGuard;
     }
 
-    public Task<RetryAgentResponseDto> AnalyzeAsync(RetryAgentRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<RetryAgentResponseDto> AnalyzeAsync(RetryAgentRequestDto request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(request);
@@ -60,8 +63,41 @@ public sealed class RetryAgent : IRetryAgent
             Fallback = !_options.Enabled
         };
 
-        _logger.LogInformation("Retry decision calculated. EventId: {EventId}, CorrelationId: {CorrelationId}, RetryDecision: {RetryDecision}, RetryDelaySeconds: {RetryDelaySeconds}, RiskLevel: {RiskLevel}, RequiresApproval: {RequiresApproval}, ConfidenceScore: {ConfidenceScore}", response.EventId, response.CorrelationId, response.RetryDecision, response.RetryDelaySeconds, response.RiskLevel, response.RequiresApproval, response.ConfidenceScore);
-        return Task.FromResult(response);
+        await ApplySafeModeAsync(request, response, cancellationToken);
+
+        _logger.LogInformation("Retry decision calculated. EventId: {EventId}, CorrelationId: {CorrelationId}, RetryDecision: {RetryDecision}, RetryDelaySeconds: {RetryDelaySeconds}, RiskLevel: {RiskLevel}, RequiresApproval: {RequiresApproval}, ConfidenceScore: {ConfidenceScore}, SafeModeDecision: {SafeModeDecision}", response.EventId, response.CorrelationId, response.RetryDecision, response.RetryDelaySeconds, response.RiskLevel, response.RequiresApproval, response.ConfidenceScore, response.SafeModeDecision);
+        return response;
+    }
+
+    private async Task ApplySafeModeAsync(RetryAgentRequestDto request, RetryAgentResponseDto response, CancellationToken cancellationToken)
+    {
+        if (_safeModeGuard is null) return;
+        var actionType = response.RetryDecision switch
+        {
+            RetryAgentDecision.RetryImmediately or RetryAgentDecision.RetryWithFixedDelay or RetryAgentDecision.RetryWithExponentialBackoff => AiActionType.RetryWebhook,
+            RetryAgentDecision.MoveToDeadLetter => AiActionType.MoveToDeadLetter,
+            RetryAgentDecision.PauseEndpoint => AiActionType.PauseEndpoint,
+            _ => AiActionType.GenerateRecommendation
+        };
+        var decision = await _safeModeGuard.EvaluateAsync(new AiSafeModeEvaluationRequestDto
+        {
+            ActionType = actionType,
+            Environment = request.Environment,
+            EventId = request.EventId,
+            CorrelationId = request.CorrelationId,
+            CustomerId = request.CustomerId,
+            SubscriptionId = request.SubscriptionId,
+            EndpointId = request.EndpointId,
+            RiskLevel = response.RiskLevel,
+            ConfidenceScore = response.ConfidenceScore,
+            RequestedBy = nameof(RetryAgent),
+            Reason = response.Recommendation,
+            RequestedAtUtc = DateTime.UtcNow
+        }, cancellationToken);
+        response.SafeModeDecision = decision.Decision;
+        response.SafeModeReason = decision.Reason;
+        response.IsActionAllowed = decision.IsAllowed;
+        response.RequiresApproval = response.RequiresApproval || decision.RequiresApproval;
     }
 
     public int CalculateDelaySeconds(RetryAgentDecision decision, int retryCount)

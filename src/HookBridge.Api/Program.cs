@@ -149,6 +149,7 @@ builder.Services.AddScoped<IIpAllowlistService, IpAllowlistService>();
 builder.Services.AddScoped<IElasticsearchHealthService, ElasticsearchHealthService>();
 builder.Services.AddAiOptions(builder.Configuration);
 builder.Services.AddAiRecommendationApprovalServices(builder.Configuration);
+builder.Services.AddAiSafeModeServices(builder.Configuration);
 builder.Services.AddAutoRemediationRecommendationServices(builder.Configuration);
 builder.Services.AddAiPromptServices();
 builder.Services.AddAiKernelServices();
@@ -203,6 +204,11 @@ builder.Services.AddOptions<AiMongoOptions>()
         {
             options.AutoRemediationRecommendationResultsCollectionName = AiMongoOptions.DefaultAutoRemediationRecommendationResultsCollectionName;
         }
+
+        if (string.IsNullOrWhiteSpace(options.AiSafeModeAuditRecordsCollectionName))
+        {
+            options.AiSafeModeAuditRecordsCollectionName = AiMongoOptions.DefaultAiSafeModeAuditRecordsCollectionName;
+        }
     });
 builder.Services.AddSingleton<IAiAnalysisResultCollectionProvider, AiAnalysisResultCollectionProvider>();
 builder.Services.AddSingleton<IAiAnalysisResultRepository, AiAnalysisResultRepository>();
@@ -220,6 +226,8 @@ builder.Services.AddSingleton<IAiAgentOrchestrationCollectionProvider, AiAgentOr
 builder.Services.AddSingleton<IAiAgentOrchestrationRepository, AiAgentOrchestrationRepository>();
 builder.Services.AddSingleton<IAutoRemediationRecommendationCollectionProvider, AutoRemediationRecommendationCollectionProvider>();
 builder.Services.AddSingleton<IAutoRemediationRecommendationRepository, AutoRemediationRecommendationRepository>();
+builder.Services.AddSingleton<IAiSafeModeAuditRecordCollectionProvider, AiSafeModeAuditRecordCollectionProvider>();
+builder.Services.AddSingleton<IAiSafeModeAuditRepository, AiSafeModeAuditRepository>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();

@@ -18,6 +18,9 @@ public sealed class ObservabilityAgentResponseDto : IValidatableObject
     public AiConfidenceLevel ConfidenceLevel { get; set; } = AiConfidenceLevel.Unknown;
     public string ConfidenceExplanation { get; set; } = string.Empty;
     public bool RequiresApproval { get; set; }
+    public AiSafeModeDecision SafeModeDecision { get; set; } = AiSafeModeDecision.Allowed;
+    public string SafeModeReason { get; set; } = string.Empty;
+    public bool IsActionAllowed { get; set; } = true;
     public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
     public bool Fallback { get; set; }
     public string PromptName { get; set; } = "observability-agent";

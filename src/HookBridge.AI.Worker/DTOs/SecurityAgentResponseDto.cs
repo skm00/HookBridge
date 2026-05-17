@@ -11,6 +11,9 @@ public sealed class SecurityAgentResponseDto : IValidatableObject
     public int SecurityRiskScore { get; set; }
     public AiRiskLevel RiskLevel { get; set; } = AiRiskLevel.Unknown;
     public bool RequiresApproval { get; set; }
+    public AiSafeModeDecision SafeModeDecision { get; set; } = AiSafeModeDecision.Allowed;
+    public string SafeModeReason { get; set; } = string.Empty;
+    public bool IsActionAllowed { get; set; } = true;
     public string Summary { get; set; } = string.Empty;
     public string Recommendation { get; set; } = string.Empty;
     public IReadOnlyList<AiSecuritySignalDto> SecuritySignals { get; set; } = Array.Empty<AiSecuritySignalDto>();

@@ -1640,3 +1640,11 @@ Supported `AutoRemediationType` values include `RetryTuning`, `DeadLetterReview`
   "generatedAtUtc": "2026-05-14T10:31:00Z"
 }
 ```
+
+### AI Safe Mode
+
+HookBridge AI Safe Mode makes AI recommendations advisory by default. AI agents must evaluate production-impacting actions with `IAiSafeModeGuard` before they can mark an action as allowed, and AI cannot execute production actions directly.
+
+Protected actions include webhook retries, dead-letter moves and replays, endpoint pause/resume, event quarantine/rejection, generated transformation or validation-rule application, configuration updates, worker scaling, and worker restarts. In production (`prod` or `production`), these actions require an approved human approval status; high/critical-risk actions always require approval, and confidence scores below `0.60` require manual review.
+
+Evaluate actions through `POST /api/ai-safe-mode/evaluate`. Safe mode decisions and blocked-action context are written to MongoDB in `ai_safe_mode_audit_records`.

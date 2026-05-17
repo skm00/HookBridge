@@ -59,3 +59,40 @@ curl http://localhost:5000/api/ai-analysis/events/evt_12345
 | `400 Bad Request` | The `eventId` route value is empty or invalid. |
 | `404 Not Found` | No AI analysis result exists for the supplied `eventId`. |
 | `500 Internal Server Error` | An unexpected error occurred while retrieving the AI analysis result. |
+
+## AI Safe Mode Evaluation
+
+`POST /api/ai-safe-mode/evaluate` evaluates whether an AI-recommended action is allowed, blocked, requires approval, or requires manual review. The endpoint enforces the safety rule that AI cannot execute production-impacting actions directly.
+
+Protected production-impacting actions include `RetryWebhook`, `MoveToDeadLetter`, `ReplayDeadLetter`, `PauseEndpoint`, `ResumeEndpoint`, `QuarantineEvent`, `RejectEvent`, `ApplyTransformation`, `ApplyValidationRule`, `UpdateConfiguration`, `ScaleWorker`, and `RestartWorker`.
+
+```json
+{
+  "actionType": "RetryWebhook",
+  "environment": "production",
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "riskLevel": "High",
+  "confidenceScore": 0.82,
+  "approvalStatus": "PendingReview",
+  "requestedBy": "HookBridge.AI.Worker",
+  "reason": "AI recommended retry with backoff.",
+  "requestedAtUtc": "2026-05-14T10:30:00Z"
+}
+```
+
+```json
+{
+  "decision": "RequiresApproval",
+  "isAllowed": false,
+  "requiresApproval": true,
+  "reason": "Production retry actions require approved human approval.",
+  "blockMessage": "AI recommendation is advisory only. Approve this action before applying it.",
+  "actionType": "RetryWebhook",
+  "environment": "production",
+  "evaluatedAtUtc": "2026-05-14T10:30:01Z"
+}
+```

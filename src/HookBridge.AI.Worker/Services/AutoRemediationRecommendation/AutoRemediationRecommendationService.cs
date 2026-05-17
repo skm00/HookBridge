@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Services.SafeMode;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -10,14 +11,16 @@ public sealed class AutoRemediationRecommendationService : IAutoRemediationRecom
 {
     private readonly AutoRemediationRecommendationOptions _options;
     private readonly ILogger<AutoRemediationRecommendationService> _logger;
+    private readonly IAiSafeModeGuard? _safeModeGuard;
 
-    public AutoRemediationRecommendationService(IOptions<AutoRemediationRecommendationOptions> options, ILogger<AutoRemediationRecommendationService> logger)
+    public AutoRemediationRecommendationService(IOptions<AutoRemediationRecommendationOptions> options, ILogger<AutoRemediationRecommendationService> logger, IAiSafeModeGuard? safeModeGuard = null)
     {
         _options = options.Value;
         _logger = logger;
+        _safeModeGuard = safeModeGuard;
     }
 
-    public Task<AutoRemediationRecommendationResponseDto> RecommendAsync(AutoRemediationRecommendationRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<AutoRemediationRecommendationResponseDto> RecommendAsync(AutoRemediationRecommendationRequestDto request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         request.ConfidenceScore = Math.Clamp(request.ConfidenceScore, 0, 1);
@@ -56,14 +59,52 @@ public sealed class AutoRemediationRecommendationService : IAutoRemediationRecom
             GeneratedAtUtc = DateTime.UtcNow
         };
 
-        _logger.LogInformation("Recommendation calculated. EventId: {EventId}, CorrelationId: {CorrelationId}, RemediationType: {RemediationType}, RecommendedAction: {RecommendedAction}, RiskLevel: {RiskLevel}, ConfidenceScore: {ConfidenceScore}, RequiresApproval: {RequiresApproval}, CanAutoApply: {CanAutoApply}", response.EventId, response.CorrelationId, response.RemediationType, response.RecommendedAction, response.RiskLevel, response.ConfidenceScore, response.RequiresApproval, response.CanAutoApply);
+        await ApplySafeModeAsync(request, response, cancellationToken);
+
+        _logger.LogInformation("Recommendation calculated. EventId: {EventId}, CorrelationId: {CorrelationId}, RemediationType: {RemediationType}, RecommendedAction: {RecommendedAction}, RiskLevel: {RiskLevel}, ConfidenceScore: {ConfidenceScore}, RequiresApproval: {RequiresApproval}, CanAutoApply: {CanAutoApply}, SafeModeDecision: {SafeModeDecision}", response.EventId, response.CorrelationId, response.RemediationType, response.RecommendedAction, response.RiskLevel, response.ConfidenceScore, response.RequiresApproval, response.CanAutoApply, response.SafeModeDecision);
         if (response.RequiresApproval)
         {
             _logger.LogInformation("Approval required. EventId: {EventId}, CorrelationId: {CorrelationId}, RemediationType: {RemediationType}, RecommendedAction: {RecommendedAction}", response.EventId, response.CorrelationId, response.RemediationType, response.RecommendedAction);
         }
 
-        return Task.FromResult(response);
+        return response;
     }
+
+    private async Task ApplySafeModeAsync(AutoRemediationRecommendationRequestDto request, AutoRemediationRecommendationResponseDto response, CancellationToken cancellationToken)
+    {
+        if (_safeModeGuard is null) return;
+        var safeModeResponse = await _safeModeGuard.EvaluateAsync(new AiSafeModeEvaluationRequestDto
+        {
+            ActionType = ToAiActionType(response.RecommendedAction),
+            Environment = request.Environment ?? "production",
+            EventId = response.EventId,
+            CorrelationId = response.CorrelationId,
+            CustomerId = request.CustomerId,
+            SubscriptionId = request.SubscriptionId,
+            EndpointId = request.EndpointId,
+            RiskLevel = response.RiskLevel,
+            ConfidenceScore = response.ConfidenceScore,
+            RequestedBy = nameof(AutoRemediationRecommendationService),
+            Reason = response.Recommendation,
+            RequestedAtUtc = DateTime.UtcNow
+        }, cancellationToken);
+        response.SafeModeDecision = safeModeResponse.Decision;
+        response.SafeModeReason = safeModeResponse.Reason;
+        response.IsActionAllowed = safeModeResponse.IsAllowed;
+        response.RequiresApproval = response.RequiresApproval || safeModeResponse.RequiresApproval;
+        response.CanAutoApply = response.CanAutoApply && safeModeResponse.IsAllowed;
+    }
+
+    private static AiActionType ToAiActionType(AutoRemediationRecommendedAction action) => action switch
+    {
+        AutoRemediationRecommendedAction.RetryWithBackoff => AiActionType.RetryWebhook,
+        AutoRemediationRecommendedAction.PauseEndpoint => AiActionType.PauseEndpoint,
+        AutoRemediationRecommendedAction.ResumeEndpoint => AiActionType.ResumeEndpoint,
+        AutoRemediationRecommendedAction.MoveToDeadLetter => AiActionType.MoveToDeadLetter,
+        AutoRemediationRecommendedAction.ReviewDeadLetterQueue => AiActionType.ReplayDeadLetter,
+        AutoRemediationRecommendedAction.QuarantineEvent => AiActionType.QuarantineEvent,
+        _ => AiActionType.GenerateRecommendation
+    };
 
     private Decision SelectDecision(AutoRemediationRecommendationRequestDto request, double confidence)
     {

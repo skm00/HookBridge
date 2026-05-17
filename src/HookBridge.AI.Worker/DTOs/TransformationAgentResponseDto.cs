@@ -9,6 +9,9 @@ public sealed class TransformationAgentResponseDto : IValidatableObject
     public TransformationAgentDecision TransformationDecision { get; set; }
     public string RiskLevel { get; set; } = "Unknown";
     public bool RequiresApproval { get; set; }
+    public AiSafeModeDecision SafeModeDecision { get; set; } = AiSafeModeDecision.Allowed;
+    public string SafeModeReason { get; set; } = string.Empty;
+    public bool IsActionAllowed { get; set; } = true;
     public string Summary { get; set; } = string.Empty;
     public string Recommendation { get; set; } = string.Empty;
     public IReadOnlyList<WebhookFieldMappingRecommendationDto> RecommendedMappings { get; set; } = Array.Empty<WebhookFieldMappingRecommendationDto>();
