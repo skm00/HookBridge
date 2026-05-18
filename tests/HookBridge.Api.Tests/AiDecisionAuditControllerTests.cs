@@ -42,6 +42,83 @@ public sealed class AiDecisionAuditControllerTests
         result.Result.Should().BeOfType<NotFoundObjectResult>();
     }
 
+
+    [Fact]
+    public async Task SearchAsync_Returns200ForValidFilters()
+    {
+        var controller = new AiDecisionAuditController(new FakeRepository(CreateRecord()), NullLogger<AiDecisionAuditController>.Instance);
+
+        var result = await controller.SearchAsync(new AiDecisionAuditSearchRequestDto { EventId = "evt_1", PageNumber = 1, PageSize = 50 }, CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = ok.Value.Should().BeOfType<ApiResponse<IReadOnlyList<AiDecisionAuditResponseDto>>>().Subject;
+        response.Data.Should().ContainSingle(item => item.EventId == "evt_1");
+    }
+
+    [Fact]
+    public async Task SearchAsync_Returns400ForInvalidFilters()
+    {
+        var controller = new AiDecisionAuditController(new FakeRepository(CreateRecord()), NullLogger<AiDecisionAuditController>.Instance);
+
+        var result = await controller.SearchAsync(new AiDecisionAuditSearchRequestDto { PageNumber = 0, PageSize = 50 }, CancellationToken.None);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task SearchAsync_Returns500ForUnexpectedErrors()
+    {
+        var controller = new AiDecisionAuditController(new FakeRepository(CreateRecord()) { ThrowOnSearch = true }, NullLogger<AiDecisionAuditController>.Instance);
+
+        var result = await controller.SearchAsync(new AiDecisionAuditSearchRequestDto { PageNumber = 1, PageSize = 50 }, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetByEventIdAsync_Returns200ForMatchingRecords()
+    {
+        var controller = new AiDecisionAuditController(new FakeRepository(CreateRecord()), NullLogger<AiDecisionAuditController>.Instance);
+
+        var result = await controller.GetByEventIdAsync("evt_1", CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = ok.Value.Should().BeOfType<ApiResponse<IReadOnlyList<AiDecisionAuditResponseDto>>>().Subject;
+        response.Data.Should().ContainSingle(item => item.EventId == "evt_1");
+    }
+
+    [Fact]
+    public async Task GetByEventIdAsync_Returns400WhenEventIdMissing()
+    {
+        var controller = new AiDecisionAuditController(new FakeRepository(CreateRecord()), NullLogger<AiDecisionAuditController>.Instance);
+
+        var result = await controller.GetByEventIdAsync(" ", CancellationToken.None);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetByCorrelationIdAsync_Returns200ForMatchingRecords()
+    {
+        var controller = new AiDecisionAuditController(new FakeRepository(CreateRecord()), NullLogger<AiDecisionAuditController>.Instance);
+
+        var result = await controller.GetByCorrelationIdAsync("corr_1", CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = ok.Value.Should().BeOfType<ApiResponse<IReadOnlyList<AiDecisionAuditResponseDto>>>().Subject;
+        response.Data.Should().ContainSingle(item => item.CorrelationId == "corr_1");
+    }
+
+    [Fact]
+    public async Task GetByCorrelationIdAsync_Returns400WhenCorrelationIdMissing()
+    {
+        var controller = new AiDecisionAuditController(new FakeRepository(CreateRecord()), NullLogger<AiDecisionAuditController>.Instance);
+
+        var result = await controller.GetByCorrelationIdAsync(" ", CancellationToken.None);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
     private static AiDecisionAuditRecord CreateRecord() => new()
     {
         AuditId = "aud_1",
@@ -54,6 +131,7 @@ public sealed class AiDecisionAuditControllerTests
 
     private sealed class FakeRepository(AiDecisionAuditRecord? record) : IAiDecisionAuditRepository
     {
+        public bool ThrowOnSearch { get; set; }
         public Task InsertAsync(AiDecisionAuditRecord record, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AiDecisionAuditRecord?> GetByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(record);
         public Task<AiDecisionAuditRecord?> GetByAuditIdAsync(string auditId, CancellationToken cancellationToken = default) => Task.FromResult(record?.AuditId == auditId ? record : null);
@@ -61,6 +139,10 @@ public sealed class AiDecisionAuditControllerTests
         public Task<IReadOnlyList<AiDecisionAuditRecord>> GetByCorrelationIdAsync(string correlationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiDecisionAuditRecord>>(record is null ? [] : [record]);
         public Task<IReadOnlyList<AiDecisionAuditRecord>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiDecisionAuditRecord>>(record is null ? [] : [record]);
         public Task<IReadOnlyList<AiDecisionAuditRecord>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiDecisionAuditRecord>>(record is null ? [] : [record]);
-        public Task<IReadOnlyList<AiDecisionAuditRecord>> SearchAsync(AiDecisionAuditSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AiDecisionAuditRecord>>(record is null ? [] : [record]);
+        public Task<IReadOnlyList<AiDecisionAuditRecord>> SearchAsync(AiDecisionAuditSearchRequestDto request, CancellationToken cancellationToken = default)
+        {
+            if (ThrowOnSearch) throw new InvalidOperationException("search failed");
+            return Task.FromResult<IReadOnlyList<AiDecisionAuditRecord>>(record is null ? [] : [record]);
+        }
     }
 }

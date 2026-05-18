@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HookBridge.AI.Worker.DTOs;
 
-public sealed class AiDecisionAuditCreateRequestDto
+public sealed class AiDecisionAuditCreateRequestDto : IValidatableObject
 {
     public string? EventId { get; set; }
     public string? CorrelationId { get; set; }
@@ -38,4 +38,12 @@ public sealed class AiDecisionAuditCreateRequestDto
     public List<string> ReasonCodes { get; set; } = [];
     public string? CreatedBy { get; set; }
     public Dictionary<string, string?> Metadata { get; set; } = [];
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (DecisionType == AiDecisionAuditType.Unknown)
+        {
+            yield return new ValidationResult("DecisionType is required.", [nameof(DecisionType)]);
+        }
+    }
 }

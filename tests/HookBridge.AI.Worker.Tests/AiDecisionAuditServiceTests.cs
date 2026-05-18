@@ -86,6 +86,92 @@ public sealed class AiDecisionAuditServiceTests
         await act.Should().NotThrowAsync();
     }
 
+
+    [Fact]
+    public async Task AuditGenericDecisionAsync_DoesNotInsertWhenAuditDisabled()
+    {
+        var repository = new FakeRepository();
+        var service = CreateService(repository, new AiDecisionAuditOptions { Enabled = false });
+
+        var record = await service.AuditGenericDecisionAsync(CreateRequest(AiDecisionAuditType.RetryDecision));
+
+        record.Should().BeNull();
+        repository.Inserted.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AuditHumanApprovalAsync_RespectsOptionToggle()
+    {
+        var repository = new FakeRepository();
+        var service = CreateService(repository, new AiDecisionAuditOptions { AuditHumanApprovals = false });
+
+        var record = await service.AuditHumanApprovalAsync(CreateRequest(AiDecisionAuditType.HumanApproval));
+
+        record.Should().BeNull();
+        repository.Inserted.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AuditSafeModeEvaluationAsync_RespectsOptionToggle()
+    {
+        var repository = new FakeRepository();
+        var service = CreateService(repository, new AiDecisionAuditOptions { AuditSafeModeEvaluations = false });
+
+        var record = await service.AuditSafeModeEvaluationAsync(CreateRequest(AiDecisionAuditType.SafeModeEvaluation));
+
+        record.Should().BeNull();
+        repository.Inserted.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AuditFallbackDecisionAsync_RespectsOptionToggle()
+    {
+        var repository = new FakeRepository();
+        var service = CreateService(repository, new AiDecisionAuditOptions { AuditFallbackDecisions = false });
+
+        var record = await service.AuditFallbackDecisionAsync(CreateRequest(AiDecisionAuditType.FallbackDecision));
+
+        record.Should().BeNull();
+        repository.Inserted.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AuditGenericDecisionAsync_ExcludesModelMetadataWhenDisabled()
+    {
+        var repository = new FakeRepository();
+        var service = CreateService(repository, new AiDecisionAuditOptions { IncludeModelMetadata = false });
+        var request = CreateRequest(AiDecisionAuditType.RetryDecision);
+        request.Model = "llama3";
+        request.Provider = "Ollama";
+
+        await service.AuditGenericDecisionAsync(request);
+
+        repository.Inserted.Single().Model.Should().BeNull();
+        repository.Inserted.Single().Provider.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AuditGenericDecisionAsync_IncludesPromptAndModelMetadataWhenEnabled()
+    {
+        var repository = new FakeRepository();
+        var service = CreateService(repository);
+        var request = CreateRequest(AiDecisionAuditType.TransformationDecision);
+        request.PromptName = "prompt";
+        request.PromptVersion = "v1.0.0";
+        request.PromptHash = "sha256:abc";
+        request.Model = "llama3";
+        request.Provider = "Ollama";
+
+        await service.AuditGenericDecisionAsync(request);
+
+        var record = repository.Inserted.Single();
+        record.PromptName.Should().Be("prompt");
+        record.PromptVersion.Should().Be("v1.0.0");
+        record.PromptHash.Should().Be("sha256:abc");
+        record.Model.Should().Be("llama3");
+        record.Provider.Should().Be("Ollama");
+    }
+
     [Fact]
     public async Task AuditGenericDecisionAsync_ExcludesPromptMetadataWhenDisabled()
     {
