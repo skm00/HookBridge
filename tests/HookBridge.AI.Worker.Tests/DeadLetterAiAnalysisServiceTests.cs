@@ -43,6 +43,108 @@ public sealed class DeadLetterAiAnalysisServiceTests
         Assert.Equal(DeadLetterSuggestedAction.KeepInDeadLetter, duplicate.SuggestedAction);
     }
 
+
+    [Theory]
+    [InlineData(408, DeadLetterReasonCode.Timeout)]
+    [InlineData(504, DeadLetterReasonCode.Timeout)]
+    [InlineData(502, DeadLetterReasonCode.ServerError)]
+    [InlineData(503, DeadLetterReasonCode.ServerError)]
+    [InlineData(409, DeadLetterReasonCode.ClientError)]
+    public async Task AnalyzeAsync_AdditionalHttpRulesAreDeterministic(int statusCode, DeadLetterReasonCode reason)
+    {
+        var response = await CreateService(enableAi: false).AnalyzeAsync(CreateRequest(statusCode));
+
+        Assert.Contains(reason, response.ReasonCodes);
+        Assert.NotEqual(DeadLetterReplaySafety.Unknown, response.ReplaySafety);
+        Assert.False(response.IsActionAllowed);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_DoesNotAddMaxRetryReason_WhenRetryBudgetRemains()
+    {
+        var response = await CreateService(enableAi: false).AnalyzeAsync(CreateRequest(429, retryCount: 1, maxRetryCount: 5));
+
+        Assert.DoesNotContain(DeadLetterReasonCode.MaxRetryReached, response.ReasonCodes);
+        Assert.Equal(DeadLetterSuggestedAction.ReplayWithBackoff, response.SuggestedAction);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_LlmUnavailableUsesProviderFallback()
+    {
+        var response = await CreateService(enableAi: true, llm: LlmResponseResult.Failure(AiFallbackReason.ProviderUnavailable, "offline", 1)).AnalyzeAsync(CreateRequest(500));
+
+        Assert.True(response.Fallback.UsedFallback);
+        Assert.Equal(AiFallbackReason.ProviderUnavailable, response.Fallback.FallbackReason);
+        Assert.Equal(DeadLetterSuggestedAction.ReplayWithBackoff, response.SuggestedAction);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_AiDirectReplayForAuthenticationFailureIsOverridden()
+    {
+        var json = """
+        {
+          "deadLetterId":"dlq_1",
+          "eventId":"evt_1",
+          "summary":"AI summary",
+          "rootCause":"AI root cause",
+          "recommendation":"AI recommendation",
+          "replaySafety":"SafeToReplay",
+          "suggestedAction":"Replay",
+          "riskLevel":"Low",
+          "confidenceScore": 0.8,
+          "confidenceLevel":"High",
+          "requiresApproval": false,
+          "reasonCodes":[],
+          "generatedAtUtc":"2026-05-14T10:46:00Z"
+        }
+        """;
+
+        var response = await CreateService(enableAi: true, llm: LlmResponseResult.Success(json, 1)).AnalyzeAsync(CreateRequest(401));
+
+        Assert.Equal(DeadLetterSuggestedAction.FixAuthenticationBeforeReplay, response.SuggestedAction);
+        Assert.True(response.RequiresApproval);
+        Assert.Contains(DeadLetterReasonCode.MaxRetryReached, response.ReasonCodes);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_AiDirectReplayForPayloadContractIssueIsOverridden()
+    {
+        var json = """
+        {
+          "deadLetterId":"dlq_1",
+          "eventId":"evt_1",
+          "summary":"AI summary",
+          "rootCause":"AI root cause",
+          "recommendation":"AI recommendation",
+          "replaySafety":"SafeToReplay",
+          "suggestedAction":"Replay",
+          "riskLevel":"Low",
+          "confidenceScore": 0.8,
+          "confidenceLevel":"High",
+          "requiresApproval": false,
+          "reasonCodes":[],
+          "generatedAtUtc":"2026-05-14T10:46:00Z"
+        }
+        """;
+
+        var response = await CreateService(enableAi: true, llm: LlmResponseResult.Success(json, 1)).AnalyzeAsync(CreateRequest(400));
+
+        Assert.Equal(DeadLetterSuggestedAction.FixPayloadBeforeReplay, response.SuggestedAction);
+        Assert.True(response.RequiresApproval);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_InvalidRequestThrowsValidationException()
+    {
+        await Assert.ThrowsAsync<System.ComponentModel.DataAnnotations.ValidationException>(() => CreateService(enableAi: false).AnalyzeAsync(new DeadLetterAiAnalysisRequestDto
+        {
+            EventId = "evt_1",
+            RetryCount = -1,
+            FailedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Local),
+            MovedToDeadLetterAtUtc = DateTime.UtcNow
+        }));
+    }
+
     [Fact]
     public async Task AnalyzeAsync_UnknownStatusRequiresManualReview()
     {
@@ -98,14 +200,14 @@ public sealed class DeadLetterAiAnalysisServiceTests
         return new DeadLetterAiAnalysisService(options, aiOptions, promptBuilder, NullLogger<DeadLetterAiAnalysisService>.Instance, llm is null ? null : new FakeLlmClient(llm));
     }
 
-    private static DeadLetterAiAnalysisRequestDto CreateRequest(int? statusCode, bool isSuspicious = false, bool isReplay = false, bool isDuplicate = false) => new()
+    private static DeadLetterAiAnalysisRequestDto CreateRequest(int? statusCode, bool isSuspicious = false, bool isReplay = false, bool isDuplicate = false, int retryCount = 5, int maxRetryCount = 5) => new()
     {
         DeadLetterId = "dlq_1",
         EventId = "evt_1",
         CorrelationId = "corr_1",
         StatusCode = statusCode,
-        RetryCount = 5,
-        MaxRetryCount = 5,
+        RetryCount = retryCount,
+        MaxRetryCount = maxRetryCount,
         FailedAtUtc = DateTime.UtcNow,
         MovedToDeadLetterAtUtc = DateTime.UtcNow,
         IsSuspicious = isSuspicious,

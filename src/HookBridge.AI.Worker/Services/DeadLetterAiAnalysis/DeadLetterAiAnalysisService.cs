@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
 using HookBridge.AI.Worker.Prompts;
@@ -11,7 +12,7 @@ namespace HookBridge.AI.Worker.Services.DeadLetterAiAnalysis;
 
 public sealed class DeadLetterAiAnalysisService : IDeadLetterAiAnalysisService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true, Converters = { new JsonStringEnumConverter() } };
     private readonly DeadLetterAiAnalysisOptions _options;
     private readonly AiOptions _aiOptions;
     private readonly IDeadLetterAiAnalysisPromptBuilder _promptBuilder;
@@ -169,10 +170,36 @@ public sealed class DeadLetterAiAnalysisService : IDeadLetterAiAnalysisService
     {
         var codes = response.ReasonCodes.ToList();
         if (request.RetryCount >= request.MaxRetryCount && !codes.Contains(DeadLetterReasonCode.MaxRetryReached)) codes.Add(DeadLetterReasonCode.MaxRetryReached);
-        if (request.IsSuspicious && response.ReplaySafety == DeadLetterReplaySafety.SafeToReplay) response.ReplaySafety = DeadLetterReplaySafety.DoNotReplay;
-        if (request.IsReplay && response.ReplaySafety == DeadLetterReplaySafety.SafeToReplay) response.ReplaySafety = DeadLetterReplaySafety.DoNotReplay;
-        if (request.StatusCode is 401 or 403 && response.SuggestedAction == DeadLetterSuggestedAction.Replay) response.SuggestedAction = DeadLetterSuggestedAction.FixAuthenticationBeforeReplay;
-        if (request.StatusCode == 400 && response.SuggestedAction == DeadLetterSuggestedAction.Replay) response.SuggestedAction = DeadLetterSuggestedAction.FixPayloadBeforeReplay;
+        if (request.IsSuspicious && response.ReplaySafety == DeadLetterReplaySafety.SafeToReplay)
+        {
+            response.ReplaySafety = DeadLetterReplaySafety.DoNotReplay;
+            response.RiskLevel = "Critical";
+            if (!codes.Contains(DeadLetterReasonCode.SuspiciousPayload)) codes.Add(DeadLetterReasonCode.SuspiciousPayload);
+        }
+
+        if (request.IsReplay && response.ReplaySafety == DeadLetterReplaySafety.SafeToReplay)
+        {
+            response.ReplaySafety = DeadLetterReplaySafety.DoNotReplay;
+            response.RiskLevel = "High";
+            if (!codes.Contains(DeadLetterReasonCode.ReplayDetected)) codes.Add(DeadLetterReasonCode.ReplayDetected);
+        }
+
+        if (request.StatusCode is 401 or 403 && response.SuggestedAction == DeadLetterSuggestedAction.Replay)
+        {
+            response.SuggestedAction = DeadLetterSuggestedAction.FixAuthenticationBeforeReplay;
+            response.ReplaySafety = DeadLetterReplaySafety.RequiresFixBeforeReplay;
+            response.RiskLevel = "High";
+            var code = request.StatusCode == 401 ? DeadLetterReasonCode.AuthenticationFailure : DeadLetterReasonCode.AuthorizationFailure;
+            if (!codes.Contains(code)) codes.Add(code);
+        }
+
+        if (request.StatusCode == 400 && response.SuggestedAction == DeadLetterSuggestedAction.Replay)
+        {
+            response.SuggestedAction = DeadLetterSuggestedAction.FixPayloadBeforeReplay;
+            response.ReplaySafety = DeadLetterReplaySafety.RequiresFixBeforeReplay;
+            response.RiskLevel = "High";
+            if (!codes.Contains(DeadLetterReasonCode.PayloadContractIssue)) codes.Add(DeadLetterReasonCode.PayloadContractIssue);
+        }
         response.ConfidenceScore = Math.Clamp(response.ConfidenceScore, 0, 1);
         response.ConfidenceLevel = ToConfidenceLevel(response.ConfidenceScore);
         response.GeneratedAtUtc = DateTime.SpecifyKind(response.GeneratedAtUtc == default ? DateTime.UtcNow : response.GeneratedAtUtc, DateTimeKind.Utc);

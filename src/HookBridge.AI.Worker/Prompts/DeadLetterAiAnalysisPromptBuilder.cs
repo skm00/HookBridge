@@ -63,7 +63,7 @@ Rules:
 - Use only supplied context; do not invent missing data.
 - Treat masked values as unavailable and never reconstruct secrets.
 - If payload or responseBody is truncated, analyze only visible content and lower confidence if relevant evidence may be hidden.
-- Replay recommendations are advisory only and always require human approval before replaying or applying any production action.
+- Replay recommendations are advisory only; replay requires approval before replaying or applying any production action.
 - Never recommend direct replay for authentication/authorization failures or likely payload contract issues.
 - confidenceScore must be between 0 and 1.
 - replaySafety must be one of Unknown, SafeToReplay, ReplayWithCaution, RequiresFixBeforeReplay, DoNotReplay, RequiresManualReview.

@@ -38,6 +38,39 @@ public sealed class DeadLetterAiAnalysisControllerTests
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
+
+
+    [Fact]
+    public async Task GetByEventIdAsync_ReturnsBadRequest_WhenEventIdIsEmpty()
+    {
+        var result = await CreateController(new FakeRepository(null), new FakeService()).GetByEventIdAsync("   ", CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetByEventIdAsync_ReturnsInternalServerError_WhenRepositoryThrows()
+    {
+        var result = await CreateController(new ThrowingRepository(), new FakeService()).GetByEventIdAsync("evt_1", CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_ReturnsOk_WhenRequestIsValid()
+    {
+        var result = await CreateController(new FakeRepository(null), new FakeService()).AnalyzeAsync(new DeadLetterAiAnalysisRequestDto
+        {
+            DeadLetterId = "dlq_1",
+            EventId = "evt_1",
+            FailedAtUtc = DateTime.UtcNow,
+            MovedToDeadLetterAtUtc = DateTime.UtcNow
+        }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+    }
+
     private static DeadLetterAiAnalysisController CreateController(IDeadLetterAiAnalysisRepository repository, IDeadLetterAiAnalysisService service)
     {
         var controller = new DeadLetterAiAnalysisController(repository, service, NullLogger<DeadLetterAiAnalysisController>.Instance);
@@ -78,4 +111,16 @@ public sealed class DeadLetterAiAnalysisControllerTests
         public Task<IReadOnlyList<DeadLetterAiAnalysisResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DeadLetterAiAnalysisResult>>(Array.Empty<DeadLetterAiAnalysisResult>());
         public Task<IReadOnlyList<DeadLetterAiAnalysisResult>> SearchAsync(DeadLetterAiAnalysisSearchRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DeadLetterAiAnalysisResult>>(Array.Empty<DeadLetterAiAnalysisResult>());
     }
+
+    private sealed class ThrowingRepository : IDeadLetterAiAnalysisRepository
+    {
+        public Task InsertAsync(DeadLetterAiAnalysisResult result, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Repository failed.");
+        public Task<DeadLetterAiAnalysisResult?> GetByDeadLetterIdAsync(string deadLetterId, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Repository failed.");
+        public Task<DeadLetterAiAnalysisResult?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Repository failed.");
+        public Task<IReadOnlyList<DeadLetterAiAnalysisResult>> GetByCorrelationIdAsync(string correlationId, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Repository failed.");
+        public Task<IReadOnlyList<DeadLetterAiAnalysisResult>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Repository failed.");
+        public Task<IReadOnlyList<DeadLetterAiAnalysisResult>> GetRecentAsync(int limit, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Repository failed.");
+        public Task<IReadOnlyList<DeadLetterAiAnalysisResult>> SearchAsync(DeadLetterAiAnalysisSearchRequestDto request, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Repository failed.");
+    }
+
 }
