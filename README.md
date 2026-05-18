@@ -1571,6 +1571,8 @@ Example response:
 
 HookBridge AI recommendations are advisory by default. The human approval workflow (`/api/ai-approval-workflow`) records recommendations in the existing AI recommendation approval store, requires human review for high/critical risk, security, transformation, and generated-code actions, and only allows approved records to be marked applied. AI agents and orchestration must not apply production actions directly; they create approval workflow records for human review. See `docs/ai-worker.md` for statuses, valid transitions, endpoint details, and example create/review/apply requests.
 
+Admin users can review recommendations through `/api/admin/ai-actions`. The admin API supports pending searches, approve/reject/needs-more-info/expire transitions, and an apply endpoint that evaluates AI Safe Mode before marking an approved record as `Applied`. Admin apply is intentionally state-only in this task: it does not retry webhooks, replay dead-letter records, pause endpoints, apply generated transformation code, or execute any production action. Valid transitions are `PendingReview => Approved|Rejected|NeedsMoreInfo|Expired`, `NeedsMoreInfo => Approved|Rejected`, and `Approved => Applied|Expired`. Example approve, reject, and apply requests are documented in `docs/ai-worker.md`.
+
 ## Auto-Remediation Recommendations
 
 HookBridge includes a deterministic, recommendation-only auto-remediation service for webhook delivery operations. It evaluates structured delivery metadata such as HTTP status codes, retry counts, dead-letter counts, Kafka consumer lag, MongoDB health, security flags, endpoint health, and observability status, then produces a safe remediation recommendation without executing production actions.

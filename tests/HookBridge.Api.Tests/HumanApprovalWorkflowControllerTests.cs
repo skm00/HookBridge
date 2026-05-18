@@ -98,6 +98,9 @@ public sealed class HumanApprovalWorkflowControllerTests
         public Task<IReadOnlyList<HumanApprovalWorkflowResponseDto>> GetPendingAsync(int limit = 100, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HumanApprovalWorkflowResponseDto>>(new[] { CreateResponse() });
 
+        public Task<IReadOnlyList<HumanApprovalWorkflowResponseDto>> SearchPendingAsync(AiRecommendationApprovalSearchRequestDto request, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<HumanApprovalWorkflowResponseDto>>(new[] { CreateResponse() });
+
         public Task<HumanApprovalWorkflowResponseDto?> ReviewAsync(string approvalId, HumanApprovalWorkflowReviewRequestDto request, CancellationToken cancellationToken = default)
             => MutateAsync();
 
