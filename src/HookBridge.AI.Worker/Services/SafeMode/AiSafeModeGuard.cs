@@ -53,7 +53,7 @@ public sealed class AiSafeModeGuard : IAiSafeModeGuard
                 ConfidenceScore = request.ConfidenceScore,
                 RequiresApproval = response.RequiresApproval,
                 ApprovalId = request.ApprovalId,
-                ApprovalStatus = request.ApprovalStatus,
+                ApprovalStatus = request.ApprovalStatus?.ToString(),
                 SafeModeDecision = response.Decision.ToString(),
                 IsActionAllowed = response.IsAllowed,
                 UsedAi = false,
