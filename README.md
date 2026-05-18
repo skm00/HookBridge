@@ -1648,3 +1648,5 @@ HookBridge AI Safe Mode makes AI recommendations advisory by default. AI agents 
 Protected actions include webhook retries, dead-letter moves and replays, endpoint pause/resume, event quarantine/rejection, generated transformation or validation-rule application, configuration updates, worker scaling, and worker restarts. In production (`prod` or `production`), these actions require an approved human approval status; high/critical-risk actions always require approval, and confidence scores below `0.60` require manual review.
 
 Evaluate actions through `POST /api/ai-safe-mode/evaluate`. Safe mode decisions and blocked-action context are written to MongoDB in `ai_safe_mode_audit_records`.
+
+- [AI decision audit trail](docs/ai-decision-audit.md)

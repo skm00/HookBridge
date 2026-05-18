@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using HookBridge.AI.Worker.Approval;
+using HookBridge.AI.Worker.Audit;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mongo;
@@ -77,6 +78,12 @@ public static class ServiceCollectionExtensions
                 "AI:Endpoint is required when AI is enabled.")
             .ValidateOnStart();
 
+        services
+            .AddOptions<AiDecisionAuditOptions>()
+            .Bind(configuration.GetSection(AiDecisionAuditOptions.SectionName))
+            .Validate(options => options.MaxMetadataLength > 0, "AiDecisionAudit:MaxMetadataLength must be greater than 0.")
+            .ValidateOnStart();
+
         return services;
     }
 
@@ -144,6 +151,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiSafeModeAuditRecordsCollectionName),
                 "AiMongo:AiSafeModeAuditRecordsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AiDecisionAuditRecordsCollectionName),
+                "AiMongo:AiDecisionAuditRecordsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -549,6 +559,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAutoRemediationRecommendationRepository, AutoRemediationRecommendationRepository>();
         services.AddSingleton<IAiSafeModeAuditRecordCollectionProvider, AiSafeModeAuditRecordCollectionProvider>();
         services.AddSingleton<IAiSafeModeAuditRepository, AiSafeModeAuditRepository>();
+        services.AddSingleton<IAiDecisionAuditRecordCollectionProvider, AiDecisionAuditRecordCollectionProvider>();
+        services.AddSingleton<IAiDecisionAuditRepository, AiDecisionAuditRepository>();
+        services.TryAddSingleton<IAiDecisionAuditService, AiDecisionAuditService>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
         return services;
