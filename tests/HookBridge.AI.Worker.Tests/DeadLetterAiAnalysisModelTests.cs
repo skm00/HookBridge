@@ -98,9 +98,9 @@ public sealed class DeadLetterAiAnalysisModelTests
         var document = result.ToBsonDocument();
         var deserialized = BsonSerializer.Deserialize<DeadLetterAiAnalysisResult>(document);
 
-        Assert.Equal("ReplayWithCaution", document["replaySafety"].AsString);
-        Assert.Equal("ReplayWithBackoff", document["suggestedAction"].AsString);
-        Assert.Equal("RequiresApproval", document["safeModeDecision"].AsString);
+        Assert.Equal("ReplayWithCaution", document[nameof(DeadLetterAiAnalysisResult.ReplaySafety)].AsString);
+        Assert.Equal("ReplayWithBackoff", document[nameof(DeadLetterAiAnalysisResult.SuggestedAction)].AsString);
+        Assert.Equal("RequiresApproval", document[nameof(DeadLetterAiAnalysisResult.SafeModeDecision)].AsString);
         Assert.Equal(DateTimeKind.Utc, deserialized.GeneratedAtUtc.Kind);
         Assert.Equal(result.ReplaySafety, deserialized.ReplaySafety);
     }
