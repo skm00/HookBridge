@@ -97,6 +97,18 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
         return approvals.Select(ToResponse).ToArray();
     }
 
+    public async Task<IReadOnlyList<HumanApprovalWorkflowResponseDto>> SearchPendingAsync(AiRecommendationApprovalSearchRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.ApprovalStatus = AiRecommendationApprovalStatus.PendingReview;
+        ValidateSearchRequest(request);
+
+        using var scope = _scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IAiRecommendationApprovalRepository>();
+        var approvals = await repository.SearchAsync(request, cancellationToken);
+        return approvals.Select(ToResponse).ToArray();
+    }
+
     public async Task<HumanApprovalWorkflowResponseDto?> ReviewAsync(string approvalId, HumanApprovalWorkflowReviewRequestDto request, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(approvalId);
@@ -248,6 +260,18 @@ public sealed class HumanApprovalWorkflowService : IHumanApprovalWorkflowService
     {
         ArgumentNullException.ThrowIfNull(request);
         if (string.IsNullOrWhiteSpace(request.AppliedBy)) throw new ArgumentException("AppliedBy is required.", nameof(request));
+    }
+
+    private static void ValidateSearchRequest(AiRecommendationApprovalSearchRequestDto request)
+    {
+        if (request.PageNumber <= 0) throw new ArgumentOutOfRangeException(nameof(request), "PageNumber must be greater than 0.");
+        if (request.PageSize is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(request), "PageSize must be between 1 and 500.");
+        ValidateUtc(request.FromUtc, nameof(request.FromUtc));
+        ValidateUtc(request.ToUtc, nameof(request.ToUtc));
+        if (request.FromUtc.HasValue && request.ToUtc.HasValue && request.ToUtc.Value <= request.FromUtc.Value)
+        {
+            throw new ArgumentException("ToUtc must be greater than FromUtc.", nameof(request));
+        }
     }
 
     private static void ValidateUtc(DateTime value, string name)

@@ -1,7 +1,9 @@
 using System.Text;
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
+using HookBridge.AI.Worker.Audit;
 using HookBridge.AI.Worker.Configuration;
+using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Extensions;
 using HookBridge.AI.Worker.Mongo;
 using HookBridge.Api.Authorization;
@@ -243,6 +245,34 @@ builder.Services.AddSingleton<IAiSafeModeAuditRecordCollectionProvider, AiSafeMo
 builder.Services.AddSingleton<IAiSafeModeAuditRepository, AiSafeModeAuditRepository>();
 builder.Services.AddSingleton<IAiDecisionAuditRecordCollectionProvider, AiDecisionAuditRecordCollectionProvider>();
 builder.Services.AddSingleton<IAiDecisionAuditRepository, AiDecisionAuditRepository>();
+builder.Services.AddOptions<AiKafkaOptions>()
+    .Configure<IConfiguration>((options, configuration) =>
+    {
+        configuration.GetSection(AiKafkaOptions.SectionName).Bind(options);
+        var sharedKafkaSection = configuration.GetSection("Kafka");
+
+        if (string.IsNullOrWhiteSpace(options.BootstrapServers))
+        {
+            options.BootstrapServers = sharedKafkaSection["BootstrapServers"] ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(options.SecurityProtocol))
+        {
+            options.SecurityProtocol = sharedKafkaSection["SecurityProtocol"] ?? "Plaintext";
+        }
+
+        if (string.IsNullOrWhiteSpace(options.ConsumerGroupId))
+        {
+            options.ConsumerGroupId = sharedKafkaSection["ConsumerGroupId"] ?? "hookbridge-api";
+        }
+
+        if (string.IsNullOrWhiteSpace(options.AiDecisionsTopic))
+        {
+            options.AiDecisionsTopic = AiKafkaTopics.Decisions;
+        }
+    });
+builder.Services.AddSingleton<IAiDecisionEventProducer, AiDecisionEventProducer>();
+builder.Services.AddSingleton<IAiDecisionAuditService, AiDecisionAuditService>();
 builder.Services.AddHookBridgeRateLimiting(builder.Configuration);
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();

@@ -1995,3 +1995,59 @@ Example response:
 ```
 
 Safe mode evaluations are audit logged to MongoDB in the `ai_safe_mode_audit_records` collection with action, decision, environment, tenant context, approval status, confidence score, reason, block message, and UTC evaluation time.
+
+## Admin AI Actions API
+
+The admin AI actions API (`/api/admin/ai-actions`) gives authorized administrators explicit endpoints for approving, rejecting, requesting more information, expiring, and marking approved AI recommendations as applied. The controller is protected by the existing admin/owner authorization policy.
+
+### Endpoints
+
+- `GET /api/admin/ai-actions/pending` - list pending approval records with filters for `CustomerId`, `SubscriptionId`, `EndpointId`, `RecommendationType`, `RiskLevel`, `FromUtc`, `ToUtc`, `PageNumber`, and `PageSize`.
+- `GET /api/admin/ai-actions/{approvalId}` - read one approval record.
+- `POST /api/admin/ai-actions/{approvalId}/approve` - transition `PendingReview` or `NeedsMoreInfo` to `Approved`.
+- `POST /api/admin/ai-actions/{approvalId}/reject` - transition `PendingReview` or `NeedsMoreInfo` to `Rejected`.
+- `POST /api/admin/ai-actions/{approvalId}/needs-more-info` - transition `PendingReview` to `NeedsMoreInfo`.
+- `POST /api/admin/ai-actions/{approvalId}/expire` - transition `PendingReview` or `Approved` to `Expired`.
+- `POST /api/admin/ai-actions/{approvalId}/apply` - evaluate AI Safe Mode and transition `Approved` to `Applied` when allowed.
+
+Every review or apply mutation writes an AI decision audit record and publishes a best-effort AI decision event to `hookbridge.ai.decisions`. Publish failures are logged but do not roll back the admin action.
+
+### Admin approval/rejection flow
+
+The review endpoints require `reviewedBy` and accept an optional `reviewComment` up to 1,000 characters. Approval and rejection follow the same workflow-state transition rules as the human approval workflow:
+
+```http
+POST /api/admin/ai-actions/appr_1001/approve
+Content-Type: application/json
+
+{
+  "reviewedBy": "admin@hookbridge.local",
+  "reviewComment": "Approved after checking endpoint rate limit configuration."
+}
+```
+
+```http
+POST /api/admin/ai-actions/appr_1001/reject
+Content-Type: application/json
+
+{
+  "reviewedBy": "admin@hookbridge.local",
+  "reviewComment": "Rejected because payload contract is not fixed yet."
+}
+```
+
+### Admin apply safety behavior
+
+The admin apply endpoint requires `appliedBy`, accepts an optional `applyComment` up to 1,000 characters, and only accepts records already in `Approved` status. Before marking the record applied, the API evaluates `IAiSafeModeGuard`; blocked safe-mode decisions return `409 Conflict`.
+
+```http
+POST /api/admin/ai-actions/appr_1001/apply
+Content-Type: application/json
+
+{
+  "appliedBy": "admin@hookbridge.local",
+  "applyComment": "Marked as applied after manual operational action."
+}
+```
+
+Safety note: in this task, admin apply only marks workflow state as `Applied`. It does not retry webhooks, replay dead-letter records, pause endpoints, apply generated transformation code, or execute any other production action. Actual production executors can be added in a later task.
