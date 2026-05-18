@@ -151,6 +151,7 @@ builder.Services.AddAiOptions(builder.Configuration);
 builder.Services.AddAiRecommendationApprovalServices(builder.Configuration);
 builder.Services.AddAiSafeModeServices(builder.Configuration);
 builder.Services.AddAutoRemediationRecommendationServices(builder.Configuration);
+builder.Services.AddDeadLetterAiAnalysisServices(builder.Configuration);
 builder.Services.AddAiPromptServices();
 builder.Services.AddAiKernelServices();
 builder.Services.AddOptions<AiNaturalLanguageQueryOptions>()
@@ -205,6 +206,11 @@ builder.Services.AddOptions<AiMongoOptions>()
             options.AutoRemediationRecommendationResultsCollectionName = AiMongoOptions.DefaultAutoRemediationRecommendationResultsCollectionName;
         }
 
+        if (string.IsNullOrWhiteSpace(options.DeadLetterAiAnalysisResultsCollectionName))
+        {
+            options.DeadLetterAiAnalysisResultsCollectionName = AiMongoOptions.DefaultDeadLetterAiAnalysisResultsCollectionName;
+        }
+
         if (string.IsNullOrWhiteSpace(options.AiSafeModeAuditRecordsCollectionName))
         {
             options.AiSafeModeAuditRecordsCollectionName = AiMongoOptions.DefaultAiSafeModeAuditRecordsCollectionName;
@@ -231,6 +237,8 @@ builder.Services.AddSingleton<IAiAgentOrchestrationCollectionProvider, AiAgentOr
 builder.Services.AddSingleton<IAiAgentOrchestrationRepository, AiAgentOrchestrationRepository>();
 builder.Services.AddSingleton<IAutoRemediationRecommendationCollectionProvider, AutoRemediationRecommendationCollectionProvider>();
 builder.Services.AddSingleton<IAutoRemediationRecommendationRepository, AutoRemediationRecommendationRepository>();
+builder.Services.AddSingleton<IDeadLetterAiAnalysisCollectionProvider, DeadLetterAiAnalysisCollectionProvider>();
+builder.Services.AddSingleton<IDeadLetterAiAnalysisRepository, DeadLetterAiAnalysisRepository>();
 builder.Services.AddSingleton<IAiSafeModeAuditRecordCollectionProvider, AiSafeModeAuditRecordCollectionProvider>();
 builder.Services.AddSingleton<IAiSafeModeAuditRepository, AiSafeModeAuditRepository>();
 builder.Services.AddSingleton<IAiDecisionAuditRecordCollectionProvider, AiDecisionAuditRecordCollectionProvider>();

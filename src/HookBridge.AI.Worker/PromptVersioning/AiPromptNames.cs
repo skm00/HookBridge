@@ -10,6 +10,7 @@ public static class AiPromptNames
     public const string WebhookTransformationRecommendation = nameof(WebhookTransformationRecommendation);
     public const string AiSecurityAnalysis = nameof(AiSecurityAnalysis);
     public const string NaturalLanguageQuery = nameof(NaturalLanguageQuery);
+    public const string DeadLetterAiAnalysis = nameof(DeadLetterAiAnalysis);
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -20,7 +21,8 @@ public static class AiPromptNames
         FluentValidationRuleGeneration,
         WebhookTransformationRecommendation,
         AiSecurityAnalysis,
-        NaturalLanguageQuery
+        NaturalLanguageQuery,
+        DeadLetterAiAnalysis
     };
 
     public static bool IsKnown(string promptName) => All.Contains(promptName);

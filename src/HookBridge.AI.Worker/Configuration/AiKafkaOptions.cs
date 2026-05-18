@@ -53,6 +53,8 @@ public sealed class AiKafkaOptions
 
     public string AiDecisionsTopic { get; set; } = AiKafkaTopics.Decisions;
 
+    public string DeadLetterAiAnalysisTopic { get; set; } = AiKafkaTopics.DeadLetterAnalysis;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

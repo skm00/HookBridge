@@ -43,6 +43,11 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Run coverage gate unit tests
+        shell: bash
+        run: python3 -m unittest tests.coverage_gate.test_coverage_gate
+
+
       - name: Restore NuGet package cache
         id: nuget-cache
         uses: actions/cache/restore@v4
@@ -180,42 +185,4 @@ jobs:
       - name: Enforce coverage thresholds
         if: always()
         shell: bash
-        run: |
-          python3 - <<'PY'
-          import os
-          import pathlib
-          import sys
-          import xml.etree.ElementTree as ET
-
-          coverage_file = pathlib.Path(os.environ["COVERAGE_REPORT_DIR"]) / "Cobertura.xml"
-          line_threshold = float(os.environ["COVERAGE_LINE_THRESHOLD"])
-          branch_threshold = float(os.environ["COVERAGE_BRANCH_THRESHOLD"])
-
-          if not coverage_file.exists():
-              print(f"Coverage file not found: {coverage_file}", file=sys.stderr)
-              sys.exit(1)
-
-          root = ET.parse(coverage_file).getroot()
-          line_rate = float(root.attrib.get("line-rate", "0")) * 100
-          branch_rate = float(root.attrib.get("branch-rate", "0")) * 100
-
-          print(f"Line coverage: {line_rate:.2f}%")
-          print(f"Branch coverage: {branch_rate:.2f}%")
-          print(f"Required line coverage: {line_threshold:.2f}%")
-          print(f"Required branch coverage: {branch_threshold:.2f}%")
-
-          failures = []
-          if line_rate < line_threshold:
-              failures.append(
-                  f"Line coverage {line_rate:.2f}% is below the required {line_threshold:.2f}% threshold."
-              )
-          if branch_rate < branch_threshold:
-              failures.append(
-                  f"Branch coverage {branch_rate:.2f}% is below the required {branch_threshold:.2f}% threshold."
-              )
-
-          if failures:
-              for failure in failures:
-                  print(failure, file=sys.stderr)
-              sys.exit(1)
-          PY
+        run: python3 scripts/coverage_gate.py
