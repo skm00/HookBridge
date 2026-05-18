@@ -195,8 +195,8 @@ public sealed class AiDecisionAuditServiceTests
         var indexes = AiDecisionAuditRepository.CreateIndexModels();
 
         indexes.Should().HaveCount(21);
-        indexes.Should().Contain(index => index.Options?.Name == "ux_ai_decision_audit_records_audit_id" && index.Options.Unique == true);
-        indexes.Should().Contain(index => index.Options?.Name == "idx_ai_decision_audit_records_event_id_created_at_desc");
+        indexes.Should().Contain(index => index.Options is not null && index.Options.Name == "ux_ai_decision_audit_records_audit_id" && index.Options.Unique == true);
+        indexes.Should().Contain(index => index.Options is not null && index.Options.Name == "idx_ai_decision_audit_records_event_id_created_at_desc");
     }
 
     private static AiDecisionAuditService CreateService(FakeRepository repository, AiDecisionAuditOptions? options = null)
