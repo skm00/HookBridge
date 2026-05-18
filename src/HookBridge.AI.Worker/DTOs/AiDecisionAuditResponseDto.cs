@@ -3,6 +3,7 @@ namespace HookBridge.AI.Worker.DTOs;
 public sealed class AiDecisionAuditResponseDto
 {
     public string? Id { get; set; }
+    public string DecisionId { get; set; } = string.Empty;
     public string AuditId { get; set; } = string.Empty;
     public string? EventId { get; set; }
     public string? CorrelationId { get; set; }

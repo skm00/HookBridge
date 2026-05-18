@@ -51,6 +51,8 @@ public sealed class AiKafkaOptions
 
     public string AutoRemediationTopic { get; set; } = AiKafkaTopics.AutoRemediation;
 
+    public string AiDecisionsTopic { get; set; } = AiKafkaTopics.Decisions;
+
     public string ConsumerGroupId { get; set; } = string.Empty;
 
     public bool EnableAutoCommit { get; set; }

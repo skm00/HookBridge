@@ -172,6 +172,14 @@ public sealed class AiDependencyInjectionTests
             descriptor.ServiceType == typeof(IAiAnomalyConsumer) &&
             descriptor.ImplementationType == typeof(AiAnomalyConsumer) &&
             descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAiDecisionEventProducer) &&
+            descriptor.ImplementationType == typeof(AiDecisionEventProducer) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
+        services.Should().Contain(descriptor =>
+            descriptor.ServiceType == typeof(IAiDecisionEventConsumer) &&
+            descriptor.ImplementationType == typeof(AiDecisionEventConsumer) &&
+            descriptor.Lifetime == ServiceLifetime.Singleton);
 
     }
 
