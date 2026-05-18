@@ -1,6 +1,8 @@
 using System.Text.Json;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Kafka;
+using HookBridge.AI.Worker.Mappers;
 using HookBridge.AI.Worker.Mongo;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,12 +16,14 @@ public sealed class AiDecisionAuditService : IAiDecisionAuditService
     private readonly IAiDecisionAuditRepository _repository;
     private readonly AiDecisionAuditOptions _options;
     private readonly ILogger<AiDecisionAuditService> _logger;
+    private readonly IAiDecisionEventProducer? _decisionEventProducer;
 
-    public AiDecisionAuditService(IAiDecisionAuditRepository repository, IOptions<AiDecisionAuditOptions> options, ILogger<AiDecisionAuditService> logger)
+    public AiDecisionAuditService(IAiDecisionAuditRepository repository, IOptions<AiDecisionAuditOptions> options, ILogger<AiDecisionAuditService> logger, IAiDecisionEventProducer? decisionEventProducer = null)
     {
         _repository = repository;
         _options = options.Value;
         _logger = logger;
+        _decisionEventProducer = decisionEventProducer;
     }
 
     public Task<AiDecisionAuditRecord?> AuditRetryDecisionAsync(AiDecisionAuditCreateRequestDto request, CancellationToken cancellationToken = default)
@@ -61,7 +65,8 @@ public sealed class AiDecisionAuditService : IAiDecisionAuditService
             request.DecisionType = decisionType == AiDecisionAuditType.Unknown ? request.DecisionType : decisionType;
             var record = CreateRecord(request);
             await _repository.InsertAsync(record, cancellationToken);
-            _logger.LogInformation("AI decision audit record created. AuditId: {AuditId}, EventId: {EventId}, CorrelationId: {CorrelationId}, DecisionType: {DecisionType}, AgentName: {AgentName}", record.AuditId, record.EventId, record.CorrelationId, record.DecisionType, record.AgentName);
+            _logger.LogInformation("AI decision audit record created. AuditId: {AuditId}, DecisionId: {DecisionId}, EventId: {EventId}, CorrelationId: {CorrelationId}, DecisionType: {DecisionType}, AgentName: {AgentName}", record.AuditId, record.DecisionId, record.EventId, record.CorrelationId, record.DecisionType, record.AgentName);
+            await PublishDecisionEventBestEffortAsync(record, cancellationToken);
             return record;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -83,6 +88,7 @@ public sealed class AiDecisionAuditService : IAiDecisionAuditService
 
         return new AiDecisionAuditRecord
         {
+            DecisionId = string.IsNullOrWhiteSpace(request.DecisionId) ? $"dec_{Guid.NewGuid():N}" : request.DecisionId!,
             AuditId = $"aud_{Guid.NewGuid():N}",
             EventId = request.EventId,
             CorrelationId = request.CorrelationId,
@@ -118,6 +124,27 @@ public sealed class AiDecisionAuditService : IAiDecisionAuditService
             CreatedAtUtc = DateTime.UtcNow,
             Metadata = metadata
         };
+    }
+
+    private async Task PublishDecisionEventBestEffortAsync(AiDecisionAuditRecord record, CancellationToken cancellationToken)
+    {
+        if (_decisionEventProducer is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await _decisionEventProducer.PublishAsync(AiDecisionEventMapper.FromAuditRecord(record), cancellationToken);
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("AI decision event publish failed after audit insert. AuditId: {AuditId}, DecisionId: {DecisionId}, EventId: {EventId}, CorrelationId: {CorrelationId}, Topic: {Topic}, Reason: {Reason}", record.AuditId, record.DecisionId, record.EventId, record.CorrelationId, result.Topic, result.ErrorMessage);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "AI decision event publish failed after audit insert. AuditId: {AuditId}, DecisionId: {DecisionId}, EventId: {EventId}, CorrelationId: {CorrelationId}", record.AuditId, record.DecisionId, record.EventId, record.CorrelationId);
+        }
     }
 
     public Dictionary<string, string?> SanitizeMetadata(IReadOnlyDictionary<string, string?>? metadata, out bool sanitized)

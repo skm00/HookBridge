@@ -9,6 +9,7 @@ public sealed class AiDecisionAuditRecord
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; }
+    public string DecisionId { get; set; } = string.Empty;
     public string AuditId { get; set; } = string.Empty;
     public string? EventId { get; set; }
     public string? CorrelationId { get; set; }
@@ -49,6 +50,7 @@ public sealed class AiDecisionAuditRecord
     public AiDecisionAuditResponseDto ToResponseDto() => new()
     {
         Id = Id,
+        DecisionId = DecisionId,
         AuditId = AuditId,
         EventId = EventId,
         CorrelationId = CorrelationId,

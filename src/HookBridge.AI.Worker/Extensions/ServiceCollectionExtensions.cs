@@ -371,6 +371,9 @@ public static class ServiceCollectionExtensions
                 options => !string.IsNullOrWhiteSpace(options.AutoRemediationTopic),
                 "AiKafka:AutoRemediationTopic is required.")
             .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AiDecisionsTopic),
+                "AiKafka:AiDecisionsTopic is required when Kafka publishing is enabled.")
+            .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
             .ValidateOnStart();
@@ -513,6 +516,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITransformationAgentConsumer, TransformationAgentConsumer>();
         services.AddSingleton<IObservabilityAgentConsumer, ObservabilityAgentConsumer>();
         services.AddSingleton<IAutoRemediationRecommendationConsumer, AutoRemediationRecommendationConsumer>();
+        services.AddSingleton<IAiDecisionEventProducer, AiDecisionEventProducer>();
+        services.AddSingleton<IAiDecisionEventConsumer, AiDecisionEventConsumer>();
         return services;
     }
 

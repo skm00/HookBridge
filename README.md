@@ -1650,3 +1650,76 @@ Protected actions include webhook retries, dead-letter moves and replays, endpoi
 Evaluate actions through `POST /api/ai-safe-mode/evaluate`. Safe mode decisions and blocked-action context are written to MongoDB in `ai_safe_mode_audit_records`.
 
 - [AI decision audit trail](docs/ai-decision-audit.md)
+
+## AI decision events Kafka topic
+
+HookBridge publishes important AI decisions to the dedicated Kafka topic `hookbridge.ai.decisions` so dashboards, notification workers, audit pipelines, human approval workflows, and future automation can consume decision metadata without querying MongoDB audit storage directly. The Mongo `ai_decision_audit_records` collection remains the source of truth; the Kafka topic is a best-effort streaming and notification channel.
+
+### Event payload
+
+Messages on `hookbridge.ai.decisions` are JSON `AiDecisionEventDto` payloads. They include decision identifiers, audit identifiers, event and correlation identifiers, tenant/customer context, agent name, decision type, decision and risk metadata, confidence score and level, suggested action, approval state, safe-mode state, fallback metadata, prompt/model metadata, summary, recommendation, reason codes, source, and `createdAtUtc`. Events must not include raw webhook payloads, raw headers, secrets, tokens, cookies, or generated code.
+
+Example message:
+
+```json
+{
+  "decisionId": "dec_1001",
+  "auditId": "aud_1001",
+  "eventId": "evt_12345",
+  "correlationId": "corr_789",
+  "customerId": "cust_123",
+  "subscriptionId": "sub_456",
+  "endpointId": "endpoint_789",
+  "environment": "qa",
+  "agentName": "RetryAgent",
+  "decisionType": "RetryDecision",
+  "decision": "RetryWithExponentialBackoff",
+  "riskLevel": "Medium",
+  "confidenceScore": 0.82,
+  "confidenceLevel": "High",
+  "suggestedAction": "RetryWithBackoff",
+  "requiresApproval": false,
+  "safeModeDecision": "Allowed",
+  "isActionAllowed": false,
+  "usedAi": false,
+  "usedFallback": true,
+  "fallbackReason": "AiDisabled",
+  "promptName": "WebhookFailureAnalysis",
+  "promptVersion": "v1.0.0",
+  "promptHash": "sha256:abc123...",
+  "model": "llama3",
+  "provider": "Ollama",
+  "summary": "HTTP 429 indicates rate limiting.",
+  "recommendation": "Retry with exponential backoff.",
+  "reasonCodes": ["RateLimited"],
+  "source": "HookBridge.AI.Worker",
+  "createdAtUtc": "2026-05-14T10:31:00Z"
+}
+```
+
+### Producer and consumer behavior
+
+The AI decision audit service publishes a decision event after an audit record is inserted successfully. Publishing is best-effort: Kafka failures are logged and returned as failure results by the producer, but they do not fail the original AI decision or audit flow. Producers use `correlationId` as the Kafka key when present, then fall back to `eventId`, then `decisionId`. Consumers deserialize JSON safely, map unknown decision event enum values to `Unknown`, skip invalid messages, support cancellation tokens, and log only decision metadata rather than payloads or sensitive values.
+
+### Local Kafka commands
+
+Create the topic locally:
+
+```bash
+docker exec -it kafka kafka-topics \
+  --create \
+  --if-not-exists \
+  --topic hookbridge.ai.decisions \
+  --bootstrap-server kafka:9092 \
+  --partitions 3 \
+  --replication-factor 1
+```
+
+Consume decision events locally:
+
+```bash
+docker exec -it kafka kafka-console-consumer \
+  --bootstrap-server kafka:9092 \
+  --topic hookbridge.ai.decisions \
+  --from-beginning
+```

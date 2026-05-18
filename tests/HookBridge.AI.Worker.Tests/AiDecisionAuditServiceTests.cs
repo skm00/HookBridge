@@ -2,9 +2,11 @@ using FluentAssertions;
 using HookBridge.AI.Worker.Audit;
 using HookBridge.AI.Worker.Configuration;
 using HookBridge.AI.Worker.DTOs;
+using HookBridge.AI.Worker.Kafka;
 using HookBridge.AI.Worker.Mongo;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 
 namespace HookBridge.AI.Worker.Tests;
 
@@ -86,6 +88,24 @@ public sealed class AiDecisionAuditServiceTests
         await act.Should().NotThrowAsync();
     }
 
+
+
+    [Fact]
+    public async Task AuditGenericDecisionAsync_PublishingFailureDoesNotFailAuditFlow()
+    {
+        var repository = new FakeRepository();
+        var producer = new Mock<IAiDecisionEventProducer>();
+        producer
+            .Setup(item => item.PublishAsync(It.IsAny<AiDecisionEventDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AiKafkaPublishResult.Failure(AiKafkaTopics.Decisions, "corr_1", "broker unavailable", DateTime.UtcNow));
+        var service = CreateService(repository, producer: producer.Object);
+
+        var record = await service.AuditGenericDecisionAsync(CreateRequest(AiDecisionAuditType.RetryDecision));
+
+        record.Should().NotBeNull();
+        repository.Inserted.Should().ContainSingle();
+        producer.Verify(item => item.PublishAsync(It.Is<AiDecisionEventDto>(dto => dto.DecisionId == record!.DecisionId), It.IsAny<CancellationToken>()), Times.Once);
+    }
 
     [Fact]
     public async Task AuditGenericDecisionAsync_DoesNotInsertWhenAuditDisabled()
@@ -199,8 +219,8 @@ public sealed class AiDecisionAuditServiceTests
         indexes.Should().Contain(index => index.Options != null && index.Options.Name == "idx_ai_decision_audit_records_event_id_created_at_desc");
     }
 
-    private static AiDecisionAuditService CreateService(FakeRepository repository, AiDecisionAuditOptions? options = null)
-        => new(repository, Options.Create(options ?? new AiDecisionAuditOptions()), NullLogger<AiDecisionAuditService>.Instance);
+    private static AiDecisionAuditService CreateService(FakeRepository repository, AiDecisionAuditOptions? options = null, IAiDecisionEventProducer? producer = null)
+        => new(repository, Options.Create(options ?? new AiDecisionAuditOptions()), NullLogger<AiDecisionAuditService>.Instance, producer);
 
     private static AiDecisionAuditCreateRequestDto CreateRequest(AiDecisionAuditType type) => new()
     {

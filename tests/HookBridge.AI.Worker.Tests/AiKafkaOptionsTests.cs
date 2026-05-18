@@ -22,6 +22,7 @@ public sealed class AiKafkaOptionsTests
             [$"{AiKafkaOptions.SectionName}:SaslPassword"] = "password",
             [$"{AiKafkaOptions.SectionName}:AiAnalysisTopic"] = "hookbridge.ai.analysis",
             [$"{AiKafkaOptions.SectionName}:AnomaliesTopic"] = "hookbridge.ai.anomalies",
+            [$"{AiKafkaOptions.SectionName}:AiDecisionsTopic"] = "custom.ai.decisions",
             [$"{AiKafkaOptions.SectionName}:ConsumerGroupId"] = "hookbridge-ai-tests",
             [$"{AiKafkaOptions.SectionName}:EnableAutoCommit"] = "true",
         });
@@ -35,6 +36,7 @@ public sealed class AiKafkaOptionsTests
         options.SaslPassword.Should().Be("password");
         options.AiAnalysisTopic.Should().Be("hookbridge.ai.analysis");
         options.AnomaliesTopic.Should().Be("hookbridge.ai.anomalies");
+        options.AiDecisionsTopic.Should().Be("custom.ai.decisions");
         options.SecurityAnalysisTopic.Should().Be(AiKafkaTopics.SecurityAnalysis);
         options.ConsumerGroupId.Should().Be("hookbridge-ai-tests");
         options.EnableAutoCommit.Should().BeTrue();
@@ -49,6 +51,13 @@ public sealed class AiKafkaOptionsTests
         options.AiAnalysisTopic.Should().Be("hookbridge.ai.analysis");
         options.AnomaliesTopic.Should().Be("hookbridge.ai.anomalies");
         options.SecurityAnalysisTopic.Should().Be(AiKafkaTopics.SecurityAnalysis);
+        options.AiDecisionsTopic.Should().Be(AiKafkaTopics.Decisions);
+    }
+
+    [Fact]
+    public void AiKafkaTopics_Decisions_HasExpectedValue()
+    {
+        AiKafkaTopics.Decisions.Should().Be("hookbridge.ai.decisions");
     }
 
     [Fact]
@@ -132,6 +141,7 @@ public sealed class AiKafkaOptionsTests
             [$"{AiKafkaOptions.SectionName}:SecurityProtocol"] = "Plaintext",
             [$"{AiKafkaOptions.SectionName}:AiAnalysisTopic"] = "hookbridge.ai.analysis",
             [$"{AiKafkaOptions.SectionName}:AnomaliesTopic"] = "hookbridge.ai.anomalies",
+            [$"{AiKafkaOptions.SectionName}:AiDecisionsTopic"] = "custom.ai.decisions",
             [$"{AiKafkaOptions.SectionName}:ConsumerGroupId"] = "hookbridge-ai-worker",
             [$"{AiKafkaOptions.SectionName}:EnableAutoCommit"] = "false",
         };
