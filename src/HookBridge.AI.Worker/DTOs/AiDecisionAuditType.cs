@@ -17,5 +17,6 @@ public enum AiDecisionAuditType
     NaturalLanguageQuery,
     HumanApproval,
     SafeModeEvaluation,
-    FallbackDecision
+    FallbackDecision,
+    DeadLetterAnalysis
 }

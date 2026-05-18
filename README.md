@@ -1723,3 +1723,5 @@ docker exec -it kafka kafka-console-consumer \
   --topic hookbridge.ai.decisions \
   --from-beginning
 ```
+
+- [Dead-Letter AI Analysis](docs/dead-letter-ai-analysis.md)

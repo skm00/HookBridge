@@ -38,4 +38,6 @@ public static class AiKafkaTopics
     public const string AutoRemediation = "hookbridge.ai.auto-remediation";
 
     public const string Decisions = "hookbridge.ai.decisions";
+
+    public const string DeadLetterAnalysis = "hookbridge.ai.deadletter-analysis";
 }

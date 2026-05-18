@@ -21,12 +21,13 @@ public sealed class AiMongoIndexInitializer : IHostedService
     private readonly IAutoRemediationRecommendationCollectionProvider? _autoRemediationCollectionProvider;
     private readonly IAiSafeModeAuditRecordCollectionProvider? _safeModeAuditCollectionProvider;
     private readonly IAiDecisionAuditRecordCollectionProvider? _decisionAuditCollectionProvider;
+    private readonly IDeadLetterAiAnalysisCollectionProvider? _deadLetterAiAnalysisCollectionProvider;
     private readonly ILogger<AiMongoIndexInitializer> _logger;
 
     public AiMongoIndexInitializer(
         IAiAnalysisResultCollectionProvider collectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -34,7 +35,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAiAnalysisResultCollectionProvider collectionProvider,
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -43,7 +44,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         ICustomerEndpointRiskScoreCollectionProvider? riskScoreCollectionProvider,
         IWebhookFailureAnomalyDetectionCollectionProvider? failureAnomalyCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
-        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, logger)
+        : this(collectionProvider, riskScoreCollectionProvider, failureAnomalyCollectionProvider, null, null, null, null, null, null, null, null, null, null, null, null, null, logger)
     {
     }
 
@@ -63,6 +64,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         IAutoRemediationRecommendationCollectionProvider? autoRemediationCollectionProvider,
         IAiSafeModeAuditRecordCollectionProvider? safeModeAuditCollectionProvider,
         IAiDecisionAuditRecordCollectionProvider? decisionAuditCollectionProvider,
+        IDeadLetterAiAnalysisCollectionProvider? deadLetterAiAnalysisCollectionProvider,
         ILogger<AiMongoIndexInitializer> logger)
     {
         _collectionProvider = collectionProvider;
@@ -80,6 +82,7 @@ public sealed class AiMongoIndexInitializer : IHostedService
         _autoRemediationCollectionProvider = autoRemediationCollectionProvider;
         _safeModeAuditCollectionProvider = safeModeAuditCollectionProvider;
         _decisionAuditCollectionProvider = decisionAuditCollectionProvider;
+        _deadLetterAiAnalysisCollectionProvider = deadLetterAiAnalysisCollectionProvider;
         _logger = logger;
     }
 
@@ -174,6 +177,12 @@ public sealed class AiMongoIndexInitializer : IHostedService
             await decisionAuditCollection.Indexes.CreateManyAsync(AiDecisionAuditRepository.CreateIndexModels(), cancellationToken);
         }
 
+        if (_deadLetterAiAnalysisCollectionProvider is not null)
+        {
+            var deadLetterCollection = _deadLetterAiAnalysisCollectionProvider.GetCollection();
+            await deadLetterCollection.Indexes.CreateManyAsync(CreateDeadLetterAiAnalysisIndexModels(), cancellationToken);
+        }
+
         _logger.LogInformation("MongoDB AI analysis result indexes are ready.");
     }
 
@@ -194,10 +203,24 @@ public sealed class AiMongoIndexInitializer : IHostedService
                 new CreateIndexOptions { Name = "idx_ai_analysis_results_created_at_utc_desc" })
         };
     }
-
-
-
-
+    public static IReadOnlyList<CreateIndexModel<DeadLetterAiAnalysisResult>> CreateDeadLetterAiAnalysisIndexModels()
+    {
+        return new[]
+        {
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.DeadLetterId), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_deadletter_id_unique", Unique = true }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.EventId), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_event_id" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.CorrelationId), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_correlation_id" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.CustomerId), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_customer_id" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.SubscriptionId), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_subscription_id" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.EndpointId), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_endpoint_id" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.Environment), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_environment" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.ReplaySafety), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_replay_safety" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.SuggestedAction), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_suggested_action" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.RiskLevel), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_risk_level" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Ascending(result => result.RequiresApproval), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_requires_approval" }),
+            new CreateIndexModel<DeadLetterAiAnalysisResult>(Builders<DeadLetterAiAnalysisResult>.IndexKeys.Descending(result => result.GeneratedAtUtc), new CreateIndexOptions { Name = "idx_deadletter_ai_analysis_generated_at_utc_desc" })
+        };
+    }
 
 
     public static IReadOnlyList<CreateIndexModel<AutoRemediationRecommendationResult>> CreateAutoRemediationRecommendationIndexModels()

@@ -26,6 +26,7 @@ using HookBridge.AI.Worker.Services.WebhookFailureAnomalyDetection;
 using HookBridge.AI.Worker.Services.DuplicateReplayDetection;
 using HookBridge.AI.Worker.Services.Orchestration;
 using HookBridge.AI.Worker.Services.AutoRemediationRecommendation;
+using HookBridge.AI.Worker.Services.DeadLetterAiAnalysis;
 using HookBridge.AI.Worker.Services.SafeMode;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -154,6 +155,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiDecisionAuditRecordsCollectionName),
                 "AiMongo:AiDecisionAuditRecordsCollectionName is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.DeadLetterAiAnalysisResultsCollectionName),
+                "AiMongo:DeadLetterAiAnalysisResultsCollectionName is required.")
             .ValidateOnStart();
 
         return services;
@@ -300,6 +304,22 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+
+    public static IServiceCollection AddDeadLetterAiAnalysisServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<DeadLetterAiAnalysisOptions>()
+            .Bind(configuration.GetSection(DeadLetterAiAnalysisOptions.SectionName))
+            .Validate(options => options.MaxPayloadLength > 0, "DeadLetterAiAnalysis:MaxPayloadLength must be greater than 0.")
+            .Validate(options => options.MaxResponseBodyLength > 0, "DeadLetterAiAnalysis:MaxResponseBodyLength must be greater than 0.")
+            .ValidateOnStart();
+
+        services.TryAddSingleton<IDeadLetterAiAnalysisService, DeadLetterAiAnalysisService>();
+        return services;
+    }
+
     public static IServiceCollection AddAiKafkaOptions(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -373,6 +393,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.AiDecisionsTopic),
                 "AiKafka:AiDecisionsTopic is required when Kafka publishing is enabled.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.DeadLetterAiAnalysisTopic),
+                "AiKafka:DeadLetterAiAnalysisTopic is required.")
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ConsumerGroupId),
                 "AiKafka:ConsumerGroupId is required.")
@@ -493,6 +516,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFluentValidationPromptBuilder, FluentValidationPromptBuilder>();
         services.AddSingleton<IWebhookTransformationPromptBuilder, WebhookTransformationPromptBuilder>();
         services.AddSingleton<IAiSecurityAnalysisPromptBuilder, AiSecurityAnalysisPromptBuilder>();
+        services.AddSingleton<IDeadLetterAiAnalysisPromptBuilder, DeadLetterAiAnalysisPromptBuilder>();
         return services;
     }
 
@@ -509,6 +533,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICustomerEndpointRiskScoreConsumer, CustomerEndpointRiskScoreConsumer>();
         services.AddSingleton<IWebhookFailureAnomalyDetectionConsumer, WebhookFailureAnomalyDetectionConsumer>();
         services.AddSingleton<IAiSecurityAnalysisConsumer, AiSecurityAnalysisConsumer>();
+        services.AddSingleton<IDeadLetterAiAnalysisConsumer, DeadLetterAiAnalysisConsumer>();
         services.AddSingleton<IWebhookDuplicateReplayDetectionConsumer, WebhookDuplicateReplayDetectionConsumer>();
         services.AddSingleton<IAiAgentOrchestrationConsumer, AiAgentOrchestrationConsumer>();
         services.AddSingleton<IRetryAgentConsumer, RetryAgentConsumer>();
@@ -566,6 +591,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiSafeModeAuditRepository, AiSafeModeAuditRepository>();
         services.AddSingleton<IAiDecisionAuditRecordCollectionProvider, AiDecisionAuditRecordCollectionProvider>();
         services.AddSingleton<IAiDecisionAuditRepository, AiDecisionAuditRepository>();
+        services.AddSingleton<IDeadLetterAiAnalysisCollectionProvider, DeadLetterAiAnalysisCollectionProvider>();
+        services.AddSingleton<IDeadLetterAiAnalysisRepository, DeadLetterAiAnalysisRepository>();
         services.TryAddSingleton<IAiDecisionAuditService, AiDecisionAuditService>();
         services.AddHostedService<AiMongoIndexInitializer>();
 
