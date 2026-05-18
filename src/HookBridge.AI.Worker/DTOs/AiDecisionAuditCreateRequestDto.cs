@@ -16,7 +16,7 @@ public sealed class AiDecisionAuditCreateRequestDto : IValidatableObject
     public AiDecisionAuditType DecisionType { get; set; }
     public string? Decision { get; set; }
     public string? RiskLevel { get; set; }
-    [Range(0, 1)]
+    [Range(0.0, 1.0, ErrorMessage = "ConfidenceScore must be between 0 and 1.")]
     public double? ConfidenceScore { get; set; }
     public string? ConfidenceLevel { get; set; }
     public string? SuggestedAction { get; set; }
